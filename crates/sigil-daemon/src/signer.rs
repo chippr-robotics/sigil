@@ -316,8 +316,6 @@ impl Signer {
 
 /// Normalize s to low-S form per BIP-62
 fn normalize_s_low(s: k256::Scalar) -> k256::Scalar {
-    use k256::elliptic_curve::PrimeField;
-
     // secp256k1 order / 2 (big-endian)
     const HALF_ORDER: [u8; 32] = [
         0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
