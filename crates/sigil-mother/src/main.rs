@@ -12,6 +12,9 @@ use sigil_mother::{
     storage::MotherStorage,
 };
 
+#[cfg(feature = "ledger")]
+use sigil_mother::ledger::LedgerDevice;
+
 /// Sigil Mother - Air-gapped MPC key management
 #[derive(Parser)]
 #[command(name = "sigil-mother")]
@@ -29,7 +32,15 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Initialize the mother device with new master shards
-    Init,
+    Init {
+        /// Use Ledger hardware wallet for secure key generation
+        #[arg(long)]
+        ledger: bool,
+    },
+
+    /// Check Ledger device status and connectivity
+    #[cfg(feature = "ledger")]
+    LedgerStatus,
 
     /// Show mother device status
     Status,
@@ -108,33 +119,122 @@ async fn main() -> anyhow::Result<()> {
     let storage = MotherStorage::new(cli.data_dir.clone())?;
 
     match cli.command {
-        Commands::Init => {
+        Commands::Init { ledger } => {
             if storage.has_master_shard() {
                 error!("Master shard already exists. Refusing to overwrite.");
                 error!("If you want to reinitialize, manually delete the data directory.");
                 return Ok(());
             }
 
-            info!("Generating master shards...");
-            let output = MasterKeyGenerator::generate()?;
+            if ledger {
+                #[cfg(feature = "ledger")]
+                {
+                    info!("Generating master shards using Ledger hardware wallet...");
+                    let device = LedgerDevice::connect()?;
+                    let output = device.generate_master_key().await?;
 
-            storage.save_master_shard(&output.cold_master_shard)?;
+                    // Convert to storage format
+                    let cold_shard = sigil_core::ColdMasterShard {
+                        master_pubkey: output.master_pubkey.as_bytes().to_vec(),
+                        secret_share: output.cold_master_shard.to_vec(),
+                        created_at: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                        next_child_index: 0,
+                    };
 
-            println!("\n=== Master Key Generated ===\n");
-            println!(
-                "Master Public Key: 0x{}",
-                hex::encode(output.master_pubkey.as_bytes())
-            );
-            println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
-            println!(
-                "Agent Master Shard: 0x{}",
-                hex::encode(output.agent_master_shard)
-            );
-            println!(
-                "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
-            );
+                    storage.save_master_shard(&cold_shard)?;
 
-            info!("Master shard saved to {:?}", cli.data_dir);
+                    println!("\n=== Master Key Generated (Ledger) ===\n");
+                    println!(
+                        "Master Public Key: 0x{}",
+                        hex::encode(output.master_pubkey.as_bytes())
+                    );
+                    println!(
+                        "Ledger Public Key: 0x{}",
+                        hex::encode(&output.ledger_pubkey)
+                    );
+                    println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
+                    println!(
+                        "Agent Master Shard: 0x{}",
+                        hex::encode(output.agent_master_shard)
+                    );
+                    println!(
+                        "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
+                    );
+                    println!("\nDerivation message (keep for recovery): {}", output.derivation_message);
+
+                    info!("Master shard saved to {:?}", cli.data_dir);
+                }
+                #[cfg(not(feature = "ledger"))]
+                {
+                    error!("Ledger support not compiled. Rebuild with --features ledger");
+                    return Ok(());
+                }
+            } else {
+                info!("Generating master shards...");
+                let output = MasterKeyGenerator::generate()?;
+
+                storage.save_master_shard(&output.cold_master_shard)?;
+
+                println!("\n=== Master Key Generated ===\n");
+                println!(
+                    "Master Public Key: 0x{}",
+                    hex::encode(output.master_pubkey.as_bytes())
+                );
+                println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
+                println!(
+                    "Agent Master Shard: 0x{}",
+                    hex::encode(output.agent_master_shard)
+                );
+                println!(
+                    "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
+                );
+
+                info!("Master shard saved to {:?}", cli.data_dir);
+            }
+        }
+
+        #[cfg(feature = "ledger")]
+        Commands::LedgerStatus => {
+            info!("Checking Ledger device connectivity...");
+
+            match LedgerDevice::connect() {
+                Ok(device) => {
+                    println!("\n=== Ledger Device Status ===\n");
+                    println!("✓ Ledger device connected");
+
+                    match device.get_info().await {
+                        Ok(info) => {
+                            println!("Model: {}", info.model);
+                            if info.eth_app_open {
+                                println!("✓ Ethereum app is open");
+                                if let Some(address) = info.address {
+                                    println!("Address: {}", address);
+                                }
+                            } else {
+                                println!("✗ Ethereum app is NOT open");
+                                println!("\n⚠️  Please open the Ethereum app on your Ledger device");
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Could not get device info: {}", e);
+                            println!("\n⚠️  Make sure the Ethereum app is open on your Ledger");
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to connect to Ledger: {}", e);
+                    println!("\n=== Ledger Device Status ===\n");
+                    println!("✗ No Ledger device found");
+                    println!("\nTroubleshooting:");
+                    println!("  1. Ensure Ledger is connected via USB");
+                    println!("  2. Unlock the device with your PIN");
+                    println!("  3. Open the Ethereum app");
+                    println!("  4. Check USB permissions (udev rules on Linux)");
+                }
+            }
         }
 
         Commands::Status => {
