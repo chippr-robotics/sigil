@@ -1,0 +1,27 @@
+[package]
+name = "sigil-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CLI tool for Sigil MPC signing with Claude integration"
+
+[[bin]]
+name = "sigil"
+path = "src/main.rs"
+
+[dependencies]
+sigil-core = { path = "../sigil-core" }
+
+# CLI
+clap.workspace = true
+
+# Error handling
+anyhow.workspace = true
+
+# Serialization
+serde_json.workspace = true
+
+# Async
+tokio.workspace = true

@@ -32,4 +32,31 @@ pub enum SigilError {
 
     #[error("Device not found: {0}")]
     DeviceNotFound(String),
+
+    #[error("Invalid presignature: {0}")]
+    InvalidPresignature(String),
+
+    #[error("Disk format error: {0}")]
+    DiskFormat(String),
+
+    #[error("Disk validation error: {0}")]
+    DiskValidation(String),
+
+    #[error("MPC error: {0}")]
+    Mpc(String),
+
+    #[error("HD derivation error: {0}")]
+    HdDerivation(String),
+
+    #[error("Disk expired: {0}")]
+    DiskExpired(String),
+
+    #[error("Reconciliation required: {0}")]
+    ReconciliationRequired(String),
+
+    #[error("No presignatures available")]
+    NoPresignaturesAvailable,
+
+    #[error("Signature verification failed")]
+    SignatureVerificationFailed,
 }

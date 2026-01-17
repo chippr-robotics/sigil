@@ -1,0 +1,32 @@
+[package]
+name = "sigil-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core types, disk format, and crypto for Sigil MPC signing system"
+
+[dependencies]
+# Cryptography
+sha2.workspace = true
+hex.workspace = true
+aes-gcm.workspace = true
+rand.workspace = true
+k256.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
+serde-big-array.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# File I/O
+walkdir.workspace = true
+
+[dev-dependencies]
+tempfile = "3.8"
