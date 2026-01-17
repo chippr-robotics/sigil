@@ -736,7 +736,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "hex",
  "serde_json",
+ "sha2",
  "sigil-core",
  "tokio",
 ]

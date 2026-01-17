@@ -23,5 +23,9 @@ anyhow.workspace = true
 # Serialization
 serde_json.workspace = true
 
+# Crypto
+hex.workspace = true
+sha2.workspace = true
+
 # Async
 tokio.workspace = true
