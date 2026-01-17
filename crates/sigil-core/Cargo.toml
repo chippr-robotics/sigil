@@ -1,0 +1,31 @@
+[package]
+name = "sigil-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core types, disk format, and cryptographic primitives for Sigil MPC signing"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+# Cryptography
+k256 = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true, optional = true }
+zeroize = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+bincode = { workspace = true }
+hex = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }

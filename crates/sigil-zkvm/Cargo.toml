@@ -1,0 +1,18 @@
+[package]
+name = "sigil-zkvm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SP1 zkVM signing program for Sigil MPC"
+
+[[bin]]
+name = "sigil-zkvm-program"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+sp1-zkvm = { workspace = true }
+k256 = { workspace = true, default-features = false, features = ["ecdsa", "arithmetic"] }
+serde = { workspace = true }

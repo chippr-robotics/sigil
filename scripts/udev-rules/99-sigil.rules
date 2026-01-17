@@ -1,0 +1,29 @@
+# Sigil Floppy Disk Signing System
+# udev rules for automatic disk detection
+#
+# Install: sudo cp 99-sigil.rules /etc/udev/rules.d/
+# Reload:  sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# Match floppy disks (common patterns)
+# USB floppy drives
+SUBSYSTEM=="block", KERNEL=="sd[a-z]", ATTRS{removable}=="1", ATTR{size}=="2880", TAG+="sigil_disk"
+
+# USB flash drives with SIGIL label
+SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="SIGIL*", TAG+="sigil_disk"
+
+# Any block device with SIGILDSK magic (checked by sigil-daemon)
+SUBSYSTEM=="block", KERNEL=="sd[a-z]", ATTRS{removable}=="1", TAG+="sigil_candidate"
+SUBSYSTEM=="block", KERNEL=="sd[a-z][0-9]", TAG+="sigil_candidate"
+
+# When a potential Sigil disk is added, notify the daemon
+ACTION=="add", TAG=="sigil_candidate", RUN+="/usr/bin/systemctl --no-block try-restart sigil-daemon.service"
+
+# Set permissions for Sigil disks
+ACTION=="add", TAG=="sigil_disk", MODE="0660", GROUP="sigil"
+
+# Create symlink for easy access
+ACTION=="add", TAG=="sigil_disk", SYMLINK+="sigil/disk%n"
+
+# Log events for debugging
+ACTION=="add", TAG=="sigil_candidate", RUN+="/usr/bin/logger -t sigil 'Potential Sigil disk detected: %k'"
+ACTION=="remove", TAG=="sigil_candidate", RUN+="/usr/bin/logger -t sigil 'Potential Sigil disk removed: %k'"

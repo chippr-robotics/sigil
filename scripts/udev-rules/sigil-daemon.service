@@ -1,0 +1,32 @@
+[Unit]
+Description=Sigil MPC Signing Daemon
+Documentation=https://github.com/chippr-robotics/sigil
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sigil-daemon
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=false
+DeviceAllow=/dev/sd*
+
+# Allow access to USB devices
+SupplementaryGroups=sigil plugdev
+
+# State directory
+StateDirectory=sigil
+ConfigurationDirectory=sigil
+
+# Environment
+Environment=SIGIL_CONFIG=/etc/sigil/daemon.json
+Environment=RUST_LOG=sigil_daemon=info
+
+[Install]
+WantedBy=multi-user.target
