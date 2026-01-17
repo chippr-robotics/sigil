@@ -3,7 +3,7 @@
 //! Generates the master shards for both cold (mother) and agent sides.
 
 use k256::{
-    elliptic_curve::{rand_core::OsRng, Field, PrimeField},
+    elliptic_curve::{rand_core::OsRng, PrimeField},
     ProjectivePoint, Scalar,
 };
 use rand::RngCore;
@@ -105,7 +105,7 @@ impl MasterKeyGenerator {
         // Derive child shard: child = HKDF(master, path)
         let mut hasher = Sha256::new();
         hasher.update(master_shard);
-        hasher.update(&path_bytes);
+        hasher.update(path_bytes);
         let child_shard_bytes: [u8; 32] = hasher.finalize().into();
 
         // Convert to scalar

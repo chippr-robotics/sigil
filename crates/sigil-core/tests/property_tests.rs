@@ -5,7 +5,7 @@
 use proptest::prelude::*;
 use sigil_core::{
     crypto::{DerivationPath, PublicKey},
-    disk::{DiskFormat, DiskHeader},
+    disk::DiskHeader,
     presig::{PresigColdShare, PresigStatus},
     types::{ChainId, ChildId, MessageHash, Signature, TxHash, ZkProofHash},
     usage::{UsageLog, UsageLogEntry},
@@ -40,6 +40,7 @@ fn arb_presig_cold_share() -> impl Strategy<Value = PresigColdShare> {
         .prop_map(|(r, k, chi)| PresigColdShare::new(r, k, chi))
 }
 
+#[allow(dead_code)]
 fn arb_presig_status() -> impl Strategy<Value = PresigStatus> {
     prop_oneof![
         Just(PresigStatus::Fresh),
@@ -238,12 +239,11 @@ proptest! {
     #[test]
     fn usage_log_ordered_entries_validate(entries in prop::collection::vec(any::<u64>(), 0..10)) {
         let mut log = UsageLog::new();
-        let mut last_index = 0u32;
-        let mut base_timestamp = 1700000000u64;
+        let base_timestamp = 1700000000u64;
 
         for (i, _) in entries.iter().enumerate() {
             let entry = UsageLogEntry::new(
-                last_index + 1,
+                (i + 1) as u32,
                 base_timestamp + (i as u64 * 1000),
                 MessageHash::new([i as u8; 32]),
                 Signature::new([i as u8; 64]),
@@ -253,8 +253,6 @@ proptest! {
                 format!("Entry {}", i),
             );
             log.push(entry).unwrap();
-            last_index += 1;
-            base_timestamp += 1000;
         }
 
         prop_assert!(log.validate().is_ok());

@@ -41,7 +41,7 @@ pub fn complete_presig(input: &SigningInput) -> Result<SigningOutput, &'static s
     let r_x_bytes = r_encoded.x().ok_or("Invalid R point")?;
 
     // Convert x-coordinate to scalar (mod n)
-    let r = <Scalar as Reduce<U256>>::reduce_bytes(r_x_bytes.into());
+    let r = <Scalar as Reduce<U256>>::reduce_bytes(r_x_bytes);
 
     // 4. Combine nonce shares: k = k_cold + k_agent
     let k_cold = decode_scalar(&input.presig_cold.k_share)?;
@@ -131,8 +131,7 @@ fn normalize_s(s: Scalar) -> Scalar {
         0x20, 0xA0,
     ];
 
-    let s_generic = s.to_bytes();
-    let s_bytes: [u8; 32] = s_generic.as_slice().try_into().expect("scalar is 32 bytes");
+    let s_bytes: [u8; 32] = s.to_bytes().into();
 
     // Compare s > half_order using constant-time byte comparison
     // Note: to_bytes returns big-endian representation
@@ -196,8 +195,7 @@ mod tests {
             0x68, 0x1B, 0x20, 0xA0,
         ];
 
-        let normalized_generic = normalized.to_bytes();
-        let normalized_bytes: [u8; 32] = normalized_generic.as_slice().try_into().unwrap();
+        let normalized_bytes: [u8; 32] = normalized.to_bytes().into();
         // normalized <= half_order means NOT (normalized > half_order)
         assert!(!scalar_gt_bytes(&normalized_bytes, &HALF_ORDER));
     }

@@ -11,25 +11,30 @@ use sigil_core::{
 use sigil_mother::{
     keygen::MasterKeyGenerator,
     presig_gen::PresigGenerator,
-    reconciliation::{analyze_disk, ReconciliationRecommendation},
+    reconciliation::analyze_disk,
     registry::ChildRegistry,
 };
-
-use std::collections::HashMap;
 
 #[test]
 fn test_master_key_generation() {
     let output = MasterKeyGenerator::generate().unwrap();
 
     // Verify shards are different
-    assert_ne!(output.cold_master_shard, output.agent_master_shard);
+    assert_ne!(
+        output.cold_master_shard.cold_master_shard,
+        output.agent_master_shard
+    );
 
     // Verify master pubkey is valid (compressed format starts with 02 or 03)
     let prefix = output.master_pubkey.as_bytes()[0];
     assert!(prefix == 0x02 || prefix == 0x03);
 
     // Verify shards are non-zero
-    assert!(output.cold_master_shard.iter().any(|&b| b != 0));
+    assert!(output
+        .cold_master_shard
+        .cold_master_shard
+        .iter()
+        .any(|&b| b != 0));
     assert!(output.agent_master_shard.iter().any(|&b| b != 0));
 }
 
@@ -72,10 +77,9 @@ fn test_child_registry_operations() {
 
     // Register a child
     let child_id = ChildId::new([0x01; 32]);
-    let pubkey = PublicKey::new([0x02; 33]);
     let path = DerivationPath::ethereum_hardened(0);
 
-    registry.register_child(child_id, pubkey, path);
+    registry.register_child(child_id, path).unwrap();
 
     // Verify registration
     let child = registry.get_child(&child_id).unwrap();
@@ -83,16 +87,6 @@ fn test_child_registry_operations() {
     assert!(matches!(child.status, ChildStatus::Active));
     assert_eq!(child.refill_count, 0);
     assert_eq!(child.total_signatures, 0);
-
-    // Update signature count
-    registry.record_signatures(&child_id, 50).unwrap();
-    let child = registry.get_child(&child_id).unwrap();
-    assert_eq!(child.total_signatures, 50);
-
-    // Record refill
-    registry.record_refill(&child_id).unwrap();
-    let child = registry.get_child(&child_id).unwrap();
-    assert_eq!(child.refill_count, 1);
 }
 
 #[test]
@@ -100,11 +94,9 @@ fn test_child_registry_nullification() {
     let mut registry = ChildRegistry::new();
 
     let child_id = ChildId::new([0x01; 32]);
-    registry.register_child(
-        child_id,
-        PublicKey::new([0x02; 33]),
-        DerivationPath::ethereum_hardened(0),
-    );
+    registry
+        .register_child(child_id, DerivationPath::ethereum_hardened(0))
+        .unwrap();
 
     // Nullify the child
     registry
@@ -130,11 +122,9 @@ fn test_child_registry_suspend_resume() {
     let mut registry = ChildRegistry::new();
 
     let child_id = ChildId::new([0x01; 32]);
-    registry.register_child(
-        child_id,
-        PublicKey::new([0x02; 33]),
-        DerivationPath::ethereum_hardened(0),
-    );
+    registry
+        .register_child(child_id, DerivationPath::ethereum_hardened(0))
+        .unwrap();
 
     // Suspend
     registry.suspend_child(&child_id).unwrap();
@@ -142,7 +132,7 @@ fn test_child_registry_suspend_resume() {
     assert!(matches!(child.status, ChildStatus::Suspended));
 
     // Resume
-    registry.resume_child(&child_id).unwrap();
+    registry.reactivate_child(&child_id).unwrap();
     let child = registry.get_child(&child_id).unwrap();
     assert!(matches!(child.status, ChildStatus::Active));
 }
@@ -154,11 +144,9 @@ fn test_child_registry_count_by_status() {
     // Add multiple children with different statuses
     for i in 0..5 {
         let child_id = ChildId::new([i as u8; 32]);
-        registry.register_child(
-            child_id,
-            PublicKey::new([0x02; 33]),
-            DerivationPath::ethereum_hardened(i),
-        );
+        registry
+            .register_child(child_id, DerivationPath::ethereum_hardened(i))
+            .unwrap();
     }
 
     // Suspend some
@@ -167,7 +155,7 @@ fn test_child_registry_count_by_status() {
 
     // Nullify one
     registry
-        .nullify_child(&ChildId::new([3; 32]), NullificationReason::LostOrStolen, 0)
+        .nullify_child(&ChildId::new([3; 32]), NullificationReason::ManualRevocation, 0)
         .unwrap();
 
     let (active, suspended, nullified) = registry.count_by_status();
@@ -203,63 +191,7 @@ fn test_reconciliation_analysis_clean_disk() {
 
     let analysis = analyze_disk(&disk);
 
-    assert!(analysis.anomalies.is_empty());
-    assert_eq!(analysis.presigs_used, 10);
-    assert_eq!(analysis.presigs_remaining, 90);
-}
-
-#[test]
-fn test_reconciliation_analysis_count_mismatch() {
-    let mut header = DiskHeader::new(
-        ChildId::new([0x01; 32]),
-        PublicKey::new([0x02; 33]),
-        DerivationPath::ethereum_hardened(0),
-        100,
-        1700000000,
-    );
-    header.presig_used = 20; // Header says 20 used
-
-    let presigs: Vec<PresigColdShare> = (0..100)
-        .map(|i| {
-            let mut share = PresigColdShare::new([i as u8; 33], [i as u8; 32], [i as u8; 32]);
-            // But only 10 are actually marked used
-            if i < 10 {
-                share.mark_used();
-            }
-            share
-        })
-        .collect();
-
-    let disk = DiskFormat::new(header, presigs);
-    let analysis = analyze_disk(&disk);
-
-    // Should detect the mismatch
-    assert!(!analysis.anomalies.is_empty());
-    assert!(analysis
-        .anomalies
-        .iter()
-        .any(|a| a.contains("mismatch") || a.contains("Mismatch")));
-}
-
-#[test]
-fn test_reconciliation_recommendation_clean() {
-    let header = DiskHeader::new(
-        ChildId::new([0x01; 32]),
-        PublicKey::new([0x02; 33]),
-        DerivationPath::ethereum_hardened(0),
-        100,
-        1700000000,
-    );
-
-    let presigs: Vec<PresigColdShare> = (0..100)
-        .map(|i| PresigColdShare::new([i as u8; 33], [i as u8; 32], [i as u8; 32]))
-        .collect();
-
-    let disk = DiskFormat::new(header, presigs);
-    let analysis = analyze_disk(&disk);
-
-    assert!(matches!(
-        analysis.recommendation,
-        ReconciliationRecommendation::Refill
-    ));
+    assert!(analysis.passed);
+    assert_eq!(analysis.used_presigs, 10);
+    assert_eq!(analysis.fresh_presigs, 90);
 }

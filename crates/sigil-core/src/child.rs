@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 /// Status of a child disk
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ChildStatus {
     /// Active and usable
+    #[default]
     Active,
 
     /// Temporarily suspended (can be reactivated)
@@ -45,12 +46,6 @@ impl ChildStatus {
             timestamp,
             last_valid_presig_index: last_valid_index,
         }
-    }
-}
-
-impl Default for ChildStatus {
-    fn default() -> Self {
-        ChildStatus::Active
     }
 }
 

@@ -39,6 +39,7 @@ impl UsageLogEntry {
     pub const MAX_DESCRIPTION_LEN: usize = 256;
 
     /// Create a new usage log entry
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         presig_index: u32,
         timestamp: u64,

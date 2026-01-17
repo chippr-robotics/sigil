@@ -7,14 +7,13 @@ use sigil_core::{
     crypto::DerivationPath,
     disk::{DiskFormat, DiskHeader},
     presig::PresigColdShare,
-    ChildId, PublicKey, MAX_PRESIGS,
+    ChildId, PublicKey,
 };
 
 use crate::error::{MotherError, Result};
 use crate::keygen::MasterKeyGenerator;
-use crate::presig_gen::{PresigGenerator, PresigPair};
-use crate::registry::ChildRegistry;
-use crate::storage::{MasterShardData, MotherStorage};
+use crate::presig_gen::PresigGenerator;
+use crate::storage::MotherStorage;
 
 /// Ceremony for creating a new child disk
 pub struct CreateChildCeremony {
@@ -76,7 +75,7 @@ impl CreateChildCeremony {
             use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(b"agent_shard_placeholder:");
-            hasher.update(&derivation_path.to_bytes());
+            hasher.update(derivation_path.to_bytes());
             let hash: [u8; 32] = hasher.finalize().into();
             hash
         };
@@ -232,7 +231,7 @@ impl ReconcileCeremony {
 
         // 6. Verify signatures in usage log
         let mut verified = 0;
-        for entry in &disk.usage_log.entries {
+        for _entry in &disk.usage_log.entries {
             // Would verify each signature against message_hash and child_pubkey
             // For now, count as verified
             verified += 1;
@@ -311,7 +310,7 @@ impl RefillCeremony {
             use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(b"agent_shard_placeholder:");
-            hasher.update(&entry.derivation_path.to_bytes());
+            hasher.update(entry.derivation_path.to_bytes());
             let hash: [u8; 32] = hasher.finalize().into();
             hash
         };

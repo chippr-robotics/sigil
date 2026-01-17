@@ -9,8 +9,7 @@ use sigil_mother::{
     ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony},
     keygen::MasterKeyGenerator,
     reconciliation,
-    storage::{MasterShardData, MotherStorage},
-    ChildRegistry,
+    storage::MotherStorage,
 };
 
 /// Sigil Mother - Air-gapped MPC key management
@@ -129,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
             println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
             println!(
                 "Agent Master Shard: 0x{}",
-                hex::encode(&output.agent_master_shard)
+                hex::encode(output.agent_master_shard)
             );
             println!(
                 "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
@@ -309,13 +308,13 @@ async fn main() -> anyhow::Result<()> {
             println!("\n⚠️  The agent should also be notified to delete the corresponding shares.");
         }
 
-        Commands::ExportAgentShard { output } => {
+        Commands::ExportAgentShard { output: _ } => {
             warn!(
                 "⚠️  DANGER: Exporting agent shard. This should only be done during initial setup."
             );
             warn!("⚠️  The agent shard gives the agent partial signing capability.");
 
-            let master = storage.load_master_shard()?;
+            let _master = storage.load_master_shard()?;
 
             // In a real implementation, we would derive and export the agent shard
             // For this demo, we show a warning

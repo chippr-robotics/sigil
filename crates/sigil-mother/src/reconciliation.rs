@@ -2,7 +2,7 @@
 //!
 //! Helpers for analyzing and validating disk state during reconciliation.
 
-use sigil_core::{disk::DiskFormat, presig::PresigStatus, usage::UsageLog};
+use sigil_core::{disk::DiskFormat, presig::PresigStatus};
 
 /// Anomaly types that can be detected during reconciliation
 #[derive(Debug, Clone)]
@@ -201,8 +201,8 @@ mod tests {
             .collect();
 
         // Mark some as used
-        for i in 0..used_count as usize {
-            presigs[i].mark_used();
+        for presig in presigs.iter_mut().take(used_count as usize) {
+            presig.mark_used();
         }
 
         let mut disk = DiskFormat::new(header, presigs);

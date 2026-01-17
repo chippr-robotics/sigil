@@ -69,7 +69,7 @@ impl ChildRegistry {
         let id_hex = child_id.to_hex();
         self.children
             .get(&id_hex)
-            .ok_or_else(|| MotherError::ChildNotFound(id_hex))
+            .ok_or(MotherError::ChildNotFound(id_hex.clone()))
     }
 
     /// Get mutable child by ID
@@ -77,7 +77,7 @@ impl ChildRegistry {
         let id_hex = child_id.to_hex();
         self.children
             .get_mut(&id_hex)
-            .ok_or_else(|| MotherError::ChildNotFound(id_hex))
+            .ok_or(MotherError::ChildNotFound(id_hex.clone()))
     }
 
     /// Check if a child can sign (is active)

@@ -7,7 +7,7 @@ use sigil_core::{
     crypto::{DerivationPath, PublicKey},
     disk::{DiskFormat, DiskHeader},
     expiry::DiskExpiry,
-    presig::{PresigAgentShare, PresigColdShare, PresigStatus},
+    presig::{PresigAgentShare, PresigColdShare},
     types::{ChainId, ChildId, MessageHash, Signature, TxHash, ZkProofHash},
     usage::{UsageLog, UsageLogEntry},
     ChildStatus, NullificationReason,
@@ -15,8 +15,8 @@ use sigil_core::{
 
 use sigil_mother::{
     keygen::MasterKeyGenerator,
-    presig_gen::{PresigGenerator, PresigPair},
-    reconciliation::{analyze_disk, generate_report, ReconciliationRecommendation},
+    presig_gen::PresigGenerator,
+    reconciliation::{analyze_disk, generate_report},
     registry::ChildRegistry,
 };
 
@@ -73,7 +73,7 @@ fn test_full_disk_lifecycle() {
     let mut disk = DiskFormat::new(header, cold_shares);
 
     // Register child in mother's registry
-    registry.register_child(child_id, child_pubkey, derivation_path);
+    registry.register_child(child_id, derivation_path).unwrap();
 
     // ==========================================
     // STEP 3: Simulate signing operations
@@ -128,22 +128,19 @@ fn test_full_disk_lifecycle() {
         "Unexpected anomalies: {:?}",
         analysis.anomalies
     );
-    assert_eq!(analysis.presigs_used, num_signatures as u32);
-    assert!(matches!(
-        analysis.recommendation,
-        ReconciliationRecommendation::Refill
-    ));
+    assert_eq!(analysis.used_presigs, num_signatures as u32);
+    assert!(analysis.passed);
 
     // Generate report
     let report = generate_report(&analysis);
-    assert!(report.contains("Clean"));
+    assert!(report.contains("passed"));
 
-    // Update registry
+    // Record reconciliation in registry
     registry
-        .record_signatures(&child_id, num_signatures as u32)
+        .record_reconciliation(&child_id, num_signatures as u32)
         .unwrap();
     let child = registry.get_child(&child_id).unwrap();
-    assert_eq!(child.total_signatures, num_signatures as u32);
+    assert_eq!(child.total_signatures, num_signatures as u64);
 
     // ==========================================
     // STEP 5: Refill disk
@@ -164,13 +161,17 @@ fn test_full_disk_lifecycle() {
     disk.presigs = new_cold_shares;
     disk.usage_log = UsageLog::new();
 
-    registry.record_refill(&child_id).unwrap();
+    // Record another reconciliation (simulating refill)
+    registry.record_reconciliation(&child_id, 0).unwrap();
     let child = registry.get_child(&child_id).unwrap();
-    assert_eq!(child.refill_count, 1);
+    assert_eq!(child.refill_count, 2);
 
     // Verify disk is ready for new signatures
     assert_eq!(disk.header.presigs_remaining(), presig_count as u32);
     assert!(disk.usage_log.is_empty());
+
+    // Silence unused variable warning
+    let _ = master_output;
 }
 
 /// Test anomaly detection during reconciliation
@@ -210,12 +211,7 @@ fn test_reconciliation_anomaly_detection() {
         !analysis.anomalies.is_empty(),
         "Should detect count mismatch"
     );
-    assert!(matches!(
-        analysis.recommendation,
-        ReconciliationRecommendation::Investigate
-            | ReconciliationRecommendation::Suspend
-            | ReconciliationRecommendation::Nullify
-    ));
+    assert!(!analysis.passed);
 }
 
 /// Test disk expiration handling
@@ -267,21 +263,21 @@ fn test_nullification_workflow() {
 
     // Create and register child
     let child_id = ChildId::new([0x01; 32]);
-    registry.register_child(
-        child_id,
-        PublicKey::new([0x02; 33]),
-        DerivationPath::ethereum_hardened(0),
-    );
+    registry
+        .register_child(child_id, DerivationPath::ethereum_hardened(0))
+        .unwrap();
 
-    // Simulate some usage
-    registry.record_signatures(&child_id, 50).unwrap();
+    // Simulate some usage via reconciliation
+    registry.record_reconciliation(&child_id, 50).unwrap();
 
     // Nullify due to suspected compromise
     let last_valid_index = 45; // Last known good signature
     registry
         .nullify_child(
             &child_id,
-            NullificationReason::ReconciliationAnomaly,
+            NullificationReason::ReconciliationAnomaly {
+                description: "Test anomaly".to_string(),
+            },
             last_valid_index,
         )
         .unwrap();
@@ -294,15 +290,18 @@ fn test_nullification_workflow() {
             last_valid_presig_index,
             timestamp,
         } => {
-            assert!(matches!(reason, NullificationReason::ReconciliationAnomaly));
+            assert!(matches!(
+                reason,
+                NullificationReason::ReconciliationAnomaly { .. }
+            ));
             assert_eq!(*last_valid_presig_index, last_valid_index);
             assert!(*timestamp > 0);
         }
         _ => panic!("Expected nullified status"),
     }
 
-    // Should not be able to resume a nullified child
-    // (This would need to be implemented in the registry)
+    // Should not be able to reactivate a nullified child
+    assert!(registry.reactivate_child(&child_id).is_err());
 }
 
 /// Test disk serialization preserves all data

@@ -7,7 +7,7 @@ use sigil_core::{
     presig::{PresigColdShare, PresigStatus},
     types::{ChainId, ChildId, MessageHash, Signature, TxHash, ZkProofHash},
     usage::{UsageLog, UsageLogEntry},
-    MAX_PRESIGS, PRESIG_ENTRY_SIZE, VERSION,
+    PRESIG_ENTRY_SIZE, VERSION,
 };
 
 #[test]
@@ -343,11 +343,11 @@ fn test_expiry_calculations() {
 
     // Check days until expiry
     let days = expiry.days_until_expiry(current_time);
-    assert!(days >= 29 && days <= 30);
+    assert!((29..=30).contains(&days));
 
     // Check warning threshold
     let near_expiry_time = expiry.expires_at - (6 * 24 * 60 * 60); // 6 days before
-    assert!(expiry.should_warn(near_expiry_time));
+    assert!(expiry.is_warning_period(near_expiry_time));
 }
 
 #[test]

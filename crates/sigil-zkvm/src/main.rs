@@ -6,7 +6,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use sigil_zkvm::{complete_presig, SigningInput, SigningOutput};
+use sigil_zkvm::{complete_presig, SigningInput};
 
 pub fn main() {
     // Read the signing input from the prover

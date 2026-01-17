@@ -44,7 +44,7 @@ impl PublicKey {
     /// Compute the ChildId (SHA256 hash of public key)
     pub fn to_child_id(&self) -> ChildId {
         let mut hasher = Sha256::new();
-        hasher.update(&self.0);
+        hasher.update(self.0);
         let hash = hasher.finalize();
         ChildId::new(hash.into())
     }
@@ -117,7 +117,7 @@ impl DerivationPath {
             components: [
                 44 | Self::HARDENED, // purpose
                 60 | Self::HARDENED, // coin type (ETH)
-                0 | Self::HARDENED,  // account
+                Self::HARDENED,     // account
                 child_index,         // child index (not hardened for derivation)
                 0,
             ],
@@ -131,7 +131,7 @@ impl DerivationPath {
             components: [
                 44 | Self::HARDENED,
                 60 | Self::HARDENED,
-                0 | Self::HARDENED,
+                Self::HARDENED,
                 child_index | Self::HARDENED,
                 0,
             ],
@@ -162,9 +162,9 @@ impl DerivationPath {
             )));
         }
         let mut components = [0u32; 5];
-        for i in 0..depth as usize {
+        for (i, component) in components.iter_mut().enumerate().take(depth as usize) {
             let offset = 1 + i * 4;
-            components[i] = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+            *component = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
         }
         Ok(Self { components, depth })
     }

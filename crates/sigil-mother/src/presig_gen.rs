@@ -3,7 +3,7 @@
 //! Generates presignature shares for both cold (disk) and agent sides.
 
 use k256::{
-    elliptic_curve::{rand_core::OsRng, Field, PrimeField},
+    elliptic_curve::{rand_core::OsRng, PrimeField},
     ProjectivePoint, Scalar,
 };
 use rand::RngCore;
