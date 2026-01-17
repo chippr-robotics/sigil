@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ============================================
+  # Create Release
+  # ============================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+
+  # ============================================
+  # Build Linux Binaries
+  # ============================================
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Build release binaries
+        run: cargo build --release
+
+      - name: Package binaries
+        run: |
+          mkdir -p release
+          cp target/release/sigil release/
+          cp target/release/sigil-daemon release/
+          cp target/release/sigil-mother release/
+          cp README.md release/
+          cp LICENSE release/
+          tar -czvf sigil-linux-x86_64.tar.gz -C release .
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./sigil-linux-x86_64.tar.gz
+          asset_name: sigil-linux-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+  # ============================================
+  # Publish Crates
+  # ============================================
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [release, build-linux]
+    if: "!contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc')"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Publish sigil-core
+        run: cargo publish -p sigil-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io
+        run: sleep 30
+
+      - name: Publish sigil-zkvm
+        run: cargo publish -p sigil-zkvm --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io
+        run: sleep 30
+
+      - name: Publish sigil-daemon
+        run: cargo publish -p sigil-daemon --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io
+        run: sleep 30
+
+      - name: Publish sigil-cli
+        run: cargo publish -p sigil-cli --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Wait for crates.io
+        run: sleep 30
+
+      - name: Publish sigil-mother
+        run: cargo publish -p sigil-mother --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true

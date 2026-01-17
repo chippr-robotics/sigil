@@ -9,6 +9,9 @@ description = "Air-gapped mother device tooling for Sigil MPC"
 name = "sigil-mother"
 path = "src/main.rs"
 
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 sigil-core = { workspace = true }
 
@@ -38,3 +41,6 @@ anyhow = { workspace = true }
 
 # Time
 chrono = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

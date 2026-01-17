@@ -67,3 +67,25 @@ sp1-zkvm = "4.1"
 [profile.release]
 lto = true
 codegen-units = 1
+
+# Test profile with debug info
+[profile.test]
+debug = true
+
+# Development dependencies shared across workspace
+[workspace.dependencies.tempfile]
+version = "3.10"
+
+[workspace.dependencies.proptest]
+version = "1.4"
+
+# E2E tests configuration
+[[test]]
+name = "e2e_workflow_test"
+path = "tests/e2e_workflow_test.rs"
+
+# Development dependencies for workspace-level tests
+[dev-dependencies]
+sigil-core = { path = "crates/sigil-core" }
+sigil-mother = { path = "crates/sigil-mother" }
+
