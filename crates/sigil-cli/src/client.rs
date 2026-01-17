@@ -75,7 +75,9 @@ impl SigilClient {
         match self.request(&IpcRequest::Ping).await? {
             IpcResponse::Pong { version } => Ok(version),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
-            _ => Err(ClientError::RequestFailed("Unexpected response".to_string())),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
         }
     }
 
@@ -98,7 +100,9 @@ impl SigilClient {
                 is_valid,
             }),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
-            _ => Err(ClientError::RequestFailed("Unexpected response".to_string())),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
         }
     }
 
@@ -126,7 +130,9 @@ impl SigilClient {
                 proof_hash,
             }),
             IpcResponse::Error { message } => Err(ClientError::SigningFailed(message)),
-            _ => Err(ClientError::RequestFailed("Unexpected response".to_string())),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
         }
     }
 
@@ -140,7 +146,9 @@ impl SigilClient {
         match self.request(&request).await? {
             IpcResponse::Ok => Ok(()),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
-            _ => Err(ClientError::RequestFailed("Unexpected response".to_string())),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
         }
     }
 
@@ -149,23 +157,23 @@ impl SigilClient {
         match self.request(&IpcRequest::GetPresigCount).await? {
             IpcResponse::PresigCount { remaining, total } => Ok((remaining, total)),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
-            _ => Err(ClientError::RequestFailed("Unexpected response".to_string())),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
         }
     }
 
     /// Send a request to the daemon
     async fn request(&self, request: &IpcRequest) -> Result<IpcResponse> {
-        let stream = UnixStream::connect(&self.socket_path)
-            .await
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound
-                    || e.kind() == std::io::ErrorKind::ConnectionRefused
-                {
-                    ClientError::DaemonNotRunning
-                } else {
-                    ClientError::ConnectionFailed(e.to_string())
-                }
-            })?;
+        let stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound
+                || e.kind() == std::io::ErrorKind::ConnectionRefused
+            {
+                ClientError::DaemonNotRunning
+            } else {
+                ClientError::ConnectionFailed(e.to_string())
+            }
+        })?;
 
         let (reader, mut writer) = stream.into_split();
         let mut reader = BufReader::new(reader);

@@ -122,7 +122,11 @@ impl core::fmt::Display for NullificationReason {
                 write!(f, "Reconciliation anomaly: {}", description)
             }
             NullificationReason::PresigMisuse { affected_indices } => {
-                write!(f, "Presig misuse detected at indices: {:?}", affected_indices)
+                write!(
+                    f,
+                    "Presig misuse detected at indices: {:?}",
+                    affected_indices
+                )
             }
             NullificationReason::LostOrStolen { reported_at } => {
                 write!(f, "Reported lost/stolen at timestamp {}", reported_at)
@@ -216,11 +220,7 @@ mod tests {
     fn test_child_status_can_sign() {
         assert!(ChildStatus::Active.can_sign());
         assert!(!ChildStatus::Suspended.can_sign());
-        assert!(!ChildStatus::nullify(
-            NullificationReason::ManualRevocation,
-            0,
-            0
-        ).can_sign());
+        assert!(!ChildStatus::nullify(NullificationReason::ManualRevocation, 0, 0).can_sign());
     }
 
     #[test]

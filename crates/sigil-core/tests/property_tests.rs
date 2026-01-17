@@ -31,10 +31,8 @@ fn arb_public_key() -> impl Strategy<Value = PublicKey> {
 }
 
 fn arb_derivation_path() -> impl Strategy<Value = DerivationPath> {
-    (0u8..=5, any::<[u32; 5]>()).prop_map(|(depth, components)| DerivationPath {
-        depth,
-        components,
-    })
+    (0u8..=5, any::<[u32; 5]>())
+        .prop_map(|(depth, components)| DerivationPath { depth, components })
 }
 
 fn arb_presig_cold_share() -> impl Strategy<Value = PresigColdShare> {
@@ -82,7 +80,16 @@ fn arb_usage_log_entry() -> impl Strategy<Value = UsageLogEntry> {
         "[a-zA-Z0-9 ]{0,100}",
     )
         .prop_map(
-            |(presig_index, timestamp, message_hash, signature, chain_id, tx_hash, zkproof_hash, description)| {
+            |(
+                presig_index,
+                timestamp,
+                message_hash,
+                signature,
+                chain_id,
+                tx_hash,
+                zkproof_hash,
+                description,
+            )| {
                 UsageLogEntry::new(
                     presig_index,
                     timestamp,

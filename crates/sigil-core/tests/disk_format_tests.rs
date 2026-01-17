@@ -363,7 +363,12 @@ fn test_signature_components() {
 
 #[test]
 fn test_hex_encoding_decoding() {
-    let original = ChildId::new([0x12, 0x34, 0x56, 0x78; 8].try_into().unwrap_or([0; 32]));
+    let mut bytes = [0u8; 32];
+    bytes[0] = 0x12;
+    bytes[1] = 0x34;
+    bytes[2] = 0x56;
+    bytes[3] = 0x78;
+    let original = ChildId::new(bytes);
     let hex_str = original.to_hex();
     let recovered = ChildId::from_hex(&hex_str).unwrap();
     assert_eq!(original, recovered);

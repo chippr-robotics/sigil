@@ -168,14 +168,14 @@ impl Signer {
         };
 
         // Decode R point
-        let r_encoded =
-            k256::EncodedPoint::from_bytes(&cold_share.r_point).map_err(|e| {
-                DaemonError::SigningFailed(format!("Invalid R point: {}", e))
-            })?;
+        let r_encoded = k256::EncodedPoint::from_bytes(&cold_share.r_point)
+            .map_err(|e| DaemonError::SigningFailed(format!("Invalid R point: {}", e)))?;
 
         let r_affine = AffinePoint::from_encoded_point(&r_encoded);
         if r_affine.is_none().into() {
-            return Err(DaemonError::SigningFailed("Invalid R curve point".to_string()));
+            return Err(DaemonError::SigningFailed(
+                "Invalid R curve point".to_string(),
+            ));
         }
         let r_affine = r_affine.unwrap();
 
@@ -192,7 +192,9 @@ impl Signer {
         let k_agent = Scalar::from_repr(agent_share.k_agent.into());
 
         if k_cold.is_none().into() || k_agent.is_none().into() {
-            return Err(DaemonError::SigningFailed("Invalid nonce share".to_string()));
+            return Err(DaemonError::SigningFailed(
+                "Invalid nonce share".to_string(),
+            ));
         }
 
         let k = k_cold.unwrap() + k_agent.unwrap();
@@ -305,11 +307,7 @@ impl Signer {
     }
 
     /// Update transaction hash in usage log after broadcast
-    pub async fn update_tx_hash(
-        &self,
-        presig_index: u32,
-        tx_hash: TxHash,
-    ) -> Result<()> {
+    pub async fn update_tx_hash(&self, presig_index: u32, tx_hash: TxHash) -> Result<()> {
         let mut disk = self.disk_watcher.load_full_disk().await?;
 
         // Find the log entry and update it

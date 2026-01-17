@@ -1,8 +1,8 @@
 //! Sigil Mother - Air-gapped mother device CLI
 
-use std::path::PathBuf;
 use clap::{Parser, Subcommand};
-use tracing::{info, warn, error};
+use std::path::PathBuf;
+use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use sigil_mother::{
@@ -122,10 +122,18 @@ async fn main() -> anyhow::Result<()> {
             storage.save_master_shard(&output.cold_master_shard)?;
 
             println!("\n=== Master Key Generated ===\n");
-            println!("Master Public Key: 0x{}", hex::encode(output.master_pubkey.as_bytes()));
+            println!(
+                "Master Public Key: 0x{}",
+                hex::encode(output.master_pubkey.as_bytes())
+            );
             println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
-            println!("Agent Master Shard: 0x{}", hex::encode(&output.agent_master_shard));
-            println!("\n⚠️  Write down or securely store the agent shard, then clear your terminal.");
+            println!(
+                "Agent Master Shard: 0x{}",
+                hex::encode(&output.agent_master_shard)
+            );
+            println!(
+                "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
+            );
 
             info!("Master shard saved to {:?}", cli.data_dir);
         }
@@ -141,10 +149,16 @@ async fn main() -> anyhow::Result<()> {
             let (active, suspended, nullified) = registry.count_by_status();
 
             println!("\n=== Mother Device Status ===\n");
-            println!("Master Public Key: 0x{}", hex::encode(&master.master_pubkey));
-            println!("Created: {}", chrono::DateTime::from_timestamp(master.created_at as i64, 0)
-                .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                .unwrap_or_else(|| "Unknown".to_string()));
+            println!(
+                "Master Public Key: 0x{}",
+                hex::encode(&master.master_pubkey)
+            );
+            println!(
+                "Created: {}",
+                chrono::DateTime::from_timestamp(master.created_at as i64, 0)
+                    .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                    .unwrap_or_else(|| "Unknown".to_string())
+            );
             println!("Next Child Index: {}", master.next_child_index);
             println!("\nChildren:");
             println!("  Active:    {}", active);
@@ -174,12 +188,20 @@ async fn main() -> anyhow::Result<()> {
 
             println!("\n=== Child Created ===\n");
             println!("Child ID: {}", result.child_id.short());
-            println!("Public Key: 0x{}", hex::encode(result.child_pubkey.as_bytes()));
-            println!("Derivation Path: {}", result.derivation_path.to_string_path());
+            println!(
+                "Public Key: 0x{}",
+                hex::encode(result.child_pubkey.as_bytes())
+            );
+            println!(
+                "Derivation Path: {}",
+                result.derivation_path.to_string_path()
+            );
             println!("Presigs: {}", presig_count);
             println!("\nDisk image: {:?}", output);
             println!("Agent shares: {:?}", agent_output);
-            println!("\n⚠️  Securely transfer agent shares to the agent device, then delete the file.");
+            println!(
+                "\n⚠️  Securely transfer agent shares to the agent device, then delete the file."
+            );
         }
 
         Commands::ListChildren => {
@@ -268,9 +290,11 @@ async fn main() -> anyhow::Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("Child not found: {}", child_id))?;
 
             let child_id_bytes = hex::decode(&full_id)?;
-            let child_id = sigil_core::ChildId::new(child_id_bytes.try_into().map_err(|_| {
-                anyhow::anyhow!("Invalid child ID")
-            })?);
+            let child_id = sigil_core::ChildId::new(
+                child_id_bytes
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("Invalid child ID"))?,
+            );
 
             registry.nullify_child(
                 &child_id,
@@ -286,7 +310,9 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::ExportAgentShard { output } => {
-            warn!("⚠️  DANGER: Exporting agent shard. This should only be done during initial setup.");
+            warn!(
+                "⚠️  DANGER: Exporting agent shard. This should only be done during initial setup."
+            );
             warn!("⚠️  The agent shard gives the agent partial signing capability.");
 
             let master = storage.load_master_shard()?;

@@ -42,12 +42,9 @@ fn test_full_disk_lifecycle() {
 
     // Generate presignatures
     let presig_count = 100;
-    let presig_pairs = PresigGenerator::generate_batch(
-        &cold_child_shard,
-        &agent_child_shard,
-        presig_count,
-    )
-    .unwrap();
+    let presig_pairs =
+        PresigGenerator::generate_batch(&cold_child_shard, &agent_child_shard, presig_count)
+            .unwrap();
 
     // Split presigs into cold and agent shares
     let cold_shares: Vec<PresigColdShare> =
@@ -152,15 +149,14 @@ fn test_full_disk_lifecycle() {
     // STEP 5: Refill disk
     // ==========================================
     // Generate new presigs
-    let new_presig_pairs = PresigGenerator::generate_batch(
-        &cold_child_shard,
-        &agent_child_shard,
-        presig_count,
-    )
-    .unwrap();
+    let new_presig_pairs =
+        PresigGenerator::generate_batch(&cold_child_shard, &agent_child_shard, presig_count)
+            .unwrap();
 
-    let new_cold_shares: Vec<PresigColdShare> =
-        new_presig_pairs.iter().map(|p| p.cold_share.clone()).collect();
+    let new_cold_shares: Vec<PresigColdShare> = new_presig_pairs
+        .iter()
+        .map(|p| p.cold_share.clone())
+        .collect();
 
     // Reset disk
     disk.header.presig_used = 0;

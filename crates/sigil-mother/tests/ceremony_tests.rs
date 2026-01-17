@@ -167,11 +167,7 @@ fn test_child_registry_count_by_status() {
 
     // Nullify one
     registry
-        .nullify_child(
-            &ChildId::new([3; 32]),
-            NullificationReason::LostOrStolen,
-            0,
-        )
+        .nullify_child(&ChildId::new([3; 32]), NullificationReason::LostOrStolen, 0)
         .unwrap();
 
     let (active, suspended, nullified) = registry.count_by_status();

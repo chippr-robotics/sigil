@@ -2,8 +2,8 @@
 //!
 //! Tracks all child disks created by this mother device.
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use sigil_core::{
     child::{ChildRegistryEntry, ChildStatus, NullificationReason},

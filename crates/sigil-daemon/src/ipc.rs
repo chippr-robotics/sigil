@@ -82,10 +82,7 @@ pub enum IpcResponse {
     Children { child_ids: Vec<String> },
 
     /// Presig count
-    PresigCount {
-        remaining: u32,
-        total: u32,
-    },
+    PresigCount { remaining: u32, total: u32 },
 }
 
 /// IPC server
@@ -207,36 +204,34 @@ async fn handle_request(
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
 
-        IpcRequest::GetDiskStatus => {
-            match disk_watcher.current_disk().await {
-                Some(disk) => {
-                    let current_time = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs();
+        IpcRequest::GetDiskStatus => match disk_watcher.current_disk().await {
+            Some(disk) => {
+                let current_time = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
 
-                    let days_until_expiry = disk.header.expiry.days_until_expiry(current_time);
-                    let is_valid = disk.header.validate(current_time).is_ok();
+                let days_until_expiry = disk.header.expiry.days_until_expiry(current_time);
+                let is_valid = disk.header.validate(current_time).is_ok();
 
-                    IpcResponse::DiskStatus {
-                        detected: true,
-                        child_id: Some(disk.header.child_id.short()),
-                        presigs_remaining: Some(disk.header.presigs_remaining()),
-                        presigs_total: Some(disk.header.presig_total),
-                        days_until_expiry: Some(days_until_expiry),
-                        is_valid: Some(is_valid),
-                    }
+                IpcResponse::DiskStatus {
+                    detected: true,
+                    child_id: Some(disk.header.child_id.short()),
+                    presigs_remaining: Some(disk.header.presigs_remaining()),
+                    presigs_total: Some(disk.header.presig_total),
+                    days_until_expiry: Some(days_until_expiry),
+                    is_valid: Some(is_valid),
                 }
-                None => IpcResponse::DiskStatus {
-                    detected: false,
-                    child_id: None,
-                    presigs_remaining: None,
-                    presigs_total: None,
-                    days_until_expiry: None,
-                    is_valid: None,
-                },
             }
-        }
+            None => IpcResponse::DiskStatus {
+                detected: false,
+                child_id: None,
+                presigs_remaining: None,
+                presigs_total: None,
+                days_until_expiry: None,
+                is_valid: None,
+            },
+        },
 
         IpcRequest::Sign {
             message_hash,

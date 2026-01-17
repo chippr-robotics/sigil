@@ -78,9 +78,9 @@ impl DiskExpiry {
 
     /// Check if in warning period (approaching expiry)
     pub fn is_warning_period(&self, current_time: u64) -> bool {
-        let warning_threshold = self.expires_at.saturating_sub(
-            WARNING_THRESHOLD_DAYS as u64 * Self::SECONDS_PER_DAY
-        );
+        let warning_threshold = self
+            .expires_at
+            .saturating_sub(WARNING_THRESHOLD_DAYS as u64 * Self::SECONDS_PER_DAY);
         current_time >= warning_threshold && !self.is_expired(current_time)
     }
 
@@ -104,7 +104,8 @@ impl DiskExpiry {
 
     /// Get remaining uses before forced reconciliation
     pub fn remaining_uses(&self) -> u32 {
-        self.max_uses_before_reconcile.saturating_sub(self.uses_since_reconcile)
+        self.max_uses_before_reconcile
+            .saturating_sub(self.uses_since_reconcile)
     }
 
     /// Check if we're in the emergency reserve zone
@@ -118,7 +119,11 @@ impl DiskExpiry {
     }
 
     /// Reset after reconciliation
-    pub fn reset_for_reconciliation(&mut self, new_expires_at: u64, new_reconciliation_deadline: u64) {
+    pub fn reset_for_reconciliation(
+        &mut self,
+        new_expires_at: u64,
+        new_reconciliation_deadline: u64,
+    ) {
         self.expires_at = new_expires_at;
         self.reconciliation_deadline = new_reconciliation_deadline;
         self.uses_since_reconcile = 0;
@@ -182,15 +187,16 @@ impl ExpiryStatus {
         } else if expiry.is_max_uses_exceeded() {
             "Maximum uses reached - reconciliation required".to_string()
         } else if in_emergency_reserve {
-            format!("Emergency reserve active - {} presigs remaining", presigs_remaining)
+            format!(
+                "Emergency reserve active - {} presigs remaining",
+                presigs_remaining
+            )
         } else if in_warning_period {
             format!("Warning: {} days until expiry", days_until_expiry)
         } else {
             format!(
                 "OK: {} days remaining, {}/{} uses",
-                days_until_expiry,
-                expiry.uses_since_reconcile,
-                expiry.max_uses_before_reconcile
+                days_until_expiry, expiry.uses_since_reconcile, expiry.max_uses_before_reconcile
             )
         };
 

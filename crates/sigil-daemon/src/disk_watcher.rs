@@ -15,19 +15,11 @@ use crate::error::{DaemonError, Result};
 #[derive(Debug, Clone)]
 pub enum DiskEvent {
     /// A Sigil disk was inserted
-    Inserted {
-        path: PathBuf,
-        header: DiskHeader,
-    },
+    Inserted { path: PathBuf, header: DiskHeader },
     /// A disk was removed
-    Removed {
-        path: PathBuf,
-    },
+    Removed { path: PathBuf },
     /// Disk validation failed
-    ValidationFailed {
-        path: PathBuf,
-        reason: String,
-    },
+    ValidationFailed { path: PathBuf, reason: String },
 }
 
 /// Watches for Sigil disk insertion/removal
@@ -97,10 +89,12 @@ impl DiskWatcher {
                 .match_subsystem("block")
                 .map_err(|e| DaemonError::Udev(e.to_string()))?;
 
-            let monitor = builder.listen().map_err(|e| DaemonError::Udev(e.to_string()))?;
-
-            let mut socket = AsyncMonitorSocket::new(monitor)
+            let monitor = builder
+                .listen()
                 .map_err(|e| DaemonError::Udev(e.to_string()))?;
+
+            let mut socket =
+                AsyncMonitorSocket::new(monitor).map_err(|e| DaemonError::Udev(e.to_string()))?;
 
             loop {
                 use futures_util::StreamExt;
@@ -229,9 +223,7 @@ impl DiskWatcher {
     /// Load the full disk format (for signing operations)
     pub async fn load_full_disk(&self) -> Result<DiskFormat> {
         let current = self.current_disk.read().await;
-        let disk = current
-            .as_ref()
-            .ok_or(DaemonError::NoDiskDetected)?;
+        let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
 
         if let Some(format) = &disk.format {
             Ok(format.clone())
@@ -245,9 +237,7 @@ impl DiskWatcher {
     /// Write updated disk data back to disk
     pub async fn write_disk(&self, format: &DiskFormat) -> Result<()> {
         let current = self.current_disk.read().await;
-        let disk = current
-            .as_ref()
-            .ok_or(DaemonError::NoDiskDetected)?;
+        let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
 
         let bytes = format.to_bytes();
         tokio::fs::write(&disk.path, &bytes).await?;

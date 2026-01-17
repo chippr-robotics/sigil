@@ -53,7 +53,9 @@ impl MasterKeyGenerator {
             // Extremely unlikely, retry
             cold_shard.zeroize();
             agent_shard.zeroize();
-            return Err(MotherError::Crypto("Failed to generate valid scalars".to_string()));
+            return Err(MotherError::Crypto(
+                "Failed to generate valid scalars".to_string(),
+            ));
         }
 
         let cold_scalar = cold_scalar.unwrap();
@@ -70,9 +72,10 @@ impl MasterKeyGenerator {
         // Encode as compressed public key
         use k256::elliptic_curve::sec1::ToEncodedPoint;
         let encoded = combined_affine.to_encoded_point(true);
-        let pubkey_bytes: [u8; 33] = encoded.as_bytes().try_into().map_err(|_| {
-            MotherError::Crypto("Failed to encode public key".to_string())
-        })?;
+        let pubkey_bytes: [u8; 33] = encoded
+            .as_bytes()
+            .try_into()
+            .map_err(|_| MotherError::Crypto("Failed to encode public key".to_string()))?;
 
         let master_pubkey = PublicKey::new(pubkey_bytes);
 
@@ -118,15 +121,19 @@ impl MasterKeyGenerator {
 
         use k256::elliptic_curve::sec1::ToEncodedPoint;
         let encoded = child_affine.to_encoded_point(true);
-        let pubkey_bytes: [u8; 33] = encoded.as_bytes().try_into().map_err(|_| {
-            MotherError::Crypto("Failed to encode child public key".to_string())
-        })?;
+        let pubkey_bytes: [u8; 33] = encoded
+            .as_bytes()
+            .try_into()
+            .map_err(|_| MotherError::Crypto("Failed to encode child public key".to_string()))?;
 
         Ok((child_shard_bytes, PublicKey::new(pubkey_bytes)))
     }
 
     /// Combine two child public keys to get the full child public key
-    pub fn combine_child_pubkeys(cold_pubkey: &PublicKey, agent_pubkey: &PublicKey) -> Result<PublicKey> {
+    pub fn combine_child_pubkeys(
+        cold_pubkey: &PublicKey,
+        agent_pubkey: &PublicKey,
+    ) -> Result<PublicKey> {
         sigil_core::crypto::point_add(cold_pubkey, agent_pubkey)
             .map_err(|e| MotherError::Crypto(e.to_string()))
     }

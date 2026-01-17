@@ -16,3 +16,4 @@ path = "src/lib.rs"
 sp1-zkvm = { workspace = true }
 k256 = { workspace = true, default-features = false, features = ["ecdsa", "arithmetic"] }
 serde = { workspace = true }
+hex = { workspace = true }

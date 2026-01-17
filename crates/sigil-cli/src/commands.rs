@@ -61,34 +61,32 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
     let client = SigilClient::with_socket_path(cli.socket.into());
 
     match cli.command {
-        Commands::Status => {
-            match client.ping().await {
-                Ok(version) => {
-                    println!("Sigil daemon v{} is running", version);
-                }
-                Err(ClientError::DaemonNotRunning) => {
-                    println!("Sigil daemon is not running");
-                    println!("Start it with: sigil-daemon");
-                    return Err(ClientError::DaemonNotRunning);
-                }
-                Err(e) => return Err(e),
+        Commands::Status => match client.ping().await {
+            Ok(version) => {
+                println!("Sigil daemon v{} is running", version);
             }
-        }
+            Err(ClientError::DaemonNotRunning) => {
+                println!("Sigil daemon is not running");
+                println!("Start it with: sigil-daemon");
+                return Err(ClientError::DaemonNotRunning);
+            }
+            Err(e) => return Err(e),
+        },
 
         Commands::Disk => {
             let status = client.get_disk_status().await?;
 
             if status.detected {
-                println!("Disk detected: sigil_{}", status.child_id.unwrap_or_default());
+                println!(
+                    "Disk detected: sigil_{}",
+                    status.child_id.unwrap_or_default()
+                );
                 println!(
                     "Presigs: {}/{} remaining",
                     status.presigs_remaining.unwrap_or(0),
                     status.presigs_total.unwrap_or(0)
                 );
-                println!(
-                    "Expires: {} days",
-                    status.days_until_expiry.unwrap_or(0)
-                );
+                println!("Expires: {} days", status.days_until_expiry.unwrap_or(0));
                 println!(
                     "Valid: {}",
                     if status.is_valid.unwrap_or(false) {

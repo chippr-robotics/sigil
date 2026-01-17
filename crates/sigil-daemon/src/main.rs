@@ -48,7 +48,9 @@ async fn main() -> anyhow::Result<()> {
     config.ensure_directories()?;
 
     // Initialize components
-    let agent_store = Arc::new(RwLock::new(AgentStore::new(config.agent_store_path.clone())?));
+    let agent_store = Arc::new(RwLock::new(AgentStore::new(
+        config.agent_store_path.clone(),
+    )?));
 
     let disk_watcher = Arc::new(DiskWatcher::new(config.disk_mount_pattern.clone()));
 

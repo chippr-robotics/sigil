@@ -3,12 +3,13 @@
 //! Manages persistent storage for the mother device's master shard
 //! and child registry.
 
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::error::{MotherError, Result};
 use crate::registry::ChildRegistry;
+use sigil_core::types::{hex_bytes_32, hex_bytes_33};
 
 /// Mother device storage
 pub struct MotherStorage {
@@ -20,10 +21,12 @@ pub struct MotherStorage {
 #[derive(Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct MasterShardData {
     /// The cold master shard (32 bytes)
+    #[serde(with = "hex_bytes_32")]
     #[zeroize(skip)]
     pub cold_master_shard: [u8; 32],
 
     /// Master public key (for verification)
+    #[serde(with = "hex_bytes_33")]
     pub master_pubkey: [u8; 33],
 
     /// Creation timestamp

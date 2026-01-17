@@ -92,8 +92,11 @@ impl CreateChildCeremony {
         let child_id = child_pubkey.to_child_id();
 
         // 6. Generate presignatures
-        let presig_pairs =
-            PresigGenerator::generate_batch(&cold_child_shard, &agent_child_shard, presig_count as usize)?;
+        let presig_pairs = PresigGenerator::generate_batch(
+            &cold_child_shard,
+            &agent_child_shard,
+            presig_count as usize,
+        )?;
 
         // 7. Split into cold and agent shares
         let cold_shares: Vec<PresigColdShare> =
@@ -314,8 +317,11 @@ impl RefillCeremony {
         };
 
         // 4. Generate new presignatures
-        let presig_pairs =
-            PresigGenerator::generate_batch(&cold_child_shard, &agent_child_shard, presig_count as usize)?;
+        let presig_pairs = PresigGenerator::generate_batch(
+            &cold_child_shard,
+            &agent_child_shard,
+            presig_count as usize,
+        )?;
 
         // 5. Split into cold and agent shares
         let cold_shares: Vec<PresigColdShare> =

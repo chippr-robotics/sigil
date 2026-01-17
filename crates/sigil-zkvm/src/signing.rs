@@ -8,12 +8,12 @@ use k256::{
     elliptic_curve::{
         ops::Reduce,
         sec1::{FromEncodedPoint, ToEncodedPoint},
-        Field, PrimeField,
+        PrimeField,
     },
     AffinePoint, EncodedPoint, ProjectivePoint, Scalar, U256,
 };
 
-use crate::types::{PresigShareInput, SigningInput, SigningOutput};
+use crate::types::{SigningInput, SigningOutput};
 
 /// Complete an ECDSA signature from presignature shares
 ///
@@ -92,8 +92,7 @@ pub fn verify_signature(
     message_hash: &[u8; 32],
     signature: &[u8; 64],
 ) -> Result<(), &'static str> {
-    let verifying_key =
-        VerifyingKey::from_sec1_bytes(pubkey).map_err(|_| "Invalid public key")?;
+    let verifying_key = VerifyingKey::from_sec1_bytes(pubkey).map_err(|_| "Invalid public key")?;
 
     let sig = Signature::from_slice(signature).map_err(|_| "Invalid signature format")?;
 
@@ -125,22 +124,46 @@ fn decode_scalar(bytes: &[u8; 32]) -> Result<Scalar, &'static str> {
 
 /// Normalize s to low-S form per BIP-62
 fn normalize_s(s: Scalar) -> Scalar {
-    // secp256k1 order / 2
-    let half_order = Scalar::from_repr(
-        [
-            0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46,
-            0x68, 0x1B, 0x20, 0xA0,
-        ]
-        .into(),
-    )
-    .unwrap();
+    // secp256k1 order / 2 (big-endian)
+    const HALF_ORDER: [u8; 32] = [
+        0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B,
+        0x20, 0xA0,
+    ];
 
-    if s.ct_gt(&half_order).into() {
+    let s_generic = s.to_bytes();
+    let s_bytes: [u8; 32] = s_generic.as_slice().try_into().expect("scalar is 32 bytes");
+
+    // Compare s > half_order using constant-time byte comparison
+    // Note: to_bytes returns big-endian representation
+    let is_high = scalar_gt_bytes(&s_bytes, &HALF_ORDER);
+
+    if is_high {
         -s
     } else {
         s
     }
+}
+
+/// Constant-time comparison: returns true if a > b (big-endian byte arrays)
+fn scalar_gt_bytes(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    let mut gt = false;
+    let mut eq = true;
+
+    for i in 0..32 {
+        // If we're still equal, check this byte
+        if eq {
+            if a[i] > b[i] {
+                gt = true;
+                eq = false;
+            } else if a[i] < b[i] {
+                gt = false;
+                eq = false;
+            }
+        }
+    }
+
+    gt
 }
 
 #[cfg(test)]
@@ -165,17 +188,17 @@ mod tests {
         .unwrap();
 
         let normalized = normalize_s(high_s);
-        // After normalization, s should be in low-S form
-        let half_order = Scalar::from_repr(
-            [
-                0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                0xFF, 0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46,
-                0x68, 0x1B, 0x20, 0xA0,
-            ]
-            .into(),
-        )
-        .unwrap();
 
-        assert!(bool::from(normalized.ct_le(&half_order)));
+        // After normalization, s should be in low-S form (s <= half_order)
+        const HALF_ORDER: [u8; 32] = [
+            0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46,
+            0x68, 0x1B, 0x20, 0xA0,
+        ];
+
+        let normalized_generic = normalized.to_bytes();
+        let normalized_bytes: [u8; 32] = normalized_generic.as_slice().try_into().unwrap();
+        // normalized <= half_order means NOT (normalized > half_order)
+        assert!(!scalar_gt_bytes(&normalized_bytes, &HALF_ORDER));
     }
 }

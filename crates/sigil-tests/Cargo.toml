@@ -1,0 +1,20 @@
+[package]
+name = "sigil-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+description = "Integration and E2E tests for Sigil"
+
+[dependencies]
+sigil-core = { workspace = true }
+sigil-mother = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[[test]]
+name = "e2e_workflow_test"
+path = "tests/e2e_workflow_test.rs"

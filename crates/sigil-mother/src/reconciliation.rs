@@ -2,11 +2,7 @@
 //!
 //! Helpers for analyzing and validating disk state during reconciliation.
 
-use sigil_core::{
-    disk::DiskFormat,
-    presig::PresigStatus,
-    usage::UsageLog,
-};
+use sigil_core::{disk::DiskFormat, presig::PresigStatus, usage::UsageLog};
 
 /// Anomaly types that can be detected during reconciliation
 #[derive(Debug, Clone)]
@@ -24,7 +20,10 @@ pub enum Anomaly {
     TimestampAnomaly { index1: u32, index2: u32 },
 
     /// Count mismatch
-    CountMismatch { header_count: u32, actual_count: u32 },
+    CountMismatch {
+        header_count: u32,
+        actual_count: u32,
+    },
 
     /// Invalid signature in log
     InvalidSignature { presig_index: u32 },
@@ -93,13 +92,19 @@ pub fn analyze_disk(disk: &DiskFormat) -> ReconciliationAnalysis {
 
             match presig.status {
                 PresigStatus::Used if !has_log => {
-                    anomalies.push(Anomaly::MissingLogEntry { presig_index: index });
+                    anomalies.push(Anomaly::MissingLogEntry {
+                        presig_index: index,
+                    });
                 }
                 PresigStatus::Fresh | PresigStatus::Voided if has_log => {
-                    anomalies.push(Anomaly::OrphanLogEntry { presig_index: index });
+                    anomalies.push(Anomaly::OrphanLogEntry {
+                        presig_index: index,
+                    });
                 }
                 PresigStatus::Voided if has_log => {
-                    anomalies.push(Anomaly::VoidedWithLog { presig_index: index });
+                    anomalies.push(Anomaly::VoidedWithLog {
+                        presig_index: index,
+                    });
                 }
                 _ => {}
             }
@@ -163,7 +168,10 @@ pub fn generate_report(analysis: &ReconciliationAnalysis) -> String {
     if analysis.passed {
         report.push_str("\n✓ All checks passed\n");
     } else {
-        report.push_str(&format!("\n✗ {} anomalies detected:\n", analysis.anomalies.len()));
+        report.push_str(&format!(
+            "\n✗ {} anomalies detected:\n",
+            analysis.anomalies.len()
+        ));
         for (i, anomaly) in analysis.anomalies.iter().enumerate() {
             report.push_str(&format!("  {}. {:?}\n", i + 1, anomaly));
         }
@@ -176,10 +184,7 @@ pub fn generate_report(analysis: &ReconciliationAnalysis) -> String {
 mod tests {
     use super::*;
     use sigil_core::{
-        disk::DiskHeader,
-        crypto::DerivationPath,
-        presig::PresigColdShare,
-        ChildId, PublicKey,
+        crypto::DerivationPath, disk::DiskHeader, presig::PresigColdShare, ChildId, PublicKey,
     };
 
     fn create_test_disk(presig_count: u32, used_count: u32) -> DiskFormat {
@@ -224,6 +229,9 @@ mod tests {
         let analysis = analyze_disk(&disk);
 
         assert!(!analysis.passed);
-        assert!(analysis.anomalies.iter().any(|a| matches!(a, Anomaly::CountMismatch { .. })));
+        assert!(analysis
+            .anomalies
+            .iter()
+            .any(|a| matches!(a, Anomaly::CountMismatch { .. })));
     }
 }

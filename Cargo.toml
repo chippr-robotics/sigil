@@ -6,6 +6,7 @@ members = [
     "crates/sigil-daemon",
     "crates/sigil-cli",
     "crates/sigil-mother",
+    "crates/sigil-tests",
 ]
 
 [workspace.package]
@@ -24,7 +25,7 @@ sigil-cli = { path = "crates/sigil-cli" }
 sigil-mother = { path = "crates/sigil-mother" }
 
 # Cryptography
-k256 = { version = "0.13", features = ["ecdsa", "arithmetic", "sha256"] }
+k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
 sha2 = "0.10"
 rand = "0.8"
 rand_chacha = "0.3"
@@ -68,24 +69,9 @@ sp1-zkvm = "4.1"
 lto = true
 codegen-units = 1
 
-# Test profile with debug info
-[profile.test]
-debug = true
-
 # Development dependencies shared across workspace
 [workspace.dependencies.tempfile]
 version = "3.10"
 
 [workspace.dependencies.proptest]
 version = "1.4"
-
-# E2E tests configuration
-[[test]]
-name = "e2e_workflow_test"
-path = "tests/e2e_workflow_test.rs"
-
-# Development dependencies for workspace-level tests
-[dev-dependencies]
-sigil-core = { path = "crates/sigil-core" }
-sigil-mother = { path = "crates/sigil-mother" }
-

@@ -298,16 +298,28 @@ mod tests {
 
         // Add entries in order
         log.push(UsageLogEntry::new(
-            0, 1000, MessageHash::new([0u8; 32]), Signature::new([0u8; 64]),
-            ChainId::ETHEREUM, TxHash::new([0u8; 32]), ZkProofHash::new([0u8; 32]),
+            0,
+            1000,
+            MessageHash::new([0u8; 32]),
+            Signature::new([0u8; 64]),
+            ChainId::ETHEREUM,
+            TxHash::new([0u8; 32]),
+            ZkProofHash::new([0u8; 32]),
             "First".to_string(),
-        )).unwrap();
+        ))
+        .unwrap();
 
         log.push(UsageLogEntry::new(
-            1, 2000, MessageHash::new([0u8; 32]), Signature::new([0u8; 64]),
-            ChainId::ETHEREUM, TxHash::new([0u8; 32]), ZkProofHash::new([0u8; 32]),
+            1,
+            2000,
+            MessageHash::new([0u8; 32]),
+            Signature::new([0u8; 64]),
+            ChainId::ETHEREUM,
+            TxHash::new([0u8; 32]),
+            ZkProofHash::new([0u8; 32]),
             "Second".to_string(),
-        )).unwrap();
+        ))
+        .unwrap();
 
         assert!(log.validate().is_ok());
     }

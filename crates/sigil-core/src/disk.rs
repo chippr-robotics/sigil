@@ -332,7 +332,9 @@ impl DiskFormat {
     /// Deserialize from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < PRESIG_TABLE_OFFSET {
-            return Err(Error::Deserialization("Disk too small for header".to_string()));
+            return Err(Error::Deserialization(
+                "Disk too small for header".to_string(),
+            ));
         }
 
         // Parse header

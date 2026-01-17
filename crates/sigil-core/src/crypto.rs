@@ -3,18 +3,20 @@
 use k256::{
     ecdsa::{signature::Verifier, Signature as K256Signature, VerifyingKey},
     elliptic_curve::sec1::ToEncodedPoint,
-    AffinePoint, ProjectivePoint, Scalar,
+    AffinePoint, ProjectivePoint,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
+
+use crate::types::hex_bytes_33;
 
 use crate::error::{Error, Result};
 use crate::types::{ChildId, MessageHash, Signature};
 
 /// Compressed public key (33 bytes)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PublicKey(pub [u8; 33]);
+pub struct PublicKey(#[serde(with = "hex_bytes_33")] pub [u8; 33]);
 
 impl PublicKey {
     /// Create a new PublicKey from compressed bytes
@@ -74,6 +76,12 @@ impl AsRef<[u8]> for PublicKey {
     }
 }
 
+impl Zeroize for PublicKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
 /// HD derivation path (serialized as 32 bytes)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DerivationPath {
@@ -107,10 +115,10 @@ impl DerivationPath {
     pub fn ethereum(child_index: u32) -> Self {
         Self {
             components: [
-                44 | Self::HARDENED,    // purpose
-                60 | Self::HARDENED,    // coin type (ETH)
-                0 | Self::HARDENED,     // account
-                child_index,            // child index (not hardened for derivation)
+                44 | Self::HARDENED, // purpose
+                60 | Self::HARDENED, // coin type (ETH)
+                0 | Self::HARDENED,  // account
+                child_index,         // child index (not hardened for derivation)
                 0,
             ],
             depth: 4,
@@ -176,6 +184,13 @@ impl DerivationPath {
     }
 }
 
+impl Zeroize for DerivationPath {
+    fn zeroize(&mut self) {
+        self.components.zeroize();
+        self.depth.zeroize();
+    }
+}
+
 /// Child key pair (cold shard + public key)
 /// Note: The full key is split between cold and agent shards
 #[derive(Debug, Clone, Zeroize, ZeroizeOnDrop)]
@@ -191,7 +206,11 @@ pub struct ChildKeyPair {
 
 impl ChildKeyPair {
     /// Create a new child key pair
-    pub fn new(cold_shard: [u8; 32], public_key: PublicKey, derivation_path: DerivationPath) -> Self {
+    pub fn new(
+        cold_shard: [u8; 32],
+        public_key: PublicKey,
+        derivation_path: DerivationPath,
+    ) -> Self {
         Self {
             cold_shard,
             public_key,
@@ -213,9 +232,10 @@ pub fn point_add(pk1: &PublicKey, pk2: &PublicKey) -> Result<PublicKey> {
     let sum = ProjectivePoint::from(point1) + ProjectivePoint::from(point2);
     let affine = sum.to_affine();
     let encoded = affine.to_encoded_point(true);
-    let bytes: [u8; 33] = encoded.as_bytes().try_into().map_err(|_| {
-        Error::Crypto("Failed to encode combined public key".to_string())
-    })?;
+    let bytes: [u8; 33] = encoded
+        .as_bytes()
+        .try_into()
+        .map_err(|_| Error::Crypto("Failed to encode combined public key".to_string()))?;
 
     Ok(PublicKey::new(bytes))
 }
@@ -256,7 +276,12 @@ mod tests {
 
     #[test]
     fn test_child_id_short() {
-        let id = ChildId::new([0x7a, 0x3f, 0xbc, 0x12, 0; 28].try_into().unwrap_or([0; 32]));
+        let mut bytes = [0u8; 32];
+        bytes[0] = 0x7a;
+        bytes[1] = 0x3f;
+        bytes[2] = 0xbc;
+        bytes[3] = 0x12;
+        let id = ChildId::new(bytes);
         // The short form should be the first 4 bytes
         assert!(id.short().starts_with("7a3f"));
     }

@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::client::{ClientError, DiskStatus, SignResult, SigilClient};
+use crate::client::{ClientError, DiskStatus, SigilClient, SignResult};
 
 /// Tool: sign_blockchain_transaction
 ///
@@ -125,9 +125,7 @@ pub struct EstimateTransactionResult {
 }
 
 /// Execute the sign transaction tool
-pub async fn execute_sign_transaction(
-    tool: SignTransactionTool,
-) -> SignTransactionResult {
+pub async fn execute_sign_transaction(tool: SignTransactionTool) -> SignTransactionResult {
     let client = SigilClient::new();
 
     // First check disk status
@@ -141,7 +139,9 @@ pub async fn execute_sign_transaction(
                 s: None,
                 presig_index: None,
                 proof_hash: None,
-                error: Some("No signing disk detected. Please insert your Sigil floppy disk.".to_string()),
+                error: Some(
+                    "No signing disk detected. Please insert your Sigil floppy disk.".to_string(),
+                ),
             };
         }
         Ok(status) if !status.is_valid.unwrap_or(false) => {
@@ -153,7 +153,10 @@ pub async fn execute_sign_transaction(
                 s: None,
                 presig_index: None,
                 proof_hash: None,
-                error: Some("Signing disk is not valid. It may be expired or require reconciliation.".to_string()),
+                error: Some(
+                    "Signing disk is not valid. It may be expired or require reconciliation."
+                        .to_string(),
+                ),
             };
         }
         Err(ClientError::DaemonNotRunning) => {
@@ -184,15 +187,15 @@ pub async fn execute_sign_transaction(
     }
 
     // Perform signing
-    match client.sign(&tool.transaction_hash, tool.chain_id, &tool.description).await {
+    match client
+        .sign(&tool.transaction_hash, tool.chain_id, &tool.description)
+        .await
+    {
         Ok(result) => {
             // Parse signature into r, s components
             let sig_bytes = hex::decode(&result.signature).unwrap_or_default();
             let (r, s) = if sig_bytes.len() == 64 {
-                (
-                    hex::encode(&sig_bytes[..32]),
-                    hex::encode(&sig_bytes[32..]),
-                )
+                (hex::encode(&sig_bytes[..32]), hex::encode(&sig_bytes[32..]))
             } else {
                 (String::new(), String::new())
             };
@@ -288,7 +291,10 @@ pub fn format_disk_status_for_display(status: &CheckDiskResult) -> String {
     }
 
     let mut output = String::new();
-    output.push_str(&format!("✓ Disk detected (sigil_{})\n", status.disk_id.as_deref().unwrap_or("?")));
+    output.push_str(&format!(
+        "✓ Disk detected (sigil_{})\n",
+        status.disk_id.as_deref().unwrap_or("?")
+    ));
     output.push_str(&format!(
         "├─ Presigs: {}/{} remaining\n",
         status.presigs_remaining.unwrap_or(0),
@@ -305,7 +311,10 @@ pub fn format_disk_status_for_display(status: &CheckDiskResult) -> String {
 /// Format signing result for Claude to display to user
 pub fn format_signing_result_for_display(result: &SignTransactionResult) -> String {
     if !result.success {
-        return format!("❌ Signing failed: {}", result.error.as_deref().unwrap_or("Unknown error"));
+        return format!(
+            "❌ Signing failed: {}",
+            result.error.as_deref().unwrap_or("Unknown error")
+        );
     }
 
     let mut output = String::new();
