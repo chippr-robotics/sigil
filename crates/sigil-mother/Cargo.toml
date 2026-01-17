@@ -45,5 +45,14 @@ anyhow = { workspace = true }
 # Time
 chrono = { workspace = true }
 
+# Ledger hardware wallet (optional)
+ledger-transport = { workspace = true, optional = true }
+ledger-transport-hid = { workspace = true, optional = true }
+ledger-apdu = { workspace = true, optional = true }
+
 [dev-dependencies]
 tempfile = { workspace = true }
+
+[features]
+default = []
+ledger = ["ledger-transport", "ledger-transport-hid", "ledger-apdu"]

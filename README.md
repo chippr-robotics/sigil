@@ -63,9 +63,17 @@ sigil/
 
 ## Installation
 
+### Quick Install (One-liner)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash
+```
+
+This automatically installs Rust (if needed), builds sigil, and configures your system.
+
 ### Prerequisites
 
-- Rust 1.75+
+- Rust 1.75+ (auto-installed by script)
 - Linux (for udev disk detection)
 - SP1 zkVM SDK (for proof generation)
 
@@ -75,6 +83,18 @@ sigil/
 cargo build --release
 ```
 
+### Build with Ledger Support
+
+To enable Ledger hardware wallet support for secure key generation on the mother device:
+
+```bash
+# Install system dependencies (Linux)
+sudo apt-get install libudev-dev
+
+# Build with Ledger feature
+cargo build --release --features "sigil-mother/ledger"
+```
+
 ### Install (Linux)
 
 ```bash
@@ -82,6 +102,7 @@ sudo ./scripts/install.sh
 ```
 
 This will:
+- Install system dependencies (libudev, openssl)
 - Create the `sigil` group
 - Install udev rules for disk detection
 - Install the systemd service
@@ -110,6 +131,77 @@ Refill a disk after reconciliation:
 ```bash
 sigil-mother refill --disk disk.img --presig-count 1000 --agent-output new_agent_shares.json
 ```
+
+### Ledger Hardware Wallet Integration
+
+Sigil supports Ledger Nano S/X for secure master key generation. This provides hardware-backed entropy and keeps the seed derivation in the Ledger's secure element.
+
+#### Prerequisites
+
+1. Ledger Nano S or Nano X
+2. Ledger firmware up to date
+3. Ethereum app installed and open on the Ledger
+4. Build with `--features ledger` enabled
+
+#### Setup (Linux)
+
+Add udev rules for Ledger device access:
+```bash
+# Create udev rules file
+sudo tee /etc/udev/rules.d/20-ledger.rules << 'EOF'
+# Ledger Nano S
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0001", MODE="0660", GROUP="plugdev"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="1011", MODE="0660", GROUP="plugdev"
+# Ledger Nano X
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="0004", MODE="0660", GROUP="plugdev"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2c97", ATTRS{idProduct}=="4011", MODE="0660", GROUP="plugdev"
+EOF
+
+# Reload rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+# Add yourself to plugdev group
+sudo usermod -aG plugdev $USER
+```
+
+#### Check Ledger Status
+
+```bash
+sigil-mother ledger-status
+```
+
+Expected output:
+```
+=== Ledger Device Status ===
+
+Ledger device connected
+Model: Ledger Nano
+Ethereum app is open
+Address: 0x742d35Cc6634C0532925a3b844Bc454e...
+```
+
+#### Initialize with Ledger
+
+```bash
+sigil-mother init --ledger
+```
+
+This will:
+1. Connect to your Ledger device
+2. Request a signature on a derivation message (confirm on device)
+3. Derive the cold master shard from the Ledger signature
+4. Generate an agent shard using software RNG
+5. Display both the master public key and the agent shard
+
+The Ledger's private key never leaves the secure element. The signature is used as a deterministic seed for the cold shard.
+
+#### Recovery
+
+If you need to recover the cold shard:
+1. Same Ledger device with same seed phrase
+2. Same derivation message (displayed during init, save it!)
+3. Re-sign the message to regenerate the identical cold shard
 
 ### Agent Side
 
