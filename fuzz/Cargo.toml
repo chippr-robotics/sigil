@@ -1,0 +1,48 @@
+[package]
+name = "sigil-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+sigil-core = { path = "../crates/sigil-core" }
+
+[[bin]]
+name = "fuzz_disk_header"
+path = "fuzz_targets/fuzz_disk_header.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_presig"
+path = "fuzz_targets/fuzz_presig.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_usage_log"
+path = "fuzz_targets/fuzz_usage_log.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_disk_format"
+path = "fuzz_targets/fuzz_disk_format.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_derivation_path"
+path = "fuzz_targets/fuzz_derivation_path.rs"
+test = false
+doc = false
+bench = false
