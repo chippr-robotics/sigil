@@ -74,6 +74,14 @@ pub enum FrostError {
     /// Internal error
     #[error("Internal FROST error: {0}")]
     Internal(String),
+
+    /// Invalid parameters
+    #[error("Invalid parameters: {0}")]
+    InvalidParameters(String),
+
+    /// Invalid state
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
 }
 
 impl From<bitcode::Error> for FrostError {

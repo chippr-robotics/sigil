@@ -34,6 +34,11 @@ thiserror = { workspace = true }
 # Logging
 tracing = { workspace = true }
 
+# QR code support for DKG ceremony (optional)
+qrcode = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 proptest = { workspace = true }
@@ -43,3 +48,5 @@ default = ["taproot", "ed25519", "ristretto255"]
 taproot = ["frost-secp256k1-tr"]
 ed25519 = ["frost-ed25519"]
 ristretto255 = ["frost-ristretto255"]
+dkg = ["qrcode", "image", "base64"]
+full = ["taproot", "ed25519", "ristretto255", "dkg"]

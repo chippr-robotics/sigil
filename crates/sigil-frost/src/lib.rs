@@ -47,6 +47,9 @@ pub mod ed25519;
 #[cfg(feature = "ristretto255")]
 pub mod ristretto255;
 
+pub mod dkg;
+
+pub use dkg::{DkgCeremony, DkgConfig, DkgKeyPackage, DkgOutput, DkgRound1Package, DkgRound2Package};
 pub use error::{FrostError, Result};
 pub use presig::{FrostNonce, FrostPresig, FrostPresigBatch};
 pub use traits::{FrostCipherSuite, FrostKeyGen, FrostSigner};
@@ -123,6 +126,16 @@ pub struct KeyShare {
     pub data: Vec<u8>,
     /// Participant identifier
     pub identifier: u16,
+}
+
+impl std::fmt::Debug for KeyShare {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyShare")
+            .field("scheme", &self.scheme)
+            .field("data", &"[REDACTED]")
+            .field("identifier", &self.identifier)
+            .finish()
+    }
 }
 
 impl zeroize::Zeroize for KeyShare {

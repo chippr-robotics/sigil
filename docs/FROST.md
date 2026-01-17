@@ -471,8 +471,237 @@ Key traits:
 - `FrostSigner`: Signing operations
 - `FrostCipherSuite`: Scheme-specific parameters
 
+## Distributed Key Generation (DKG)
+
+Sigil supports two key generation modes:
+
+| Mode | Trust Model | Setup Complexity | Use Case |
+|------|-------------|------------------|----------|
+| **Trusted Dealer** | Mother sees full key during generation | Simple (one device) | Quick setup, air-gapped mother |
+| **DKG** | Neither party sees full key | Interactive (QR codes) | Maximum security |
+
+### DKG Overview
+
+FROST DKG is a 2-round protocol based on Pedersen's DKG:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        FROST DKG Ceremony                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ROUND 1: Commitment Generation                                │
+│                                                                 │
+│   Mother Device                      Agent Device               │
+│   ┌─────────────┐                    ┌─────────────┐           │
+│   │ Generate    │                    │ Generate    │           │
+│   │ secret poly │                    │ secret poly │           │
+│   │ f₁(x)       │                    │ f₂(x)       │           │
+│   │             │                    │             │           │
+│   │ Commitments │                    │ Commitments │           │
+│   │ C₁ = [a₁₀]  │                    │ C₂ = [a₂₀]  │           │
+│   └──────┬──────┘                    └──────┬──────┘           │
+│          │                                  │                   │
+│          │◄────── Exchange via QR ─────────►│                   │
+│                                                                 │
+│   ROUND 2: Share Distribution                                   │
+│                                                                 │
+│   Mother Device                      Agent Device               │
+│   ┌─────────────┐                    ┌─────────────┐           │
+│   │ Compute     │                    │ Compute     │           │
+│   │ f₁(2) share │─── QR ───────────► │ Verify      │           │
+│   │ for Agent   │                    │ against C₁  │           │
+│   │             │                    │             │           │
+│   │ Verify      │ ◄─────── QR ───────│ f₂(1) share │           │
+│   │ against C₂  │                    │ for Mother  │           │
+│   └─────────────┘                    └─────────────┘           │
+│                                                                 │
+│   FINALIZATION: Both compute same group public key              │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### DKG Ceremony Guide
+
+#### Prerequisites
+
+- **Mother Device**: Air-gapped, has camera + display
+- **Agent Device**: Network-connected, has camera + display
+- **Communication**: QR codes (offline-safe, auditable)
+
+#### Step 1: Initialize Ceremonies
+
+**On Mother Device:**
+```bash
+sigil ceremony dkg-init --role mother --scheme taproot
+
+# Output:
+# Participant ID: 1 (Mother)
+# Scheme: Taproot (secp256k1)
+# Threshold: 2-of-2
+#
+# [QR Code: Round 1 Package]
+#
+# Scan Agent's Round 1 QR to continue...
+```
+
+**On Agent Device:**
+```bash
+sigil ceremony dkg-init --role agent --scheme taproot
+
+# Output:
+# Participant ID: 2 (Agent)
+# Scheme: Taproot (secp256k1)
+# Threshold: 2-of-2
+#
+# [QR Code: Round 1 Package]
+#
+# Scan Mother's Round 1 QR to continue...
+```
+
+#### Step 2: Exchange Round 1
+
+1. Mother displays QR → Agent scans
+2. Agent displays QR → Mother scans
+
+Both devices verify the other's commitments.
+
+#### Step 3: Exchange Round 2
+
+After scanning Round 1, both devices generate Round 2 packages:
+
+1. Mother displays Round 2 QR → Agent scans
+2. Agent displays Round 2 QR → Mother scans
+
+Each device verifies the received share against the Round 1 commitments.
+
+#### Step 4: Finalize
+
+Both devices compute their final key shares and the group public key:
+
+```
+═══════════════════════════════════════════════════════════════
+                    DKG CEREMONY RESULTS
+═══════════════════════════════════════════════════════════════
+
+Group Public Key: 02a4b3c2d1e0f9...  (33 bytes, compressed)
+
+Your Key Share:   [HIDDEN - stored securely]
+  - Share index:  1
+  - Threshold:    2-of-2
+
+Verification Hash (both devices should match):
+  SHA256(GroupPubKey): 7f3a9c2b...
+
+═══════════════════════════════════════════════════════════════
+
+IMPORTANT: Neither device has ever seen the full private key.
+           The key only exists as the sum of both shares.
+```
+
+### Programmatic DKG
+
+```rust
+use sigil_frost::dkg::{DkgCeremony, DkgConfig};
+use sigil_frost::dkg::taproot::TaprootDkg;
+use sigil_frost::SignatureScheme;
+
+// Mother device
+let config1 = DkgConfig::mother_2of2(SignatureScheme::Taproot);
+let mut ceremony1: DkgCeremony<TaprootDkg> = DkgCeremony::new(config1)?;
+
+// Agent device
+let config2 = DkgConfig::agent_2of2(SignatureScheme::Taproot);
+let mut ceremony2: DkgCeremony<TaprootDkg> = DkgCeremony::new(config2)?;
+
+// Round 1: Generate and exchange
+let r1_mother = ceremony1.generate_round1()?;
+let r1_agent = ceremony2.generate_round1()?;
+
+ceremony1.add_round1(r1_agent)?;
+ceremony2.add_round1(r1_mother)?;
+
+// Round 2: Generate and exchange
+let r2_mother = ceremony1.generate_round2()?;
+let r2_agent = ceremony2.generate_round2()?;
+
+// Add packages (in 2-of-2, each generates one package for the other)
+for pkg in r2_agent {
+    ceremony1.add_round2(pkg)?;
+}
+for pkg in r2_mother {
+    ceremony2.add_round2(pkg)?;
+}
+
+// Finalize
+let output1 = ceremony1.finalize()?;
+let output2 = ceremony2.finalize()?;
+
+// Both have the same group public key
+assert_eq!(output1.verifying_key.data, output2.verifying_key.data);
+assert_eq!(output1.verification_hash, output2.verification_hash);
+
+// But different key shares
+println!("Mother key share ID: {}", output1.key_share.identifier);  // 1
+println!("Agent key share ID: {}", output2.key_share.identifier);   // 2
+```
+
+### QR Code API
+
+For air-gapped communication, use the QR encoding/decoding API:
+
+```rust
+use sigil_frost::dkg::{DkgQrEncoder, DkgQrDecoder};
+
+// Encoding (display on screen)
+let qr_package = DkgQrEncoder::encode_round1(&round1_package)?;
+
+// For terminal display
+let ascii_qr = DkgQrEncoder::to_ascii(qr_package.single().unwrap())?;
+println!("{}", ascii_qr);
+
+// Or generate PNG for display
+let png_bytes = DkgQrEncoder::to_png(qr_package.single().unwrap(), 400)?;
+
+// Decoding (from camera scan)
+let mut decoder = DkgQrDecoder::new();
+let complete = decoder.add_chunk(&scanned_data)?;
+if complete {
+    let package = decoder.decode_round1()?;
+}
+```
+
+### DKG vs Trusted Dealer
+
+| Aspect | Trusted Dealer | DKG |
+|--------|---------------|-----|
+| Setup complexity | Single device | 2 devices, 4 QR scans |
+| Air-gap friendly | Excellent | Good (QR-based) |
+| Trust assumption | Mother is honest | Neither trusted |
+| Key exposure risk | Mother saw full key | Never combined |
+| Ceremony time | ~30 seconds | ~5 minutes |
+| Audit proof | Trust mother's logs | Cryptographic transcript |
+| Recovery | Mother can regenerate | Requires both parties |
+
+### When to Use DKG
+
+Use DKG when:
+- Maximum security is required
+- Regulatory compliance demands proof that no single party held the full key
+- Multiple independent organizations are participating
+- Audit trail of key generation is important
+
+Use Trusted Dealer when:
+- Quick setup is needed
+- Mother device is already trusted
+- Simplicity is preferred
+- Recovery flexibility is important
+
 ## Changelog
 
+- **v0.2.0** (2026-01-17): Added DKG support
+  - FROST DKG for 2-of-2 ceremonies
+  - QR code encoding/decoding for air-gapped communication
+  - Support for all three cipher suites (Taproot, Ed25519, Ristretto255)
 - **v0.1.0** (2026-01-17): Initial FROST implementation
   - Taproot (BIP-340) support
   - Ed25519 (Solana/Cosmos) support

@@ -74,6 +74,11 @@ anyhow = "1.0"
 # Time
 chrono = { version = "0.4", features = ["serde"] }
 
+# QR code support for air-gapped communication
+qrcode = "0.14"
+image = { version = "0.25", default-features = false, features = ["png"] }
+base64 = "0.22"
+
 # SP1 zkVM
 sp1-sdk = "4.1"
 sp1-zkvm = "4.1"
