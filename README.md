@@ -63,9 +63,17 @@ sigil/
 
 ## Installation
 
+### Quick Install (One-liner)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash
+```
+
+This automatically installs Rust (if needed), builds sigil, and configures your system.
+
 ### Prerequisites
 
-- Rust 1.75+
+- Rust 1.75+ (auto-installed by script)
 - Linux (for udev disk detection)
 - SP1 zkVM SDK (for proof generation)
 
@@ -94,6 +102,7 @@ sudo ./scripts/install.sh
 ```
 
 This will:
+- Install system dependencies (libudev, openssl)
 - Create the `sigil` group
 - Install udev rules for disk detection
 - Install the systemd service
