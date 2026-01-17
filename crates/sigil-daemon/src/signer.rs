@@ -8,7 +8,6 @@ use sigil_core::{
     presig::PresigAgentShare,
     types::{ChainId, MessageHash, Signature, TxHash, ZkProofHash},
     usage::UsageLogEntry,
-    DiskFormat,
 };
 
 use crate::agent_store::AgentStore;
@@ -172,7 +171,7 @@ impl Signer {
         };
 
         // Decode R point
-        let r_encoded = k256::EncodedPoint::from_bytes(&cold_share.r_point)
+        let r_encoded = k256::EncodedPoint::from_bytes(cold_share.r_point)
             .map_err(|e| DaemonError::SigningFailed(format!("Invalid R point: {}", e)))?;
 
         let r_affine = AffinePoint::from_encoded_point(&r_encoded);
@@ -189,7 +188,7 @@ impl Signer {
             DaemonError::SigningFailed("Failed to get R x-coordinate".to_string())
         })?;
 
-        let r = <Scalar as Reduce<U256>>::reduce_bytes(r_x_bytes.into());
+        let r = <Scalar as Reduce<U256>>::reduce_bytes(r_x_bytes);
 
         // Combine nonce shares: k = k_cold + k_agent
         let k_cold = Scalar::from_repr(cold_share.k_cold.into());
@@ -272,7 +271,7 @@ impl Signer {
         message_hash: &MessageHash,
         presig_index: u32,
         cold_share: &sigil_core::presig::PresigColdShare,
-        agent_share: &PresigAgentShare,
+        _agent_share: &PresigAgentShare,
         signature: &Signature,
     ) -> Result<ZkProofHash> {
         // In a full implementation, this would:
@@ -326,10 +325,10 @@ fn normalize_s_low(s: k256::Scalar) -> k256::Scalar {
         0x20, 0xA0,
     ];
 
-    let s_bytes = s.to_bytes();
+    let s_bytes: [u8; 32] = s.to_bytes().into();
 
     // Compare s > half_order using byte comparison
-    let is_high = scalar_gt_bytes(s_bytes.as_slice(), &HALF_ORDER);
+    let is_high = scalar_gt_bytes(&s_bytes, &HALF_ORDER);
 
     if is_high {
         -s

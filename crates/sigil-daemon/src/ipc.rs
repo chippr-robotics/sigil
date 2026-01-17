@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ use sigil_core::types::{ChainId, MessageHash, TxHash};
 use crate::agent_store::AgentStore;
 use crate::disk_watcher::DiskWatcher;
 use crate::error::{DaemonError, Result};
-use crate::signer::{Signer, SigningRequest, SigningResult};
+use crate::signer::{Signer, SigningRequest};
 
 /// IPC request types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -375,9 +375,9 @@ impl IpcClient {
 
     /// Check if daemon is running
     pub async fn ping(&self) -> bool {
-        match self.request(&IpcRequest::Ping).await {
-            Ok(IpcResponse::Pong { .. }) => true,
-            _ => false,
-        }
+        matches!(
+            self.request(&IpcRequest::Ping).await,
+            Ok(IpcResponse::Pong { .. })
+        )
     }
 }
