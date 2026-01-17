@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/sigil-core",
+    "crates/sigil-frost",
     "crates/sigil-zkvm",
     "crates/sigil-daemon",
     "crates/sigil-cli",
@@ -19,6 +20,7 @@ authors = ["Chippr Robotics"]
 [workspace.dependencies]
 # Internal crates
 sigil-core = { path = "crates/sigil-core" }
+sigil-frost = { path = "crates/sigil-frost" }
 sigil-zkvm = { path = "crates/sigil-zkvm" }
 sigil-daemon = { path = "crates/sigil-daemon" }
 sigil-cli = { path = "crates/sigil-cli" }
@@ -26,6 +28,12 @@ sigil-mother = { path = "crates/sigil-mother" }
 
 # Cryptography
 k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
+
+# FROST threshold signatures (Zcash Foundation)
+frost-core = "2.1"
+frost-secp256k1-tr = "2.1"
+frost-ed25519 = "2.1"
+frost-ristretto255 = "2.1"
 sha2 = "0.10"
 rand = "0.8"
 rand_chacha = "0.3"
