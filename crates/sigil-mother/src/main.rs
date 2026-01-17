@@ -163,7 +163,10 @@ async fn main() -> anyhow::Result<()> {
                     println!(
                         "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
                     );
-                    println!("\nDerivation message (keep for recovery): {}", output.derivation_message);
+                    println!(
+                        "\nDerivation message (keep for recovery): {}",
+                        output.derivation_message
+                    );
 
                     info!("Master shard saved to {:?}", cli.data_dir);
                 }
@@ -215,7 +218,9 @@ async fn main() -> anyhow::Result<()> {
                                 }
                             } else {
                                 println!("✗ Ethereum app is NOT open");
-                                println!("\n⚠️  Please open the Ethereum app on your Ledger device");
+                                println!(
+                                    "\n⚠️  Please open the Ethereum app on your Ledger device"
+                                );
                             }
                         }
                         Err(e) => {
