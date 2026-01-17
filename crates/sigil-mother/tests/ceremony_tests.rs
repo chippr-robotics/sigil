@@ -9,9 +9,7 @@ use sigil_core::{
 };
 
 use sigil_mother::{
-    keygen::MasterKeyGenerator,
-    presig_gen::PresigGenerator,
-    reconciliation::analyze_disk,
+    keygen::MasterKeyGenerator, presig_gen::PresigGenerator, reconciliation::analyze_disk,
     registry::ChildRegistry,
 };
 
@@ -155,7 +153,11 @@ fn test_child_registry_count_by_status() {
 
     // Nullify one
     registry
-        .nullify_child(&ChildId::new([3; 32]), NullificationReason::ManualRevocation, 0)
+        .nullify_child(
+            &ChildId::new([3; 32]),
+            NullificationReason::ManualRevocation,
+            0,
+        )
         .unwrap();
 
     let (active, suspended, nullified) = registry.count_by_status();

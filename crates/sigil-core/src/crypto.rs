@@ -117,7 +117,7 @@ impl DerivationPath {
             components: [
                 44 | Self::HARDENED, // purpose
                 60 | Self::HARDENED, // coin type (ETH)
-                Self::HARDENED,     // account
+                Self::HARDENED,      // account
                 child_index,         // child index (not hardened for derivation)
                 0,
             ],
