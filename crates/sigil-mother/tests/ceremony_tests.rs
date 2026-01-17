@@ -4,7 +4,8 @@ use sigil_core::{
     crypto::{DerivationPath, PublicKey},
     disk::{DiskFormat, DiskHeader},
     presig::PresigColdShare,
-    types::ChildId,
+    types::{ChainId, ChildId, MessageHash, Signature, TxHash, ZkProofHash},
+    usage::UsageLogEntry,
     ChildStatus, NullificationReason,
 };
 
@@ -190,6 +191,21 @@ fn test_reconciliation_analysis_clean_disk() {
 
     let mut disk = DiskFormat::new(header, presigs);
     disk.header.presig_used = 10;
+
+    // Add corresponding log entries for the used presigs
+    for i in 0..10u32 {
+        let entry = UsageLogEntry::new(
+            i,
+            1700000000 + (i as u64 * 60),
+            MessageHash::new([i as u8; 32]),
+            Signature::new([i as u8; 64]),
+            ChainId::ETHEREUM,
+            TxHash::new([i as u8; 32]),
+            ZkProofHash::new([i as u8; 32]),
+            format!("Test tx {}", i),
+        );
+        disk.usage_log.push(entry).unwrap();
+    }
 
     let analysis = analyze_disk(&disk);
 
