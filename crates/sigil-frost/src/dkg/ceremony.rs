@@ -245,7 +245,7 @@ pub mod taproot {
                 identifier,
                 self.config.max_signers,
                 self.config.min_signers,
-                &mut OsRng,
+                OsRng,
             )
             .map_err(|e| FrostError::KeyGeneration(e.to_string()))?;
 
@@ -471,7 +471,7 @@ pub mod ed25519 {
                 identifier,
                 self.config.max_signers,
                 self.config.min_signers,
-                &mut OsRng,
+                OsRng,
             )
             .map_err(|e| FrostError::KeyGeneration(e.to_string()))?;
 
@@ -668,7 +668,7 @@ pub mod ristretto255 {
                 identifier,
                 self.config.max_signers,
                 self.config.min_signers,
-                &mut OsRng,
+                OsRng,
             )
             .map_err(|e| FrostError::KeyGeneration(e.to_string()))?;
 
@@ -860,18 +860,32 @@ mod tests {
 
         // In 2-of-2, ceremony1 (participant 1) generates one package for participant 2
         // and ceremony2 (participant 2) generates one package for participant 1
-        assert_eq!(r2_pkgs1.len(), 1, "Ceremony1 should generate 1 Round 2 package");
-        assert_eq!(r2_pkgs2.len(), 1, "Ceremony2 should generate 1 Round 2 package");
+        assert_eq!(
+            r2_pkgs1.len(),
+            1,
+            "Ceremony1 should generate 1 Round 2 package"
+        );
+        assert_eq!(
+            r2_pkgs2.len(),
+            1,
+            "Ceremony2 should generate 1 Round 2 package"
+        );
 
         // Exchange Round 2 - ceremony2's package goes to ceremony1
         // The package from ceremony2 is for ceremony1 (recipient = 1)
         let pkg_for_1 = r2_pkgs2.into_iter().next().unwrap();
-        assert_eq!(pkg_for_1.sender_id, 2, "Package should be from participant 2");
+        assert_eq!(
+            pkg_for_1.sender_id, 2,
+            "Package should be from participant 2"
+        );
         ceremony1.add_round2(pkg_for_1).unwrap();
 
         // The package from ceremony1 is for ceremony2 (recipient = 2)
         let pkg_for_2 = r2_pkgs1.into_iter().next().unwrap();
-        assert_eq!(pkg_for_2.sender_id, 1, "Package should be from participant 1");
+        assert_eq!(
+            pkg_for_2.sender_id, 1,
+            "Package should be from participant 1"
+        );
         ceremony2.add_round2(pkg_for_2).unwrap();
 
         // Finalize

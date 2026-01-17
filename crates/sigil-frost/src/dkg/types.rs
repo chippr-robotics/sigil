@@ -165,11 +165,11 @@ impl DkgRound1Package {
     pub fn binding_hash(&self) -> [u8; 32] {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.update(&[self.version]);
-        hasher.update(&self.sender_id.to_le_bytes());
-        hasher.update(&[self.scheme as u8]);
-        hasher.update(&self.min_signers.to_le_bytes());
-        hasher.update(&self.max_signers.to_le_bytes());
+        hasher.update([self.version]);
+        hasher.update(self.sender_id.to_le_bytes());
+        hasher.update([self.scheme as u8]);
+        hasher.update(self.min_signers.to_le_bytes());
+        hasher.update(self.max_signers.to_le_bytes());
         for commitment in &self.commitments {
             hasher.update(commitment);
         }
@@ -258,7 +258,7 @@ pub fn compute_round1_hash(packages: &[DkgRound1Package]) -> [u8; 32] {
     sorted.sort_by_key(|p| p.sender_id);
 
     for pkg in sorted {
-        hasher.update(&pkg.binding_hash());
+        hasher.update(pkg.binding_hash());
     }
 
     hasher.finalize().into()

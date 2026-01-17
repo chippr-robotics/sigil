@@ -81,7 +81,7 @@ impl DkgQrEncoder {
         // Calculate chunks needed
         // Reserve space for chunk header: "XX/YY:" (max 7 bytes)
         let chunk_data_size = MAX_QR_BYTES - 7;
-        let total_chunks = (encoded.len() + chunk_data_size - 1) / chunk_data_size;
+        let total_chunks = encoded.len().div_ceil(chunk_data_size);
 
         let mut chunks = Vec::with_capacity(total_chunks);
         let mut offset = 0;
@@ -102,10 +102,13 @@ impl DkgQrEncoder {
 
     /// Generate a QR code image as PNG bytes
     pub fn to_png(data: &str, size: u32) -> DkgResult<Vec<u8>> {
-        let code =
-            QrCode::new(data).map_err(|e| FrostError::Serialization(format!("QR encode: {}", e)))?;
+        let code = QrCode::new(data)
+            .map_err(|e| FrostError::Serialization(format!("QR encode: {}", e)))?;
 
-        let image = code.render::<image::Luma<u8>>().min_dimensions(size, size).build();
+        let image = code
+            .render::<image::Luma<u8>>()
+            .min_dimensions(size, size)
+            .build();
 
         let mut png_bytes = Vec::new();
         let mut cursor = std::io::Cursor::new(&mut png_bytes);
@@ -119,8 +122,8 @@ impl DkgQrEncoder {
 
     /// Generate QR code as ASCII art (for terminal display)
     pub fn to_ascii(data: &str) -> DkgResult<String> {
-        let code =
-            QrCode::new(data).map_err(|e| FrostError::Serialization(format!("QR encode: {}", e)))?;
+        let code = QrCode::new(data)
+            .map_err(|e| FrostError::Serialization(format!("QR encode: {}", e)))?;
 
         let string = code
             .render::<char>()
@@ -133,8 +136,8 @@ impl DkgQrEncoder {
 
     /// Generate QR code using Unicode block characters (more compact)
     pub fn to_unicode(data: &str) -> DkgResult<String> {
-        let code =
-            QrCode::new(data).map_err(|e| FrostError::Serialization(format!("QR encode: {}", e)))?;
+        let code = QrCode::new(data)
+            .map_err(|e| FrostError::Serialization(format!("QR encode: {}", e)))?;
 
         let colors = code.to_colors();
         let width = code.width();
@@ -274,9 +277,7 @@ impl DkgQrDecoder {
     /// Reassemble chunks into full data
     fn reassemble(&self) -> DkgResult<Vec<u8>> {
         if !self.is_complete() {
-            return Err(FrostError::Deserialization(
-                "Incomplete chunks".to_string(),
-            ));
+            return Err(FrostError::Deserialization("Incomplete chunks".to_string()));
         }
 
         let combined: String = self

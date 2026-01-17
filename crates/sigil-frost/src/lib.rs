@@ -49,7 +49,9 @@ pub mod ristretto255;
 
 pub mod dkg;
 
-pub use dkg::{DkgCeremony, DkgConfig, DkgKeyPackage, DkgOutput, DkgRound1Package, DkgRound2Package};
+pub use dkg::{
+    DkgCeremony, DkgConfig, DkgKeyPackage, DkgOutput, DkgRound1Package, DkgRound2Package,
+};
 pub use error::{FrostError, Result};
 pub use presig::{FrostNonce, FrostPresig, FrostPresigBatch};
 pub use traits::{FrostCipherSuite, FrostKeyGen, FrostSigner};
