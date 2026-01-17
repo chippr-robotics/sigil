@@ -217,13 +217,41 @@ pub mod taproot {
     use frost_secp256k1_tr::Identifier;
 
     /// Convert FROST Identifier to u16
+    ///
+    /// This relies on the assumption that `Identifier::serialize()` returns a
+    /// 32-byte big-endian scalar encoding of the participant ID. For small
+    /// integer IDs (u16), the value is expected to appear in the last 2 bytes.
+    /// In debug builds we verify this assumption by reconstructing an
+    /// `Identifier` from the derived `u16` and checking that it matches `id`.
     fn identifier_to_u16(id: &Identifier) -> u16 {
-        // Serialize the identifier - it's a 32-byte scalar
-        // For secp256k1, the scalar is serialized in big-endian format
-        // For small values (like participant IDs), the value is in the last bytes
+        // Serialize the identifier - expected to be a 32-byte scalar in
+        // big-endian format.
         let bytes = id.serialize();
-        // The scalar is big-endian, so the u16 value is in the last 2 bytes
-        u16::from_be_bytes([bytes[30], bytes[31]])
+
+        debug_assert!(
+            bytes.len() == 32,
+            "Identifier serialization must be 32 bytes, got {}",
+            bytes.len()
+        );
+
+        // The scalar is big-endian, so for small values (like participant IDs)
+        // the u16 value resides in the last 2 bytes.
+        let value = u16::from_be_bytes([bytes[30], bytes[31]]);
+
+        // In debug builds, verify that this conversion is consistent with how
+        // the library constructs an Identifier from a u16.
+        #[cfg(debug_assertions)]
+        {
+            if let Ok(roundtrip_id) = Identifier::try_from(value) {
+                debug_assert_eq!(
+                    &roundtrip_id, id,
+                    "Identifier serialization mismatch for participant id {}",
+                    value
+                );
+            }
+        }
+
+        value
     }
 
     /// Taproot DKG marker type
@@ -860,18 +888,32 @@ mod tests {
 
         // In 2-of-2, ceremony1 (participant 1) generates one package for participant 2
         // and ceremony2 (participant 2) generates one package for participant 1
-        assert_eq!(r2_pkgs1.len(), 1, "Ceremony1 should generate 1 Round 2 package");
-        assert_eq!(r2_pkgs2.len(), 1, "Ceremony2 should generate 1 Round 2 package");
+        assert_eq!(
+            r2_pkgs1.len(),
+            1,
+            "Ceremony1 should generate 1 Round 2 package"
+        );
+        assert_eq!(
+            r2_pkgs2.len(),
+            1,
+            "Ceremony2 should generate 1 Round 2 package"
+        );
 
         // Exchange Round 2 - ceremony2's package goes to ceremony1
         // The package from ceremony2 is for ceremony1 (recipient = 1)
         let pkg_for_1 = r2_pkgs2.into_iter().next().unwrap();
-        assert_eq!(pkg_for_1.sender_id, 2, "Package should be from participant 2");
+        assert_eq!(
+            pkg_for_1.sender_id, 2,
+            "Package should be from participant 2"
+        );
         ceremony1.add_round2(pkg_for_1).unwrap();
 
         // The package from ceremony1 is for ceremony2 (recipient = 2)
         let pkg_for_2 = r2_pkgs1.into_iter().next().unwrap();
-        assert_eq!(pkg_for_2.sender_id, 1, "Package should be from participant 1");
+        assert_eq!(
+            pkg_for_2.sender_id, 1,
+            "Package should be from participant 1"
+        );
         ceremony2.add_round2(pkg_for_2).unwrap();
 
         // Finalize

@@ -262,22 +262,31 @@ impl FrostSigner for Taproot {
         _message: &[u8],
         _verifying_key: &VerifyingKey,
     ) -> Result<FrostSignature> {
-        if shares.len() < 2 {
+        if shares.is_empty() {
             return Err(FrostError::InvalidParticipantCount {
-                min: 2,
+                min: 1,
                 got: shares.len(),
             });
         }
 
         debug!("Aggregating {} signature shares", shares.len());
 
-        // For aggregation, we need the signing package and public key package
-        // This is a simplified version - full implementation would track these
-        // For now, we'll return an error indicating this needs the full context
+        // In the single-party (degenerate) case, treat the provided bytes as the
+        // final Taproot Schnorr signature and wrap them in a FrostSignature.
+        if shares.len() == 1 {
+            return Ok(FrostSignature {
+                scheme: SignatureScheme::Taproot,
+                data: shares[0].clone(),
+            });
+        }
 
+        // For true multi-party FROST aggregation, we need additional context such
+        // as the SigningPackage and PublicKeyPackage, which are not available
+        // through this trait method. Callers should use a scheme-specific
+        // aggregation API that has access to that context.
         Err(FrostError::Aggregation(
             "Full aggregation requires SigningPackage and PublicKeyPackage context. \
-             Use aggregate_with_context instead."
+             Use a scheme-specific aggregation function that has this context."
                 .to_string(),
         ))
     }
