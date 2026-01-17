@@ -1,0 +1,155 @@
+// Sigil Signer Protocol
+// gRPC service definitions for IPC between CLI and daemon
+
+syntax = "proto3";
+
+package sigil.signer.v1;
+
+// Service for signing operations
+service SignerService {
+    // Check daemon health
+    rpc Ping(PingRequest) returns (PingResponse);
+
+    // Get disk status
+    rpc GetDiskStatus(GetDiskStatusRequest) returns (GetDiskStatusResponse);
+
+    // Sign a message
+    rpc Sign(SignRequest) returns (SignResponse);
+
+    // Update transaction hash after broadcast
+    rpc UpdateTxHash(UpdateTxHashRequest) returns (UpdateTxHashResponse);
+
+    // Get presig count
+    rpc GetPresigCount(GetPresigCountRequest) returns (GetPresigCountResponse);
+
+    // List stored children
+    rpc ListChildren(ListChildrenRequest) returns (ListChildrenResponse);
+
+    // Stream disk events (insertion/removal)
+    rpc WatchDisk(WatchDiskRequest) returns (stream DiskEvent);
+}
+
+// Ping request
+message PingRequest {}
+
+// Ping response
+message PingResponse {
+    string version = 1;
+    uint64 uptime_seconds = 2;
+}
+
+// Get disk status request
+message GetDiskStatusRequest {}
+
+// Get disk status response
+message GetDiskStatusResponse {
+    bool detected = 1;
+    string child_id = 2;
+    uint32 presigs_remaining = 3;
+    uint32 presigs_total = 4;
+    uint32 days_until_expiry = 5;
+    bool is_valid = 6;
+    string status_message = 7;
+}
+
+// Sign request
+message SignRequest {
+    // Message hash to sign (32 bytes, hex encoded)
+    string message_hash = 1;
+
+    // Chain ID for logging
+    uint32 chain_id = 2;
+
+    // Human-readable description
+    string description = 3;
+}
+
+// Sign response
+message SignResponse {
+    bool success = 1;
+
+    // ECDSA signature (64 bytes, hex encoded)
+    string signature = 2;
+
+    // v, r, s components for Ethereum
+    uint32 v = 3;
+    string r = 4;
+    string s = 5;
+
+    // Presig index used
+    uint32 presig_index = 6;
+
+    // zkVM proof hash
+    string proof_hash = 7;
+
+    // Error message if failed
+    string error = 8;
+}
+
+// Update tx hash request
+message UpdateTxHashRequest {
+    uint32 presig_index = 1;
+    string tx_hash = 2;
+}
+
+// Update tx hash response
+message UpdateTxHashResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+// Get presig count request
+message GetPresigCountRequest {}
+
+// Get presig count response
+message GetPresigCountResponse {
+    uint32 remaining = 1;
+    uint32 total = 2;
+}
+
+// List children request
+message ListChildrenRequest {}
+
+// List children response
+message ListChildrenResponse {
+    repeated ChildInfo children = 1;
+}
+
+// Child information
+message ChildInfo {
+    string child_id = 1;
+    uint32 presigs_remaining = 2;
+    uint32 presigs_total = 3;
+    string status = 4;
+}
+
+// Watch disk request
+message WatchDiskRequest {}
+
+// Disk event
+message DiskEvent {
+    oneof event {
+        DiskInserted inserted = 1;
+        DiskRemoved removed = 2;
+        DiskValidationFailed validation_failed = 3;
+    }
+}
+
+// Disk inserted event
+message DiskInserted {
+    string path = 1;
+    string child_id = 2;
+    uint32 presigs_remaining = 3;
+    uint32 days_until_expiry = 4;
+}
+
+// Disk removed event
+message DiskRemoved {
+    string path = 1;
+}
+
+// Disk validation failed event
+message DiskValidationFailed {
+    string path = 1;
+    string reason = 2;
+}
