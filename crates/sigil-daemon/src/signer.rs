@@ -163,8 +163,12 @@ impl Signer {
     ) -> Result<(Signature, ZkProofHash)> {
         use k256::{
             ecdsa::signature::Verifier,
-            elliptic_curve::{ops::Reduce, sec1::ToEncodedPoint, PrimeField},
-            AffinePoint, ProjectivePoint, Scalar, U256,
+            elliptic_curve::{
+                ops::Reduce,
+                sec1::{FromEncodedPoint, ToEncodedPoint},
+                PrimeField,
+            },
+            AffinePoint, Scalar, U256,
         };
 
         // Decode R point
@@ -220,22 +224,8 @@ impl Signer {
         // Compute s = k_inv * (z + r * chi)
         let s = k_inv * (z + r * chi);
 
-        // Normalize s to low-S form
-        let half_order = Scalar::from_repr(
-            [
-                0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                0xFF, 0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46,
-                0x68, 0x1B, 0x20, 0xA0,
-            ]
-            .into(),
-        )
-        .unwrap();
-
-        let s = if bool::from(s.ct_gt(&half_order)) {
-            -s
-        } else {
-            s
-        };
+        // Normalize s to low-S form (BIP-62)
+        let s = normalize_s_low(s);
 
         // Encode signature
         let mut sig_bytes = [0u8; 64];
@@ -307,6 +297,7 @@ impl Signer {
     }
 
     /// Update transaction hash in usage log after broadcast
+    #[allow(dead_code)]
     pub async fn update_tx_hash(&self, presig_index: u32, tx_hash: TxHash) -> Result<()> {
         let mut disk = self.disk_watcher.load_full_disk().await?;
 
@@ -322,6 +313,49 @@ impl Signer {
 
         Ok(())
     }
+}
+
+/// Normalize s to low-S form per BIP-62
+fn normalize_s_low(s: k256::Scalar) -> k256::Scalar {
+    use k256::elliptic_curve::PrimeField;
+
+    // secp256k1 order / 2 (big-endian)
+    const HALF_ORDER: [u8; 32] = [
+        0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B,
+        0x20, 0xA0,
+    ];
+
+    let s_bytes = s.to_bytes();
+
+    // Compare s > half_order using byte comparison
+    let is_high = scalar_gt_bytes(s_bytes.as_slice(), &HALF_ORDER);
+
+    if is_high {
+        -s
+    } else {
+        s
+    }
+}
+
+/// Compare if a > b (big-endian byte arrays)
+fn scalar_gt_bytes(a: &[u8], b: &[u8; 32]) -> bool {
+    let mut gt = false;
+    let mut eq = true;
+
+    for i in 0..32 {
+        if eq {
+            if a[i] > b[i] {
+                gt = true;
+                eq = false;
+            } else if a[i] < b[i] {
+                gt = false;
+                eq = false;
+            }
+        }
+    }
+
+    gt
 }
 
 #[cfg(test)]

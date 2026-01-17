@@ -95,11 +95,17 @@ impl AgentStore {
 
     /// Mark a presig as used
     pub fn mark_presig_used(&mut self, child_id: &ChildId, index: u32) -> Result<()> {
-        let data = self.get_child_mut(child_id)?;
-        if index >= data.next_presig_index {
-            data.next_presig_index = index + 1;
+        // Update in cache
+        {
+            let data = self.get_child_mut(child_id)?;
+            if index >= data.next_presig_index {
+                data.next_presig_index = index + 1;
+            }
         }
-        self.save_to_disk(data)?;
+        // Save to disk (borrow released)
+        if let Some(data) = self.cache.get(child_id) {
+            self.save_to_disk(data)?;
+        }
         Ok(())
     }
 
