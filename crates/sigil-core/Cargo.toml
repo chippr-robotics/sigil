@@ -18,7 +18,7 @@ zeroize = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
-bincode = { workspace = true }
+bitcode = { workspace = true }
 hex = { workspace = true }
 
 # Error handling

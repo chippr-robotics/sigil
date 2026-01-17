@@ -73,8 +73,8 @@ pub enum DaemonError {
     Cancelled,
 }
 
-impl From<bincode::Error> for DaemonError {
-    fn from(e: bincode::Error) -> Self {
+impl From<bitcode::Error> for DaemonError {
+    fn from(e: bitcode::Error) -> Self {
         DaemonError::Serialization(e.to_string())
     }
 }

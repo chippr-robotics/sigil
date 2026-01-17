@@ -61,8 +61,8 @@ pub enum MotherError {
     Mpc(String),
 }
 
-impl From<bincode::Error> for MotherError {
-    fn from(e: bincode::Error) -> Self {
+impl From<bitcode::Error> for MotherError {
+    fn from(e: bitcode::Error) -> Self {
         MotherError::Serialization(e.to_string())
     }
 }

@@ -94,8 +94,8 @@ pub enum Error {
     UsageLogAnomaly(String),
 }
 
-impl From<bincode::Error> for Error {
-    fn from(e: bincode::Error) -> Self {
+impl From<bitcode::Error> for Error {
+    fn from(e: bitcode::Error) -> Self {
         Error::Serialization(e.to_string())
     }
 }
