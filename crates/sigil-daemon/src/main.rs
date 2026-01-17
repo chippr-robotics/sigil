@@ -3,6 +3,7 @@
 //! The daemon manages disk detection, agent shard storage, and signing operations.
 
 use std::sync::Arc;
+use std::thread;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -67,14 +68,27 @@ async fn main() -> anyhow::Result<()> {
         Arc::clone(&signer),
     );
 
-    // Start disk watcher in background
+    // Start disk watcher in background on a dedicated thread
+    // (udev types are not Send, so we need a separate runtime)
     let disk_watcher_handle = {
         let disk_watcher = Arc::clone(&disk_watcher);
-        tokio::spawn(async move {
-            if let Err(e) = disk_watcher.watch().await {
-                error!("Disk watcher error: {}", e);
-            }
-        })
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+
+        thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to create disk watcher runtime");
+
+            rt.block_on(async {
+                if let Err(e) = disk_watcher.watch().await {
+                    error!("Disk watcher error: {}", e);
+                }
+                let _ = tx.send(());
+            });
+        });
+
+        rx
     };
 
     // Start IPC server
