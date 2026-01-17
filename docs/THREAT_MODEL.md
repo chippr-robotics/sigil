@@ -462,6 +462,244 @@ This document provides a comprehensive threat model for the Sigil MPC-secured fl
 10. **Threshold** signature schemes (t-of-n)
 11. **Verifiable secret sharing** for master shards
 
-## 11. Changelog
+## 11. Security Invariants (Invariant-Centric Model)
 
+This section defines explicit security invariants following the methodology used by the Zcash wallet threat model. Users should only rely on properties explicitly listed here.
+
+### Methodology
+
+Security invariants are organized by adversary capability levels, from strongest to weakest. Stronger adversaries inherit all capabilities of weaker adversaries. For each tier, we list:
+
+1. **Invariants**: Properties guaranteed to hold
+2. **Known Weaknesses**: Properties NOT guaranteed (be aware)
+
+---
+
+### Tier 1: Agent-Compromising Adversary (Strongest)
+
+**Capabilities:**
+- Full control of agent daemon and server
+- Access to all agent-side key shares and presignatures
+- Can observe and modify all signing requests
+- Can run malicious software on agent machine
+- Inherits all capabilities of weaker adversaries
+
+#### Invariants (Properties We Guarantee)
+
+| ID | Invariant |
+|----|-----------|
+| I1.1 | The adversary cannot sign messages without physical access to a valid, non-exhausted child disk |
+| I1.2 | The adversary cannot extract cold key shares from the disk without using presignatures |
+| I1.3 | The adversary cannot generate valid presignatures without mother device access |
+| I1.4 | The adversary cannot increase the number of signable messages beyond the presig count on disk |
+| I1.5 | The adversary cannot forge mother device signatures on disk headers |
+| I1.6 | The adversary cannot make the mother device believe a disk has more remaining presigs than it actually has |
+| I1.7 | The adversary cannot prevent the user from detecting unauthorized signing (via reconciliation) |
+| I1.8 | The adversary cannot modify the usage log to hide signing operations from reconciliation |
+| I1.9 | Master key shares on the mother device remain secure |
+| I1.10 | Other child disks (not presented to compromised agent) remain unaffected |
+
+#### Known Weaknesses (Properties NOT Guaranteed)
+
+| ID | Weakness |
+|----|----------|
+| W1.1 | **The adversary CAN sign any message if the user inserts a valid disk** |
+| W1.2 | The adversary CAN exhaust all presignatures on an inserted disk |
+| W1.3 | The adversary CAN learn which child disk is currently inserted |
+| W1.4 | The adversary CAN observe all transaction details being signed |
+| W1.5 | The adversary CAN deny service by refusing to complete signatures |
+| W1.6 | The adversary CAN present false transaction details to the user |
+
+---
+
+### Tier 2: Disk-Stealing Adversary
+
+**Capabilities:**
+- Physical possession of a stolen child disk
+- Can read all data from the disk
+- Can modify data on the disk
+- Can clone the disk
+- Inherits all capabilities of weaker adversaries
+
+#### Invariants (Properties We Guarantee)
+
+| ID | Invariant |
+|----|-----------|
+| I2.1 | The adversary cannot sign any message without agent-side shares |
+| I2.2 | The adversary cannot extract usable private keys from disk contents alone |
+| I2.3 | The adversary cannot connect the disk to any agent without proper pairing |
+| I2.4 | Past signatures (before theft) remain unforgeable |
+| I2.5 | Cloned disks will be detected during reconciliation |
+| I2.6 | The adversary cannot forge zkVM proofs for non-existent signatures |
+
+#### Known Weaknesses (Properties NOT Guaranteed)
+
+| ID | Weakness |
+|----|----------|
+| W2.1 | The adversary CAN learn the public key and derivation path |
+| W2.2 | The adversary CAN learn the number of total/remaining presignatures |
+| W2.3 | The adversary CAN read the usage log (signed message hashes, timestamps) |
+| W2.4 | **The adversary CAN cause denial of service by destroying the disk** |
+| W2.5 | The adversary CAN attempt to pair with a compromised agent |
+
+---
+
+### Tier 3: Network Adversary
+
+**Capabilities:**
+- Can observe all network traffic to/from agent
+- Can modify network traffic (MITM)
+- Can send malicious RPC responses
+- DNS hijacking capability
+- Inherits all capabilities of weaker adversaries
+
+#### Invariants (Properties We Guarantee)
+
+| ID | Invariant |
+|----|-----------|
+| I3.1 | The adversary cannot obtain key shares by observing network traffic |
+| I3.2 | The adversary cannot forge signatures without key material |
+| I3.3 | The adversary cannot inject transactions into the signing queue (IPC is local-only) |
+| I3.4 | zkVM proofs verify independently of network-provided data |
+| I3.5 | Disk authentication does not depend on network connectivity |
+
+#### Known Weaknesses (Properties NOT Guaranteed)
+
+| ID | Weakness |
+|----|----------|
+| W3.1 | The adversary CAN observe which blockchain addresses receive signed transactions |
+| W3.2 | The adversary CAN observe transaction amounts and destinations after broadcast |
+| W3.3 | The adversary CAN delay or prevent transaction broadcast |
+| W3.4 | The adversary CAN provide false blockchain state (balance, nonce) |
+| W3.5 | **The adversary CAN correlate signing activity with network traffic timing** |
+
+---
+
+### Tier 4: Local Process Adversary
+
+**Capabilities:**
+- Can run unprivileged processes on agent machine
+- Can observe process lists and resource usage
+- Can attempt to connect to local sockets
+- Inherits all capabilities of weaker adversaries
+
+#### Invariants (Properties We Guarantee)
+
+| ID | Invariant |
+|----|-----------|
+| I4.1 | The adversary cannot access agent daemon memory (process isolation) |
+| I4.2 | The adversary cannot access the IPC socket without proper permissions |
+| I4.3 | The adversary cannot access encrypted agent storage |
+| I4.4 | The adversary cannot trigger signing without IPC access |
+
+#### Known Weaknesses (Properties NOT Guaranteed)
+
+| ID | Weakness |
+|----|----------|
+| W4.1 | The adversary CAN detect when signing operations occur (process activity) |
+| W4.2 | The adversary CAN infer approximate operation timing |
+| W4.3 | The adversary CAN detect when a disk is inserted (USB events) |
+| W4.4 | The adversary CAN observe zkVM proof generation (CPU/memory spike) |
+
+---
+
+### Tier 5: Address-Knowing Adversary (Weakest)
+
+**Capabilities:**
+- Knows one or more Sigil-controlled addresses
+- Can view public blockchain data
+- No system access
+
+#### Invariants (Properties We Guarantee)
+
+| ID | Invariant |
+|----|-----------|
+| I5.1 | The adversary cannot link addresses to Sigil usage without additional information |
+| I5.2 | The adversary cannot determine the threshold structure (2-of-2) from signatures |
+| I5.3 | The adversary cannot distinguish Sigil signatures from regular wallet signatures |
+| I5.4 | The adversary cannot determine presignature count from on-chain data |
+| I5.5 | For FROST Schnorr: signatures are indistinguishable from single-signer Schnorr |
+
+#### Known Weaknesses (Properties NOT Guaranteed)
+
+| ID | Weakness |
+|----|----------|
+| W5.1 | The adversary CAN observe all transactions to/from known addresses |
+| W5.2 | The adversary CAN track balance and transaction history |
+| W5.3 | For Zcash transparent: standard blockchain analysis applies |
+| W5.4 | The adversary CAN attempt social engineering with address knowledge |
+
+---
+
+### Cross-Tier Invariants (Always Hold)
+
+These invariants hold regardless of adversary capability:
+
+| ID | Invariant |
+|----|-----------|
+| IC.1 | Two compromised parties are required for any signature (2-of-2 threshold) |
+| IC.2 | Each presignature enables exactly one signature |
+| IC.3 | Nonce reuse across messages is prevented by single-use design |
+| IC.4 | Mother device compromise does not affect already-distributed disks |
+| IC.5 | Key hierarchy prevents child compromise from affecting siblings |
+| IC.6 | All signing operations produce verifiable zkVM proofs |
+| IC.7 | Reconciliation detects usage anomalies across all disks |
+
+---
+
+### Limitations of This Model
+
+This threat model does NOT analyze:
+
+1. **Physical access to mother device**: Assumed secure (air-gapped, physical controls)
+2. **Social engineering**: User-layer attacks are out of scope
+3. **Supply chain attacks**: Covered separately in Section 3.5
+4. **Side-channel attacks**: Covered separately in Section 3.6 and TIMING_SAFETY.md
+5. **Implementation bugs**: This model assumes correct implementation
+6. **Key generation randomness**: Assumes CSPRNG provides 256-bit entropy
+
+---
+
+## 12. FROST-Specific Security Analysis
+
+### 12.1 FROST vs ECDSA Security
+
+| Property | ECDSA Presigs | FROST |
+|----------|---------------|-------|
+| Nonce reuse impact | Key recovery | Key recovery |
+| Share combination | Multiplicative | Additive |
+| Verification | Standard ECDSA | Standard Schnorr |
+| MPC rounds (online) | 1 | 1 |
+| Trusted dealer | Yes | Yes (Sigil model) |
+
+### 12.2 FROST Invariants
+
+| ID | Invariant |
+|----|-----------|
+| IF.1 | FROST signatures are indistinguishable from single-party Schnorr signatures |
+| IF.2 | Signature shares from a single party reveal no information about the private key |
+| IF.3 | The group public key is the sum of all participant public keys |
+| IF.4 | Invalid signature shares are detectable before aggregation |
+| IF.5 | Adaptor signatures (if implemented) maintain threshold security |
+
+### 12.3 Scheme-Specific Considerations
+
+**Taproot (BIP-340):**
+- X-only public keys provide 1-bit privacy improvement
+- Tagged hashing prevents cross-protocol attacks
+- Tapscript commitments are not yet supported
+
+**Ed25519:**
+- Cofactor handling follows RFC 8032
+- Batch verification provides performance benefit
+- No malleability (deterministic nonces not applicable in threshold setting)
+
+**Ristretto255:**
+- Prime-order group eliminates cofactor issues
+- PCZT integration requires careful sighash extraction
+- Viewing keys enable audit without spending capability
+
+## 13. Changelog
+
+- **v0.2.0** (2026-01-17): Added invariant-centric security model, FROST analysis
 - **v0.1.0** (2026-01-17): Initial threat model

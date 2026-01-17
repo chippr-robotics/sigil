@@ -1,0 +1,52 @@
+[package]
+name = "sigil-frost"
+description = "FROST threshold signature support for Sigil MPC signing system"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Core dependencies
+sigil-core = { workspace = true }
+
+# FROST implementations
+frost-core = { workspace = true }
+frost-secp256k1-tr = { workspace = true, optional = true }
+frost-ed25519 = { workspace = true, optional = true }
+frost-ristretto255 = { workspace = true, optional = true }
+
+# Cryptography
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+sha2 = { workspace = true }
+zeroize = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+bitcode = { workspace = true }
+hex = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# QR code support for DKG ceremony (optional)
+qrcode = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+
+[features]
+default = ["taproot", "ed25519", "ristretto255"]
+taproot = ["frost-secp256k1-tr"]
+ed25519 = ["frost-ed25519"]
+ristretto255 = ["frost-ristretto255"]
+dkg = ["qrcode", "image", "base64"]
+full = ["taproot", "ed25519", "ristretto255", "dkg"]
