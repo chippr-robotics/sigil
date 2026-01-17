@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::client::{ClientError, DiskStatus, SigilClient, SignResult};
+use crate::client::{ClientError, SigilClient};
 
 /// Tool: sign_blockchain_transaction
 ///
