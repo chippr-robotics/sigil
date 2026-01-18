@@ -56,16 +56,15 @@ pub fn validate_hex_string(s: &str, expected_bytes: Option<usize>) -> Validation
     let hex_part = &s[2..];
 
     // Invariant: Must have even length
-    if hex_part.len() % 2 != 0 {
+    if !hex_part.len().is_multiple_of(2) {
         return Err(JsonRpcError::invalid_params(
             "Hex string must have even number of characters",
         ));
     }
 
     // Invariant: Must be valid hex
-    let bytes = hex::decode(hex_part).map_err(|e| {
-        JsonRpcError::invalid_params(format!("Invalid hex string: {}", e))
-    })?;
+    let bytes = hex::decode(hex_part)
+        .map_err(|e| JsonRpcError::invalid_params(format!("Invalid hex string: {}", e)))?;
 
     // Invariant: If expected length specified, must match
     if let Some(expected) = expected_bytes {
@@ -118,7 +117,9 @@ pub fn validate_scheme(scheme: &str) -> ValidationResult<&str> {
 pub fn validate_description(description: &str, max_len: usize) -> ValidationResult<&str> {
     // Invariant: Description must not be empty
     if description.is_empty() {
-        return Err(JsonRpcError::invalid_params("Description must not be empty"));
+        return Err(JsonRpcError::invalid_params(
+            "Description must not be empty",
+        ));
     }
 
     // Invariant: Description must not exceed max length
@@ -204,9 +205,7 @@ pub fn validate_disk_state(
     if !detected {
         if presigs_remaining.is_some() || presigs_total.is_some() {
             // This is a warning, not an error - log it
-            tracing::warn!(
-                "Disk state invariant: presig counts present but disk not detected"
-            );
+            tracing::warn!("Disk state invariant: presig counts present but disk not detected");
         }
         return Ok(());
     }

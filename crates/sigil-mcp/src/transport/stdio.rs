@@ -124,8 +124,10 @@ impl AsyncStdioTransport {
     }
 
     /// Write a JSON-RPC notification
-    pub async fn write_notification(&mut self, notification: &JsonRpcNotification) -> io::Result<()>
-    {
+    pub async fn write_notification(
+        &mut self,
+        notification: &JsonRpcNotification,
+    ) -> io::Result<()> {
         let json = serde_json::to_string(notification)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         self.write_message(&json).await

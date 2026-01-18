@@ -24,7 +24,9 @@ pub fn get_all_prompts() -> Vec<Prompt> {
                 },
                 PromptArgument {
                     name: "amount".to_string(),
-                    description: Some("Amount to transfer (in native units, e.g., '0.1')".to_string()),
+                    description: Some(
+                        "Amount to transfer (in native units, e.g., '0.1')".to_string(),
+                    ),
                     required: Some(true),
                 },
                 PromptArgument {
@@ -81,9 +83,7 @@ pub fn get_all_prompts() -> Vec<Prompt> {
         Prompt {
             name: "check_signing_readiness".to_string(),
             title: Some("Check Signing Readiness".to_string()),
-            description: Some(
-                "Verify that the system is ready for signing operations".to_string(),
-            ),
+            description: Some("Verify that the system is ready for signing operations".to_string()),
             arguments: None,
         },
     ]
@@ -119,10 +119,7 @@ fn get_sign_evm_transfer_prompt(
         .and_then(|v| v.as_str())
         .ok_or("Missing required argument: amount")?;
 
-    let chain_id = args
-        .get("chain_id")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(1);
+    let chain_id = args.get("chain_id").and_then(|v| v.as_u64()).unwrap_or(1);
 
     let chain_name = match chain_id {
         1 => "Ethereum Mainnet",

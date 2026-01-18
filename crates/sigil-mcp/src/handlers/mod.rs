@@ -7,8 +7,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::protocol::*;
 use crate::prompts;
+use crate::protocol::*;
 use crate::resources;
 use crate::tools::{self, DiskState, ToolContext};
 
@@ -357,8 +357,8 @@ async fn handle_prompts_get(
     let args: Option<HashMap<String, serde_json::Value>> =
         params.arguments.map(|m| m.into_iter().collect());
 
-    let result = prompts::get_prompt(&params.name, args.as_ref())
-        .map_err(|e| JsonRpcError::invalid_params(e))?;
+    let result =
+        prompts::get_prompt(&params.name, args.as_ref()).map_err(JsonRpcError::invalid_params)?;
 
     serde_json::to_value(result).map_err(|e| JsonRpcError::internal_error(e.to_string()))
 }

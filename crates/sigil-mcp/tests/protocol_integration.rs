@@ -3,8 +3,8 @@
 //! These tests verify the complete MCP protocol implementation including
 //! initialization, capability negotiation, and tool/resource/prompt operations.
 
+use sigil_mcp::handlers::{handle_notification, handle_request, McpServerState};
 use sigil_mcp::protocol::*;
-use sigil_mcp::handlers::{handle_request, handle_notification, McpServerState};
 use sigil_mcp::tools::DiskState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -140,10 +140,7 @@ async fn test_tools_list_returns_all_tools() {
     let tools = result["tools"].as_array().unwrap();
 
     // Verify we have all expected tools
-    let tool_names: Vec<&str> = tools
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
+    let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
 
     assert!(tool_names.contains(&"sigil_check_disk"));
     assert!(tool_names.contains(&"sigil_sign_evm"));

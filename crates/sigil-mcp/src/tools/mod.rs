@@ -42,7 +42,8 @@ impl DiskState {
             days_until_expiry: Some(12),
             is_valid: Some(true),
             public_key: Some(
-                "0x04abc123def456789012345678901234567890123456789012345678901234567890".to_string(),
+                "0x04abc123def456789012345678901234567890123456789012345678901234567890"
+                    .to_string(),
             ),
         }
     }

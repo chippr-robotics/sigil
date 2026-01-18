@@ -38,10 +38,9 @@ pub fn tool_definition() -> Tool {
     Tool {
         name: "sigil_get_address".to_string(),
         title: Some("Get Signing Address".to_string()),
-        description:
-            "Get the blockchain address associated with the current Sigil disk. \
+        description: "Get the blockchain address associated with the current Sigil disk. \
              The address format depends on the signature scheme and target chain."
-                .to_string(),
+            .to_string(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
@@ -129,17 +128,27 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         AddressFormat::Hex => (public_key.clone(), "hex"),
         AddressFormat::Evm => {
             // Mock EVM address (would be keccak256 of pubkey)
-            ("0x742d35Cc6634C0532925a3b844Bc9e7595f12345".to_string(), "evm")
+            (
+                "0x742d35Cc6634C0532925a3b844Bc9e7595f12345".to_string(),
+                "evm",
+            )
         }
         AddressFormat::Bitcoin => {
             match scheme {
                 "taproot" => {
                     // Mock Taproot address
-                    ("bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr".to_string(), "bitcoin_taproot")
+                    (
+                        "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr"
+                            .to_string(),
+                        "bitcoin_taproot",
+                    )
                 }
                 _ => {
                     // Mock legacy address
-                    ("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(), "bitcoin_legacy")
+                    (
+                        "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(),
+                        "bitcoin_legacy",
+                    )
                 }
             }
         }
@@ -153,7 +162,10 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         AddressFormat::Cosmos => {
             let prefix = params.cosmos_prefix.as_deref().unwrap_or("cosmos");
             // Mock Cosmos address (bech32)
-            (format!("{}1qypqxpq9qcrsszgszyfpx9q4zct3sxfq0fzduj", prefix), "cosmos")
+            (
+                format!("{}1qypqxpq9qcrsszgszyfpx9q4zct3sxfq0fzduj", prefix),
+                "cosmos",
+            )
         }
     };
 

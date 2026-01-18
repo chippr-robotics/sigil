@@ -77,10 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
 
-    info!(
-        "Sigil MCP Server v{} starting",
-        env!("CARGO_PKG_VERSION")
-    );
+    info!("Sigil MCP Server v{} starting", env!("CARGO_PKG_VERSION"));
 
     // Create server with appropriate disk state
     let server = if args.mock {

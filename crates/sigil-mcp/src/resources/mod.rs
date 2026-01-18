@@ -7,19 +7,17 @@ use crate::tools::{DiskState, ToolContext};
 
 /// Get all resource definitions
 pub fn get_all_resources(disk_state: &DiskState) -> Vec<Resource> {
-    let mut resources = vec![
-        Resource {
-            uri: "sigil://supported-chains".to_string(),
-            name: "Supported Chains".to_string(),
-            title: Some("Supported Blockchain Networks".to_string()),
-            description: Some(
-                "List of blockchain networks supported for signing with their chain IDs".to_string(),
-            ),
-            mime_type: Some("application/json".to_string()),
-            size: None,
-            annotations: None,
-        },
-    ];
+    let mut resources = vec![Resource {
+        uri: "sigil://supported-chains".to_string(),
+        name: "Supported Chains".to_string(),
+        title: Some("Supported Blockchain Networks".to_string()),
+        description: Some(
+            "List of blockchain networks supported for signing with their chain IDs".to_string(),
+        ),
+        mime_type: Some("application/json".to_string()),
+        size: None,
+        annotations: None,
+    }];
 
     // Add disk status resource if disk is detected
     if disk_state.detected {
@@ -239,7 +237,9 @@ mod tests {
         let state = DiskState::no_disk();
         let resources = get_all_resources(&state);
         // Should still have supported-chains
-        assert!(resources.iter().any(|r| r.uri == "sigil://supported-chains"));
+        assert!(resources
+            .iter()
+            .any(|r| r.uri == "sigil://supported-chains"));
         // Should not have disk-specific resources
         assert!(!resources.iter().any(|r| r.uri == "sigil://disk/status"));
     }
