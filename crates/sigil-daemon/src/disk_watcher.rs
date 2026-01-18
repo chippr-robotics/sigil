@@ -111,7 +111,12 @@ impl DiskWatcher {
                                 self.scan_for_disks().await?;
                             }
                             Some("remove") => {
+                                // Always clear cache on remove event, then rescan
+                                // to handle cases where kernel caching shows stale data
                                 self.handle_disk_removal().await?;
+                                // Small delay then rescan to detect any new disk
+                                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                                self.scan_for_disks().await?;
                             }
                             _ => {}
                         }
@@ -139,6 +144,13 @@ impl DiskWatcher {
 
     /// Scan for Sigil disks
     async fn scan_for_disks(&self) -> Result<()> {
+        // First, verify any currently cached disk is still valid
+        // This handles the case where a disk was physically removed but
+        // the mount point or cached data still exists
+        if let Err(_) = self.verify_current_disk().await {
+            self.handle_disk_removal().await?;
+        }
+
         let paths = glob::glob(&self.mount_pattern)
             .map_err(|e| DaemonError::Config(e.to_string()))?
             .filter_map(|r| r.ok())
@@ -158,14 +170,27 @@ impl DiskWatcher {
             if disk_file.exists() {
                 match self.try_load_disk(&disk_file).await {
                     Ok(disk) => {
-                        let header = disk.header.clone();
-                        let path = disk_file.clone();
+                        // Check if this is a different disk than currently cached
+                        let is_new_disk = {
+                            let current = self.current_disk.read().await;
+                            match current.as_ref() {
+                                Some(current_disk) => {
+                                    current_disk.header.child_id != disk.header.child_id
+                                }
+                                None => true,
+                            }
+                        };
 
-                        let mut current = self.current_disk.write().await;
-                        *current = Some(disk);
+                        if is_new_disk {
+                            let header = disk.header.clone();
+                            let path = disk_file.clone();
 
-                        let _ = self.event_tx.send(DiskEvent::Inserted { path, header });
-                        info!("Sigil disk detected");
+                            let mut current = self.current_disk.write().await;
+                            *current = Some(disk);
+
+                            let _ = self.event_tx.send(DiskEvent::Inserted { path, header });
+                            info!("Sigil disk detected");
+                        }
                         return Ok(());
                     }
                     Err(e) => {
@@ -179,7 +204,50 @@ impl DiskWatcher {
             }
         }
 
+        // No valid disk found - clear any stale cache
+        if self.current_disk.read().await.is_some() {
+            self.handle_disk_removal().await?;
+        }
+
         Ok(())
+    }
+
+    /// Verify the currently cached disk is still accessible and valid
+    /// Returns Ok(()) if disk is valid, Err if disk should be invalidated
+    async fn verify_current_disk(&self) -> Result<()> {
+        let current = self.current_disk.read().await;
+        let disk = match current.as_ref() {
+            Some(d) => d,
+            None => return Ok(()), // No disk cached, nothing to verify
+        };
+
+        // Try to read the first few bytes to verify disk is still accessible
+        // Use a fresh read to bypass any kernel caching
+        match tokio::fs::read(&disk.path).await {
+            Ok(bytes) => {
+                // Verify magic bytes are still valid
+                if bytes.len() < 8 || &bytes[0..8] != DISK_MAGIC {
+                    debug!("Cached disk failed magic check - disk removed or corrupted");
+                    return Err(DaemonError::DiskValidationFailed(
+                        "Disk no longer valid".to_string(),
+                    ));
+                }
+                // Verify it's the same disk by checking child_id
+                if let Ok(format) = DiskFormat::from_bytes(&bytes) {
+                    if format.header.child_id != disk.header.child_id {
+                        debug!("Disk child_id changed - different disk inserted");
+                        return Err(DaemonError::DiskValidationFailed(
+                            "Different disk detected".to_string(),
+                        ));
+                    }
+                }
+                Ok(())
+            }
+            Err(e) => {
+                debug!("Failed to read cached disk path: {} - treating as removed", e);
+                Err(DaemonError::DiskValidationFailed(e.to_string()))
+            }
+        }
     }
 
     /// Try to load and validate a disk file
@@ -221,16 +289,42 @@ impl DiskWatcher {
     }
 
     /// Load the full disk format (for signing operations)
+    /// This always re-reads from disk to ensure we have fresh data
+    /// and the disk is still physically present
     pub async fn load_full_disk(&self) -> Result<DiskFormat> {
+        // First verify the disk is still valid
+        self.verify_current_disk().await.map_err(|_| {
+            DaemonError::NoDiskDetected
+        })?;
+
         let current = self.current_disk.read().await;
         let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
 
-        if let Some(format) = &disk.format {
-            Ok(format.clone())
-        } else {
-            let bytes = tokio::fs::read(&disk.path).await?;
-            let format = DiskFormat::from_bytes(&bytes)?;
-            Ok(format)
+        // Always read fresh from disk for signing operations
+        // This ensures we catch any disk removal between operations
+        let bytes = tokio::fs::read(&disk.path).await?;
+        let format = DiskFormat::from_bytes(&bytes)?;
+
+        // Verify this is still the expected disk
+        if format.header.child_id != disk.header.child_id {
+            return Err(DaemonError::DiskValidationFailed(
+                "Disk changed during operation".to_string(),
+            ));
+        }
+
+        Ok(format)
+    }
+
+    /// Force re-verification of the current disk
+    /// Returns true if a valid disk is present, false otherwise
+    pub async fn force_verify(&self) -> bool {
+        match self.verify_current_disk().await {
+            Ok(()) => true,
+            Err(_) => {
+                // Clear stale cache
+                let _ = self.handle_disk_removal().await;
+                false
+            }
         }
     }
 
