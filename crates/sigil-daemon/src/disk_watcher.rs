@@ -11,6 +11,9 @@ use sigil_core::{DiskFormat, DiskHeader, DISK_MAGIC};
 
 use crate::error::{DaemonError, Result};
 
+/// Delay in milliseconds to allow filesystem to stabilize after disk insertion/removal events
+const MOUNT_STABILIZATION_DELAY_MS: u64 = 500;
+
 /// Event emitted when a disk is detected or removed
 #[derive(Debug, Clone)]
 pub enum DiskEvent {
@@ -106,16 +109,22 @@ impl DiskWatcher {
 
                         match action.as_deref() {
                             Some("add") | Some("change") => {
-                                // Small delay to allow mount
-                                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                                // Delay to allow mount to stabilize
+                                tokio::time::sleep(tokio::time::Duration::from_millis(
+                                    MOUNT_STABILIZATION_DELAY_MS,
+                                ))
+                                .await;
                                 self.scan_for_disks().await?;
                             }
                             Some("remove") => {
                                 // Always clear cache on remove event, then rescan
                                 // to handle cases where kernel caching shows stale data
                                 self.handle_disk_removal().await?;
-                                // Small delay then rescan to detect any new disk
-                                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                                // Delay to allow filesystem to stabilize, then rescan to detect any new disk
+                                tokio::time::sleep(tokio::time::Duration::from_millis(
+                                    MOUNT_STABILIZATION_DELAY_MS,
+                                ))
+                                .await;
                                 self.scan_for_disks().await?;
                             }
                             _ => {}
@@ -233,13 +242,18 @@ impl DiskWatcher {
                     ));
                 }
                 // Verify it's the same disk by checking child_id
-                if let Ok(format) = DiskFormat::from_bytes(&bytes) {
-                    if format.header.child_id != disk.header.child_id {
-                        debug!("Disk child_id changed - different disk inserted");
-                        return Err(DaemonError::DiskValidationFailed(
-                            "Different disk detected".to_string(),
-                        ));
-                    }
+                let format = DiskFormat::from_bytes(&bytes).map_err(|e| {
+                    DaemonError::DiskValidationFailed(format!(
+                        "Failed to parse disk format: {}",
+                        e
+                    ))
+                })?;
+
+                if format.header.child_id != disk.header.child_id {
+                    debug!("Disk child_id changed - different disk inserted");
+                    return Err(DaemonError::DiskValidationFailed(
+                        "Different disk detected".to_string(),
+                    ));
                 }
                 Ok(())
             }
@@ -296,9 +310,7 @@ impl DiskWatcher {
     /// and the disk is still physically present
     pub async fn load_full_disk(&self) -> Result<DiskFormat> {
         // First verify the disk is still valid
-        self.verify_current_disk()
-            .await
-            .map_err(|_| DaemonError::NoDiskDetected)?;
+        self.verify_current_disk().await?;
 
         let current = self.current_disk.read().await;
         let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
@@ -347,11 +359,13 @@ impl DiskWatcher {
             let _ = file.sync_all();
         }
 
-        // Update the cached disk with the new header
+        // Update the cached disk with the new header, but only if it is still the same disk
         let mut current = self.current_disk.write().await;
         if let Some(ref mut disk) = *current {
-            disk.header = format.header.clone();
-            disk.format = Some(format.clone());
+            if disk.path == path {
+                disk.header = format.header.clone();
+                disk.format = Some(format.clone());
+            }
         }
 
         Ok(())

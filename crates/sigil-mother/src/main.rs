@@ -284,12 +284,18 @@ async fn main() -> anyhow::Result<()> {
             info!("Creating new child disk with {} presigs...", presig_count);
 
             // Parse agent shard if provided
-            let agent_shard_bytes = agent_shard.map(|s| {
-                let s = s.strip_prefix("0x").unwrap_or(&s);
-                let mut bytes = [0u8; 32];
-                hex::decode_to_slice(s, &mut bytes).expect("Invalid agent shard hex");
-                bytes
-            });
+            let agent_shard_bytes = match agent_shard {
+                Some(s) => {
+                    let s = s.strip_prefix("0x").unwrap_or(&s);
+                    let mut bytes = [0u8; 32];
+                    if let Err(e) = hex::decode_to_slice(s, &mut bytes) {
+                        eprintln!("Error: invalid agent shard hex: {}", e);
+                        return Ok(());
+                    }
+                    Some(bytes)
+                }
+                None => None,
+            };
 
             let mut ceremony = CreateChildCeremony::new(storage);
             let result = ceremony.execute_with_agent_shard(presig_count, agent_shard_bytes)?;
