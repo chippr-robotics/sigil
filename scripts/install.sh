@@ -107,7 +107,17 @@ build_sigil() {
     step "Building sigil (this may take a few minutes)..."
     cd "$BUILD_DIR"
 
-    cargo build --release --quiet -p sigil-daemon -p sigil-cli -p sigil-mother 2>&1 | grep -v "Compiling\|Downloading" || true
+    # Build all sigil components:
+    # - sigil-daemon: Background signing daemon
+    # - sigil-cli: CLI for signing operations
+    # - sigil-mother: Air-gapped mother device tools
+    # - sigil-frost: FROST threshold signature support (all curves)
+    cargo build --release --quiet \
+        -p sigil-daemon \
+        -p sigil-cli \
+        -p sigil-mother \
+        -p sigil-frost --all-features \
+        2>&1 | grep -v "Compiling\|Downloading" || true
 
     info "Build complete"
 }
@@ -220,10 +230,14 @@ print_complete() {
     echo -e "${GREEN}   Sigil Installation Complete!${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
-    echo "Installed:"
+    echo "Installed components:"
     echo "  sigil-daemon  - Background signing daemon"
     echo "  sigil         - CLI for signing operations"
     echo "  sigil-mother  - Air-gapped mother device tools"
+    echo ""
+    echo "Built libraries:"
+    echo "  sigil-frost   - FROST threshold signatures"
+    echo "                  (Taproot, Ed25519, Ristretto255)"
     echo ""
 
     if [[ "$SYSTEM_INSTALL" == true ]]; then
@@ -234,6 +248,9 @@ print_complete() {
         echo "Mother device (air-gapped):"
         echo "  sigil-mother init"
         echo "  sigil-mother init --ledger  # with Ledger hardware wallet"
+        echo ""
+        echo "FROST DKG ceremony:"
+        echo "  sigil ceremony dkg-init --scheme taproot"
     else
         echo "Add to your PATH:"
         echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
