@@ -112,11 +112,13 @@ build_sigil() {
     # - sigil-cli: CLI for signing operations
     # - sigil-mother: Air-gapped mother device tools
     # - sigil-frost: FROST threshold signature support (all curves)
+    # - sigil-mcp: MCP server for universal agent integration
     cargo build --release --quiet \
         -p sigil-daemon \
         -p sigil-cli \
         -p sigil-mother \
         -p sigil-frost --all-features \
+        -p sigil-mcp \
         2>&1 | grep -v "Compiling\|Downloading" || true
 
     info "Build complete"
@@ -127,7 +129,7 @@ install_binaries() {
     step "Installing binaries to $INSTALL_DIR..."
     mkdir -p "$INSTALL_DIR"
 
-    for bin in sigil-daemon sigil sigil-mother; do
+    for bin in sigil-daemon sigil sigil-mother sigil-mcp; do
         if [[ -f "$BUILD_DIR/target/release/$bin" ]]; then
             cp "$BUILD_DIR/target/release/$bin" "$INSTALL_DIR/"
             chmod 755 "$INSTALL_DIR/$bin"
@@ -234,6 +236,7 @@ print_complete() {
     echo "  sigil-daemon  - Background signing daemon"
     echo "  sigil         - CLI for signing operations"
     echo "  sigil-mother  - Air-gapped mother device tools"
+    echo "  sigil-mcp     - MCP server for AI agent integration"
     echo ""
     echo "Built libraries:"
     echo "  sigil-frost   - FROST threshold signatures"
@@ -251,6 +254,9 @@ print_complete() {
         echo ""
         echo "FROST DKG ceremony:"
         echo "  sigil ceremony dkg-init --scheme taproot"
+        echo ""
+        echo "MCP server (for Claude Desktop, VS Code, etc.):"
+        echo "  sigil-mcp --transport stdio"
     else
         echo "Add to your PATH:"
         echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
@@ -258,6 +264,9 @@ print_complete() {
         echo "Then run:"
         echo "  sigil-daemon &"
         echo "  sigil status"
+        echo ""
+        echo "MCP server (for Claude Desktop, VS Code, etc.):"
+        echo "  sigil-mcp --transport stdio"
     fi
     echo ""
 }
@@ -267,7 +276,7 @@ uninstall() {
     check_environment
     step "Uninstalling sigil..."
 
-    rm -f "$INSTALL_DIR"/{sigil-daemon,sigil,sigil-mother}
+    rm -f "$INSTALL_DIR"/{sigil-daemon,sigil,sigil-mother,sigil-mcp}
 
     if [[ "$SYSTEM_INSTALL" == true && "$OS" == "linux" ]]; then
         systemctl stop sigil-daemon 2>/dev/null || true

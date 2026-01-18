@@ -33,6 +33,7 @@
 //! This implementation targets MCP version 2025-11-25.
 
 pub mod handlers;
+pub mod invariants;
 pub mod prompts;
 pub mod protocol;
 pub mod resources;
