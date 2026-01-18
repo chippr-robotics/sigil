@@ -147,7 +147,7 @@ impl DiskWatcher {
         // First, verify any currently cached disk is still valid
         // This handles the case where a disk was physically removed but
         // the mount point or cached data still exists
-        if let Err(_) = self.verify_current_disk().await {
+        if self.verify_current_disk().await.is_err() {
             self.handle_disk_removal().await?;
         }
 
@@ -244,7 +244,10 @@ impl DiskWatcher {
                 Ok(())
             }
             Err(e) => {
-                debug!("Failed to read cached disk path: {} - treating as removed", e);
+                debug!(
+                    "Failed to read cached disk path: {} - treating as removed",
+                    e
+                );
                 Err(DaemonError::DiskValidationFailed(e.to_string()))
             }
         }
@@ -293,9 +296,9 @@ impl DiskWatcher {
     /// and the disk is still physically present
     pub async fn load_full_disk(&self) -> Result<DiskFormat> {
         // First verify the disk is still valid
-        self.verify_current_disk().await.map_err(|_| {
-            DaemonError::NoDiskDetected
-        })?;
+        self.verify_current_disk()
+            .await
+            .map_err(|_| DaemonError::NoDiskDetected)?;
 
         let current = self.current_disk.read().await;
         let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
