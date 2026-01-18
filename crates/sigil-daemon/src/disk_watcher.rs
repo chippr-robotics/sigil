@@ -330,11 +330,26 @@ impl DiskWatcher {
 
     /// Write updated disk data back to disk
     pub async fn write_disk(&self, format: &DiskFormat) -> Result<()> {
-        let current = self.current_disk.read().await;
-        let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
+        let path = {
+            let current = self.current_disk.read().await;
+            let disk = current.as_ref().ok_or(DaemonError::NoDiskDetected)?;
+            disk.path.clone()
+        };
 
         let bytes = format.to_bytes();
-        tokio::fs::write(&disk.path, &bytes).await?;
+        tokio::fs::write(&path, &bytes).await?;
+
+        // Sync to ensure data is flushed to physical disk (important for floppies)
+        if let Ok(file) = std::fs::File::open(&path) {
+            let _ = file.sync_all();
+        }
+
+        // Update the cached disk with the new header
+        let mut current = self.current_disk.write().await;
+        if let Some(ref mut disk) = *current {
+            disk.header = format.header.clone();
+            disk.format = Some(format.clone());
+        }
 
         Ok(())
     }
