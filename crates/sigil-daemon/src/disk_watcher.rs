@@ -363,8 +363,9 @@ impl DiskWatcher {
         let mut current = self.current_disk.write().await;
         if let Some(ref mut disk) = *current {
             if disk.path == path {
-                disk.header = format.header.clone();
-                disk.format = Some(format.clone());
+                let format_clone = format.clone();
+                disk.header = format_clone.header.clone();
+                disk.format = Some(format_clone);
             }
         }
 
