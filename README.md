@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil Logo" width="200"/>
+</p>
+
 # Sigil
 
 A physical containment system for agentic MPC management. Sigil enables secure blockchain transaction signing using 2-of-2 MPC threshold signatures with presignature-based key material stored on floppy disks.
