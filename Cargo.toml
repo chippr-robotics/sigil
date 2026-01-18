@@ -7,6 +7,7 @@ members = [
     "crates/sigil-daemon",
     "crates/sigil-cli",
     "crates/sigil-mother",
+    "crates/sigil-mcp",
     "crates/sigil-tests",
 ]
 
@@ -25,6 +26,7 @@ sigil-zkvm = { path = "crates/sigil-zkvm" }
 sigil-daemon = { path = "crates/sigil-daemon" }
 sigil-cli = { path = "crates/sigil-cli" }
 sigil-mother = { path = "crates/sigil-mother" }
+sigil-mcp = { path = "crates/sigil-mcp" }
 
 # Cryptography
 k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
@@ -73,6 +75,9 @@ anyhow = "1.0"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4"] }
 
 # QR code support for air-gapped communication
 qrcode = "0.14"
