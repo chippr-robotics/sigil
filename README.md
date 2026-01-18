@@ -2,9 +2,13 @@
   <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil Logo" width="200"/>
 </p>
 
-⚠️ written completely by 🤖 
-⛔️ this is unaudited and involves breeding edge cryptography. do not use with real money
-🤠 or do you
+⚠️ This repo is written completely by 🤖 
+
+⛔️ This is unaudited and involves breeding edge cryptography. 
+
+⛔️ Read the security documents before using
+
+🤠 have fun!
 
 # Sigil
 
