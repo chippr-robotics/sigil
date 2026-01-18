@@ -58,6 +58,11 @@ enum Commands {
         /// Output path for agent shares (JSON)
         #[arg(long)]
         agent_output: PathBuf,
+
+        /// Agent master shard (hex encoded, 32 bytes)
+        /// Required for proper MPC signing
+        #[arg(long)]
+        agent_shard: Option<String>,
     },
 
     /// List all registered children
@@ -274,11 +279,20 @@ async fn main() -> anyhow::Result<()> {
             presig_count,
             output,
             agent_output,
+            agent_shard,
         } => {
             info!("Creating new child disk with {} presigs...", presig_count);
 
+            // Parse agent shard if provided
+            let agent_shard_bytes = agent_shard.map(|s| {
+                let s = s.strip_prefix("0x").unwrap_or(&s);
+                let mut bytes = [0u8; 32];
+                hex::decode_to_slice(s, &mut bytes).expect("Invalid agent shard hex");
+                bytes
+            });
+
             let mut ceremony = CreateChildCeremony::new(storage);
-            let result = ceremony.execute(presig_count)?;
+            let result = ceremony.execute_with_agent_shard(presig_count, agent_shard_bytes)?;
 
             // Write disk image
             let disk_bytes = result.disk.to_bytes();

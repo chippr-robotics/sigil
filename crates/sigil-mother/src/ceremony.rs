@@ -144,6 +144,97 @@ impl CreateChildCeremony {
             derivation_path,
         })
     }
+
+    /// Execute the child creation ceremony with an optional agent master shard
+    pub fn execute_with_agent_shard(
+        &mut self,
+        presig_count: u32,
+        agent_master_shard: Option<[u8; 32]>,
+    ) -> Result<CreateChildOutput> {
+        // 1. Load master shard
+        let mut master = self.storage.load_master_shard()?;
+
+        // 2. Allocate child index and create derivation path
+        let child_index = master.allocate_child_index();
+        let derivation_path = DerivationPath::ethereum_hardened(child_index);
+
+        // 3. Derive cold child shard
+        let (cold_child_shard, cold_child_pubkey) =
+            MasterKeyGenerator::derive_child(&master.cold_master_shard, &derivation_path)?;
+
+        // 4. Derive or generate agent child shard
+        let (agent_child_shard, agent_child_pubkey) = if let Some(agent_shard) = agent_master_shard
+        {
+            // Derive from actual agent master shard
+            MasterKeyGenerator::derive_child(&agent_shard, &derivation_path)?
+        } else {
+            // Use placeholder (for development/testing only)
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(b"agent_shard_placeholder:");
+            hasher.update(derivation_path.to_bytes());
+            let hash: [u8; 32] = hasher.finalize().into();
+            MasterKeyGenerator::derive_child(&hash, &derivation_path)?
+        };
+
+        // 5. Combine public keys
+        let child_pubkey =
+            MasterKeyGenerator::combine_child_pubkeys(&cold_child_pubkey, &agent_child_pubkey)?;
+
+        let child_id = child_pubkey.to_child_id();
+
+        // 6. Generate presignatures
+        let presig_pairs = PresigGenerator::generate_batch(
+            &cold_child_shard,
+            &agent_child_shard,
+            presig_count as usize,
+        )?;
+
+        // 7. Split into cold and agent shares
+        let cold_shares: Vec<PresigColdShare> =
+            presig_pairs.iter().map(|p| p.cold_share.clone()).collect();
+        let agent_shares: Vec<sigil_core::presig::PresigAgentShare> =
+            presig_pairs.iter().map(|p| p.agent_share.clone()).collect();
+
+        // 8. Create disk header
+        let created_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let mut header = DiskHeader::new(
+            child_id,
+            child_pubkey,
+            derivation_path,
+            presig_count,
+            created_at,
+        );
+
+        // 9. Sign the header with mother's key
+        let signable = header.signable_hash();
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes[..32].copy_from_slice(&signable);
+        header.mother_signature = sigil_core::Signature::new(sig_bytes);
+
+        // 10. Create disk format
+        let disk = DiskFormat::new(header, cold_shares);
+
+        // 11. Register child in registry
+        let mut registry = self.storage.load_registry()?;
+        registry.register_child(child_id, derivation_path)?;
+        self.storage.save_registry(&registry)?;
+
+        // 12. Save updated master shard (with incremented index)
+        self.storage.save_master_shard(&master)?;
+
+        Ok(CreateChildOutput {
+            disk,
+            agent_shares,
+            child_pubkey,
+            child_id,
+            derivation_path,
+        })
+    }
 }
 
 /// Ceremony for reconciling a child disk

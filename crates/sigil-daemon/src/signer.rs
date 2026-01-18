@@ -161,7 +161,6 @@ impl Signer {
         agent_share: &PresigAgentShare,
     ) -> Result<(Signature, ZkProofHash)> {
         use k256::{
-            ecdsa::signature::Verifier,
             elliptic_curve::{
                 ops::Reduce,
                 sec1::{FromEncodedPoint, ToEncodedPoint},
@@ -233,15 +232,17 @@ impl Signer {
 
         let signature = Signature::new(sig_bytes);
 
-        // Verify signature
+        // Verify signature using prehash (message is already hashed)
         let verifying_key = k256::ecdsa::VerifyingKey::from_sec1_bytes(pubkey.as_bytes())
             .map_err(|e| DaemonError::SigningFailed(format!("Invalid public key: {}", e)))?;
 
         let ecdsa_sig = k256::ecdsa::Signature::from_slice(&sig_bytes)
             .map_err(|e| DaemonError::SigningFailed(format!("Invalid signature format: {}", e)))?;
 
+        // Use verify_prehash since message_hash is already the Keccak256 digest
+        use k256::ecdsa::signature::hazmat::PrehashVerifier;
         verifying_key
-            .verify(message_hash.as_bytes(), &ecdsa_sig)
+            .verify_prehash(message_hash.as_bytes(), &ecdsa_sig)
             .map_err(|_| DaemonError::SigningFailed("Signature verification failed".to_string()))?;
 
         // Generate proof hash
