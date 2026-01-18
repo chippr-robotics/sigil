@@ -239,7 +239,7 @@ impl Signer {
         let ecdsa_sig = k256::ecdsa::Signature::from_slice(&sig_bytes)
             .map_err(|e| DaemonError::SigningFailed(format!("Invalid signature format: {}", e)))?;
 
-        // Use verify_prehash since message_hash is already the Keccak256 digest
+        // Verify signature using prehash since message_hash is already the Keccak256 digest
         use k256::ecdsa::signature::hazmat::PrehashVerifier;
         verifying_key
             .verify_prehash(message_hash.as_bytes(), &ecdsa_sig)
