@@ -1242,7 +1242,7 @@ assert result == True
 
 2. Try various invalid formats:
    - Too short: `0x1234`
-   - Too long: `0x1234...` (66 chars)
+   - Too long: hash longer than 66 chars (e.g. `0x` followed by 65+ hex chars, 67+ total)
    - Non-hex: `0xGGGG...`
 
 **Expected Results:**
