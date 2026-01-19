@@ -244,14 +244,9 @@ impl CreateChildCeremony {
             )?;
 
             // Collect nonce shares for batch proof
-            let k_colds: Vec<[u8; 32]> = presig_pairs
-                .iter()
-                .map(|p| p.cold_share.k_cold)
-                .collect();
-            let k_agents: Vec<[u8; 32]> = presig_pairs
-                .iter()
-                .map(|p| p.agent_share.k_agent)
-                .collect();
+            let k_colds: Vec<[u8; 32]> = presig_pairs.iter().map(|p| p.cold_share.k_cold).collect();
+            let k_agents: Vec<[u8; 32]> =
+                presig_pairs.iter().map(|p| p.agent_share.k_agent).collect();
 
             // Generate batch presig proof
             let child_pubkey_bytes: &[u8; 33] = child_pubkey.as_bytes();
@@ -262,7 +257,7 @@ impl CreateChildCeremony {
                 k_colds,
                 k_agents,
                 child_pubkey_bytes,
-                0, // start_index
+                0,  // start_index
                 10, // sample_count
             )?;
         }

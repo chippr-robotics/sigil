@@ -83,6 +83,10 @@ impl LedgerDevice {
         pubkey.copy_from_slice(&data[1..66]);
 
         let addr_len = data[66] as usize;
+        // Validate that the reported address length fits in the remaining data
+        if 67 + addr_len > data.len() {
+            return Err(MotherError::Crypto("Invalid address length".to_string()));
+        }
         let address = String::from_utf8(data[67..67 + addr_len].to_vec())
             .map_err(|_| MotherError::Crypto("Invalid address encoding".to_string()))?;
 

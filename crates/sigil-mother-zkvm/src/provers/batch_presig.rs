@@ -107,10 +107,7 @@ impl BatchPresigProver {
     }
 
     /// Compute all R points from nonce shares (for use in verification)
-    pub fn compute_r_points(
-        k_colds: &[[u8; 32]],
-        k_agents: &[[u8; 32]],
-    ) -> Result<Vec<[u8; 33]>> {
+    pub fn compute_r_points(k_colds: &[[u8; 32]], k_agents: &[[u8; 32]]) -> Result<Vec<[u8; 33]>> {
         if k_colds.len() != k_agents.len() {
             return Err(ZkvmError::InvalidInput(
                 "k_colds and k_agents must have same length".into(),
@@ -200,8 +197,8 @@ impl BatchPresigProverTrait for Sp1BatchPresigProver {
         let output: BatchPresigOutput = proof.public_values.read();
 
         // Serialize proof
-        let proof_bytes = bincode::serialize(&proof)
-            .map_err(|e| ZkvmError::Serialization(e.to_string()))?;
+        let proof_bytes =
+            bincode::serialize(&proof).map_err(|e| ZkvmError::Serialization(e.to_string()))?;
 
         Ok((output, proof_bytes))
     }

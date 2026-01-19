@@ -195,9 +195,9 @@ fn combine_public_keys(pk1: &[u8; 33], pk2: &[u8; 33]) -> Result<sigil_core::Pub
     let affine1 = AffinePoint::from_encoded_point(&point1);
     let affine2 = AffinePoint::from_encoded_point(&point2);
 
-    let affine1 = Option::from(affine1)
+    let affine1 = affine1.into_option()
         .ok_or_else(|| MotherError::Crypto("Invalid curve point for public key 1".to_string()))?;
-    let affine2 = Option::from(affine2)
+    let affine2 = affine2.into_option()
         .ok_or_else(|| MotherError::Crypto("Invalid curve point for public key 2".to_string()))?;
 
     let proj1 = ProjectivePoint::from(affine1);
