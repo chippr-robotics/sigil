@@ -41,8 +41,8 @@ impl DeriveVerifier {
         }
 
         // Verify the SP1 proof
-        let prover = ProverClient::from_env();
-        prover
+        let client = ProverClient::from_env();
+        client
             .verify(&proof, vkey)
             .map_err(|e| ZkvmError::ProofVerificationFailed(e.to_string()))?;
 

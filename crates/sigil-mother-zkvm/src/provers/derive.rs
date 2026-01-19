@@ -163,14 +163,18 @@ impl Sp1DeriveProver {
     pub fn new() -> Result<Self> {
         use sp1_sdk::ProverClient;
 
-        let prover = ProverClient::from_env();
+        let client = ProverClient::from_env();
 
         // Load the ELF from the built program
         let elf = include_bytes!("../../programs/derive/elf/riscv32im-succinct-zkvm-elf");
 
-        let (pk, vk) = prover.setup(elf);
+        let (pk, vk) = client.setup(elf);
 
-        Ok(Self { prover, pk, vk })
+        Ok(Self {
+            prover: client,
+            pk,
+            vk,
+        })
     }
 
     /// Get the verification key
