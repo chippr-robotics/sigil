@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ARTIFACTS_DIR="$REPO_ROOT/artifacts"
 EXAMPLES_DIR="$ARTIFACTS_DIR/examples"
-TEMP_MOTHER_DIR="/tmp/sigil_example_mother_$$"
+TEMP_MOTHER_DIR="$(mktemp -d -t sigil_example_mother.XXXXXX)"
 
 echo "=== Sigil Example Artifacts Generator ==="
 echo ""
@@ -34,8 +34,11 @@ trap cleanup EXIT
 
 # Create temporary mother device
 echo "Initializing temporary mother device..."
-mkdir -p "$TEMP_MOTHER_DIR"
-sigil-mother init --data-dir "$TEMP_MOTHER_DIR" > /dev/null 2>&1
+if ! sigil-mother init --data-dir "$TEMP_MOTHER_DIR" 2>&1 | grep -v "^INFO\|^DEBUG" > /tmp/sigil_init_errors.txt; then
+    echo "Error: Failed to initialize mother device"
+    cat /tmp/sigil_init_errors.txt
+    exit 1
+fi
 
 echo "✓ Mother device initialized"
 echo ""
@@ -49,11 +52,15 @@ generate_basic_child() {
     echo "Generating: $name ($presig_count presigs)"
     echo "  Purpose: $description"
     
-    sigil-mother create-child \
+    if ! sigil-mother create-child \
         --presig-count "$presig_count" \
         --output "$EXAMPLES_DIR/${name}.img" \
         --agent-output "$EXAMPLES_DIR/${name}_agent_shares.json" \
-        --data-dir "$TEMP_MOTHER_DIR" > /dev/null 2>&1
+        --data-dir "$TEMP_MOTHER_DIR" 2>&1 | grep -v "^INFO\|^DEBUG" > /tmp/sigil_create_errors.txt; then
+        echo "  ✗ Error creating child disk"
+        cat /tmp/sigil_create_errors.txt
+        return 1
+    fi
     
     echo "  ✓ Created: ${name}.img"
     echo "  ✓ Created: ${name}_agent_shares.json"
@@ -77,7 +84,11 @@ generate_basic_child \
 echo "=== Summary ==="
 echo ""
 echo "Generated artifacts in: $EXAMPLES_DIR"
-ls -lh "$EXAMPLES_DIR"/*.img "$EXAMPLES_DIR"/*.json 2>/dev/null || true
+if compgen -G "$EXAMPLES_DIR/*.img" > /dev/null && compgen -G "$EXAMPLES_DIR/*.json" > /dev/null; then
+    ls -lh "$EXAMPLES_DIR"/*.img "$EXAMPLES_DIR"/*.json 2>/dev/null
+else
+    echo "Warning: No artifact files found"
+fi
 echo ""
 echo "✓ Example artifacts generated successfully!"
 echo ""
