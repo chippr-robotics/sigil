@@ -11,9 +11,16 @@ The example artifacts demonstrate various states and operations in the Sigil sys
 - **Refilled artifacts**: Disks after reconciliation and refill
 - **Edge case artifacts**: Special states (expired, nullified, etc.)
 
-## Creating Example Artifacts
+## Generating Example Artifacts
 
-Example artifacts should be created using the standard Sigil tools with test data.
+To generate example artifacts for this directory, use the provided script:
+
+```bash
+# From repository root
+./scripts/generate_example_artifacts.sh
+```
+
+Or manually create them:
 
 ### Example: Creating a Basic Child Disk
 
@@ -38,32 +45,46 @@ These artifacts can be used in:
 3. **Development**: Understand disk format and structure
 4. **Demonstrations**: Show Sigil capabilities
 
-## Artifact Descriptions
+## Current Examples
 
-When adding new example artifacts, create entries here:
+### (No examples yet)
 
-### basic_child.img (Coming Soon)
+Example artifacts can be generated using the methods above. Once created, document them here.
+
+## Guidelines for Adding Examples
+
+When adding new example artifacts:
+
+1. Create the artifact using the commands above
+2. Add entry in "Current Examples" section above
+3. Include description with:
+   - Purpose of the artifact
+   - Number of presignatures
+   - Status (fresh/used/nullified/etc.)
+   - Use case or demonstration purpose
+
+Example entry format:
+
+```markdown
+### basic_child.img
 
 - **Purpose**: Basic example of a freshly created child disk
-- **Presignatures**: 100
+- **Presignatures**: 100 (all unused)
 - **Status**: Fresh, never used
 - **Use case**: Introduction to child disk structure
+- **Paired with**: basic_child_agent_shares.json
+```
 
-### used_child.img (Coming Soon)
+## Size Guidelines
 
-- **Purpose**: Example of a disk after several signing operations
-- **Presignatures**: 50 used, 50 remaining
-- **Status**: Partially used
-- **Use case**: Demonstrate usage tracking and logging
-
-## Guidelines
-
-1. Keep examples small (< 2MB per disk)
-2. Use minimal presignature counts (100-500 max)
-3. Document each artifact clearly
-4. Update when disk format changes
-5. Remove obsolete examples
+Keep examples small to avoid repository bloat:
+- Maximum 2MB per disk image
+- Use minimal presignature counts (100-500 max)
+- Remove obsolete examples when format changes
 
 ## Security Note
 
 ⚠️ All example artifacts use **test keys only**. Never use these in production!
+
+These artifacts are generated with the `sigil-mother` tool in a test environment and contain no real key material.
+
