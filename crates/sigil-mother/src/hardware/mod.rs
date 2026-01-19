@@ -167,14 +167,23 @@ fn derive_shard_from_signature(signature: &[u8; 65], domain: &[u8]) -> [u8; 32] 
 /// Derive a public key from a 32-byte secret
 fn derive_public_key(secret: &[u8; 32]) -> Result<[u8; 33]> {
     use crate::error::MotherError;
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
-    use k256::SecretKey;
+    use k256::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
+    use k256::{AffinePoint, SecretKey};
 
     let secret_key = SecretKey::from_bytes(secret.into())
         .map_err(|e| MotherError::Crypto(format!("Invalid secret key: {}", e)))?;
 
     let public_key = secret_key.public_key();
     let encoded = public_key.to_encoded_point(true);
+
+    // Validate that the encoded point is valid by attempting to decode it
+    let affine = AffinePoint::from_encoded_point(&encoded);
+    if affine.is_none().into() {
+        return Err(MotherError::Crypto(format!(
+            "Generated public key is not a valid curve point: {:02x?}",
+            encoded.as_bytes()
+        )));
+    }
 
     let mut result = [0u8; 33];
     result.copy_from_slice(encoded.as_bytes());
@@ -188,21 +197,36 @@ fn combine_public_keys(pk1: &[u8; 33], pk2: &[u8; 33]) -> Result<sigil_core::Pub
     use k256::{AffinePoint, EncodedPoint, ProjectivePoint};
 
     let point1 = EncodedPoint::from_bytes(pk1)
-        .map_err(|e| MotherError::Crypto(format!("Invalid public key 1: {}", e)))?;
+        .map_err(|e| MotherError::Crypto(format!("Invalid public key 1 encoding: {}", e)))?;
     let point2 = EncodedPoint::from_bytes(pk2)
-        .map_err(|e| MotherError::Crypto(format!("Invalid public key 2: {}", e)))?;
+        .map_err(|e| MotherError::Crypto(format!("Invalid public key 2 encoding: {}", e)))?;
 
+    // Convert encoded points to affine coordinates
+    // This validates that the point is on the secp256k1 curve
     let affine1 = AffinePoint::from_encoded_point(&point1);
     let affine2 = AffinePoint::from_encoded_point(&point2);
 
-    let affine1 = affine1.into_option()
-        .ok_or_else(|| MotherError::Crypto("Invalid curve point for public key 1".to_string()))?;
-    let affine2 = affine2.into_option()
-        .ok_or_else(|| MotherError::Crypto("Invalid curve point for public key 2".to_string()))?;
+    // Extract the Option<AffinePoint> from CtOption
+    // This will be None if the point is not on the curve
+    let affine1 = affine1.into_option().ok_or_else(|| {
+        MotherError::Crypto(format!(
+            "Public key 1 is not a valid secp256k1 curve point: {:02x?}",
+            pk1
+        ))
+    })?;
 
+    let affine2 = affine2.into_option().ok_or_else(|| {
+        MotherError::Crypto(format!(
+            "Public key 2 is not a valid secp256k1 curve point: {:02x?}",
+            pk2
+        ))
+    })?;
+
+    // Convert to projective coordinates for point addition
     let proj1 = ProjectivePoint::from(affine1);
     let proj2 = ProjectivePoint::from(affine2);
 
+    // Perform point addition
     let combined = proj1 + proj2;
     let combined_affine = AffinePoint::from(combined);
     let encoded = combined_affine.to_encoded_point(true);
