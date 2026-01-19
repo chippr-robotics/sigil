@@ -1,0 +1,4 @@
+# This file ensures the agent_shards directory is tracked in git even when empty
+# 
+# Place agent shard JSON files here following the naming conventions
+# described in artifacts/README.md

@@ -351,6 +351,34 @@ Run with debug logging:
 RUST_LOG=debug cargo run --bin sigil-daemon
 ```
 
+### Development Artifacts
+
+When developing and testing Sigil, you may create child disk images (`.img` files) and agent shard files (`.json`). These artifacts should be organized in the `artifacts/` directory for tracking and collaboration:
+
+```
+artifacts/
+├── child_disks/     # Child disk images
+├── agent_shards/    # Agent shard data
+└── examples/        # Reference artifacts
+```
+
+See [`artifacts/README.md`](artifacts/README.md) for detailed guidelines on:
+- Naming conventions for artifacts
+- When to commit artifacts to version control
+- Creating test fixtures
+- Security considerations for test data
+
+**Quick example**: Creating a test disk for development:
+
+```bash
+sigil-mother create-child \
+  --presig-count 100 \
+  --output artifacts/child_disks/my_test_disk.img \
+  --agent-output artifacts/agent_shards/my_test_disk_agent_shares.json
+```
+
+Artifacts in the `artifacts/` directory are tracked by git, while artifacts in other locations are ignored.
+
 ## License
 
 Apache-2.0
