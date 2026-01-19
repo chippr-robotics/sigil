@@ -32,7 +32,7 @@ This document provides a comprehensive manual testing guide for the Sigil MPC si
   - `sigil-mother` (on mother device)
   - `sigil-daemon` (on agent device)
   - `sigil-mcp` (on agent device)
-  - `sigil-cli` (on agent device)
+  - `sigil` (on agent device)
 - [ ] MCP-compatible agent installed:
   - Claude Desktop, or
   - VS Code with Claude extension, or
@@ -83,7 +83,7 @@ On the agent device:
 sudo sigil-daemon --socket /var/run/sigil/daemon.sock &
 
 # Verify daemon is running
-sigil-cli status
+sigil status
 ```
 
 **Expected Result:**
@@ -137,7 +137,7 @@ In your MCP agent, type:
 
 **Expected Results:**
 - [ ] Master cold shard generated and stored encrypted
-- [ ] Master agent shard file created (`agent_master_shard.json`)
+- [ ] Master agent shard file created (`master_shard.json`)
 - [ ] Master public key displayed
 - [ ] No errors during generation
 
@@ -193,14 +193,14 @@ In your MCP agent, type:
 
 1. On mother device, locate agent shard file:
    ```bash
-   ls -la ~/.sigil-mother/agent_master_shard.json
+   ls -la ~/.sigil-mother/master_shard.json
    ```
 
 2. Transfer securely to agent device (USB drive, air-gapped transfer)
 
 3. On agent device, import the shard:
    ```bash
-   sigil-cli import-master-shard agent_master_shard.json
+   sigil import-master-shard master_shard.json
    ```
 
 4. Securely delete the transfer medium
@@ -272,12 +272,12 @@ In your MCP agent, type:
 
 2. Import shares:
    ```bash
-   sigil-cli import-child-shares child1_agent_shares.json
+   sigil import-child-shares child1_agent_shares.json
    ```
 
 3. Verify import:
    ```bash
-   sigil-cli list-children
+   sigil list-children
    ```
 
 **Expected Results:**
@@ -939,7 +939,7 @@ assert result == True
 
 2. Import new shares on agent:
    ```bash
-   sigil-cli import-child-shares child1_refill_shares.json --replace
+   sigil import-child-shares child1_refill_shares.json --replace
    ```
 
 **Expected Results:**
@@ -1060,7 +1060,7 @@ assert result == True
 
 4. Delete agent shares:
    ```bash
-   sigil-cli delete-child 7a3f2c1b
+   sigil delete-child 7a3f2c1b
    ```
 
 5. Attempt to sign with nullified disk
@@ -1154,7 +1154,7 @@ assert result == True
 
 1. After nullification, verify shares deleted:
    ```bash
-   sigil-cli list-children
+   sigil list-children
    # Nullified child should not appear or show "shares deleted"
    ```
 
@@ -1428,11 +1428,11 @@ sigil-mother verify-disk DEVICE
 sudo sigil-daemon --socket PATH
 
 # CLI
-sigil-cli status
-sigil-cli import-master-shard FILE
-sigil-cli import-child-shares FILE [--replace]
-sigil-cli list-children
-sigil-cli delete-child ID
+sigil status
+sigil import-master-shard FILE
+sigil import-child-shares FILE [--replace]
+sigil list-children
+sigil delete-child ID
 ```
 
 ### MCP Tools
