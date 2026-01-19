@@ -9,8 +9,11 @@ use sigil_mother::{
     ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony},
     keygen::MasterKeyGenerator,
     reconciliation,
-    storage::{MasterShardData, MotherStorage},
+    storage::MotherStorage,
 };
+
+#[cfg(feature = "ledger")]
+use sigil_mother::storage::MasterShardData;
 
 #[cfg(feature = "ledger")]
 use sigil_mother::ledger::LedgerDevice;
@@ -151,10 +154,7 @@ async fn main() -> anyhow::Result<()> {
                         "Master Public Key: 0x{}",
                         hex::encode(output.master_pubkey.as_bytes())
                     );
-                    println!(
-                        "Ledger Public Key: 0x{}",
-                        hex::encode(output.ledger_pubkey)
-                    );
+                    println!("Ledger Public Key: 0x{}", hex::encode(output.ledger_pubkey));
                     println!("\n✓ RECOVERY: Both shards can be recovered from your Ledger's seed phrase.");
                     println!("  Keep your Ledger's 24-word recovery phrase safe - it backs up these keys.");
                     println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");

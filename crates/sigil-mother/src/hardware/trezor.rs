@@ -5,18 +5,30 @@
 //! # Requirements
 //! - Trezor Bridge must be running, OR
 //! - Direct USB access via udev rules
-//! - Device must be unlocked with PIN
+//! - Device must be unlocked with PIN (for signing operations)
 //!
-//! # Note
-//! This implementation uses the trezor-client crate which requires mutable access
-//! to the client. The client is wrapped in a Mutex for thread safety.
+//! # Thread Safety and Concurrency
+//!
+//! This implementation uses a `Mutex` to wrap the Trezor client for thread safety,
+//! as the underlying `trezor-client` requires mutable access for all operations.
+//!
+//! **Important concurrency limitations:**
+//! - Only one operation can be in progress at a time
+//! - Lock acquisition has no timeout - operations that require user interaction
+//!   (like signing) will hold the lock until the user confirms or cancels on the device
+//! - Concurrent calls will block until the current operation completes
+//! - For applications requiring concurrent access, consider using a dedicated
+//!   Trezor instance per task or implementing application-level request queuing
+//!
+//! This design prioritizes simplicity and correctness over concurrent throughput,
+//! which is appropriate for security-critical hardware wallet operations.
 
 use crate::error::{MotherError, Result};
 use crate::hardware::{DeviceInfo, HardwareSigner};
 use async_trait::async_trait;
 use std::sync::Mutex;
-use trezor_client::client::Trezor;
 use tracing::{debug, info, warn};
+use trezor_client::client::Trezor;
 
 /// Default BIP32 derivation path for Sigil (Ethereum)
 pub const DEFAULT_DERIVATION_PATH: &str = "m/44'/60'/0'/0/0";
@@ -36,7 +48,7 @@ impl TrezorDevice {
 
         if devices.is_empty() {
             return Err(MotherError::Crypto(
-                "Trezor device not found. Ensure device is connected and unlocked.".to_string(),
+                "Trezor device not found. Ensure device is connected.".to_string(),
             ));
         }
 

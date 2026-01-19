@@ -22,8 +22,23 @@ pub mod pkcs11;
 use crate::error::Result;
 use async_trait::async_trait;
 
-/// Fixed derivation messages for deterministic recovery
-/// These messages MUST NOT change to ensure recoverability across versions
+/// Fixed derivation messages for deterministic recovery.
+///
+/// # CRITICAL: Versioning and Immutability
+///
+/// These messages MUST NEVER be modified once released. Any change to these
+/// constants will result in **irreversible loss of all keys** derived using
+/// the original messages, as the derivation is deterministic and one-way.
+///
+/// The "v1" suffix in each message provides version identification. If a new
+/// derivation scheme is ever needed, create NEW constants with "v2" (or higher)
+/// suffix rather than modifying these. The system should then support both
+/// versions for migration purposes.
+///
+/// ## Verification
+///
+/// The test `test_derivation_message_stability` below verifies these constants
+/// have not been accidentally modified. This test MUST pass for all releases.
 pub const COLD_SHARD_MESSAGE: &str = "Sigil MPC Cold Master Shard Derivation v1";
 pub const AGENT_SHARD_MESSAGE: &str = "Sigil MPC Agent Master Shard Derivation v1";
 
@@ -60,6 +75,19 @@ pub struct HardwareMasterKeyOutput {
 /// All implementations must provide deterministic signing, meaning the same
 /// message signed with the same key will always produce the same signature.
 /// This enables recovery of derived shards from the device's seed.
+///
+/// # Derivation Path Support
+///
+/// The `path` parameter in trait methods follows BIP32 derivation path format
+/// (e.g., "m/44'/60'/0'/0/0"). However, not all implementations support
+/// derivation paths:
+///
+/// - **Ledger/Trezor**: Full BIP32 path support via device's HD wallet
+/// - **PKCS#11**: Path parameter is ignored; uses the pre-configured key label.
+///   HSMs typically manage keys by label/ID rather than derivation paths.
+///
+/// Implementations that don't support derivation paths should document this
+/// behavior and use their configured key regardless of the path parameter.
 #[async_trait]
 pub trait HardwareSigner: Send + Sync {
     /// Get device information and verify readiness
@@ -68,7 +96,9 @@ pub trait HardwareSigner: Send + Sync {
     /// Get public key at the specified derivation path
     ///
     /// # Arguments
-    /// * `path` - BIP32 derivation path (e.g., "m/44'/60'/0'/0/0")
+    /// * `path` - BIP32 derivation path (e.g., "m/44'/60'/0'/0/0").
+    ///   Note: Some implementations (e.g., PKCS#11) ignore this parameter
+    ///   and use their configured key instead.
     async fn get_public_key(&self, path: &str) -> Result<([u8; 65], String)>;
 
     /// Sign a message deterministically
@@ -77,7 +107,8 @@ pub trait HardwareSigner: Send + Sync {
     /// recovery of derived keys.
     ///
     /// # Arguments
-    /// * `path` - BIP32 derivation path
+    /// * `path` - BIP32 derivation path. Note: Some implementations (e.g., PKCS#11)
+    ///   ignore this parameter and use their configured key instead.
     /// * `message` - Message bytes to sign
     async fn sign_message(&self, path: &str, message: &[u8]) -> Result<[u8; 65]>;
 
@@ -89,15 +120,18 @@ pub trait HardwareSigner: Send + Sync {
     ///
     /// Both shards are recoverable from the same device seed.
     async fn generate_master_key(&self, path: &str) -> Result<HardwareMasterKeyOutput> {
-
         // Get device's public key
         let (device_pubkey, _address) = self.get_public_key(path).await?;
 
         // Sign for cold shard derivation
-        let cold_signature = self.sign_message(path, COLD_SHARD_MESSAGE.as_bytes()).await?;
+        let cold_signature = self
+            .sign_message(path, COLD_SHARD_MESSAGE.as_bytes())
+            .await?;
 
         // Sign for agent shard derivation
-        let agent_signature = self.sign_message(path, AGENT_SHARD_MESSAGE.as_bytes()).await?;
+        let agent_signature = self
+            .sign_message(path, AGENT_SHARD_MESSAGE.as_bytes())
+            .await?;
 
         // Derive both shards deterministically from signatures
         let cold_master_shard = derive_shard_from_signature(&cold_signature, b"cold_master_shard");
@@ -161,12 +195,13 @@ fn combine_public_keys(pk1: &[u8; 33], pk2: &[u8; 33]) -> Result<sigil_core::Pub
     let affine1 = AffinePoint::from_encoded_point(&point1);
     let affine2 = AffinePoint::from_encoded_point(&point2);
 
-    if affine1.is_none().into() || affine2.is_none().into() {
-        return Err(MotherError::Crypto("Invalid curve point".to_string()));
-    }
+    let affine1 = Option::from(affine1)
+        .ok_or_else(|| MotherError::Crypto("Invalid curve point for public key 1".to_string()))?;
+    let affine2 = Option::from(affine2)
+        .ok_or_else(|| MotherError::Crypto("Invalid curve point for public key 2".to_string()))?;
 
-    let proj1 = ProjectivePoint::from(affine1.unwrap());
-    let proj2 = ProjectivePoint::from(affine2.unwrap());
+    let proj1 = ProjectivePoint::from(affine1);
+    let proj2 = ProjectivePoint::from(affine2);
 
     let combined = proj1 + proj2;
     let combined_affine = AffinePoint::from(combined);
@@ -240,5 +275,37 @@ mod tests {
         // Different domain = different shard
         let shard3 = derive_shard_from_signature(&sig, b"other");
         assert_ne!(shard1, shard3);
+    }
+
+    /// CRITICAL: This test ensures derivation message constants are never accidentally modified.
+    /// Changing these messages would cause irreversible loss of all derived keys.
+    #[test]
+    fn test_derivation_message_stability() {
+        // These exact strings must never change - they are part of the key derivation scheme
+        assert_eq!(
+            COLD_SHARD_MESSAGE, "Sigil MPC Cold Master Shard Derivation v1",
+            "CRITICAL: COLD_SHARD_MESSAGE has been modified! This will break key recovery!"
+        );
+        assert_eq!(
+            AGENT_SHARD_MESSAGE, "Sigil MPC Agent Master Shard Derivation v1",
+            "CRITICAL: AGENT_SHARD_MESSAGE has been modified! This will break key recovery!"
+        );
+
+        // Verify the expected hash of the messages for additional safety
+        use sha2::{Digest, Sha256};
+        let cold_hash = Sha256::digest(COLD_SHARD_MESSAGE.as_bytes());
+        let agent_hash = Sha256::digest(AGENT_SHARD_MESSAGE.as_bytes());
+
+        // These hashes are fixed and must match exactly
+        assert_eq!(
+            hex::encode(&cold_hash[..8]),
+            "c31b9cd517c72b80",
+            "COLD_SHARD_MESSAGE hash mismatch - message has been modified!"
+        );
+        assert_eq!(
+            hex::encode(&agent_hash[..8]),
+            "5c4c95fdd8e8f9e6",
+            "AGENT_SHARD_MESSAGE hash mismatch - message has been modified!"
+        );
     }
 }
