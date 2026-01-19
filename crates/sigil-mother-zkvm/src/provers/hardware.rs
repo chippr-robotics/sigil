@@ -66,11 +66,7 @@ impl HardwareProver {
     /// Verify an ECDSA signature from a hardware wallet
     ///
     /// The signature format is 65 bytes: r (32) || s (32) || v (1)
-    pub fn verify_signature(
-        pubkey: &[u8; 65],
-        message: &[u8],
-        signature: &[u8; 65],
-    ) -> Result<()> {
+    pub fn verify_signature(pubkey: &[u8; 65], message: &[u8], signature: &[u8; 65]) -> Result<()> {
         // Parse the uncompressed public key
         let verifying_key = VerifyingKey::from_sec1_bytes(pubkey)
             .map_err(|e| ZkvmError::Crypto(format!("Invalid public key: {}", e)))?;
@@ -166,8 +162,8 @@ impl HardwareProverTrait for Sp1HardwareProver {
         let output: HardwareOutput = proof.public_values.read();
 
         // Serialize proof
-        let proof_bytes = bincode::serialize(&proof)
-            .map_err(|e| ZkvmError::Serialization(e.to_string()))?;
+        let proof_bytes =
+            bincode::serialize(&proof).map_err(|e| ZkvmError::Serialization(e.to_string()))?;
 
         Ok((output, proof_bytes))
     }

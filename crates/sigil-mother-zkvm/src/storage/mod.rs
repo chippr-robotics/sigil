@@ -71,7 +71,8 @@ impl ProofManifest {
         if let Some(idx) = idx {
             &mut self.child_proofs[idx]
         } else {
-            self.child_proofs.push(ChildProofs::new(child_id.to_string()));
+            self.child_proofs
+                .push(ChildProofs::new(child_id.to_string()));
             self.child_proofs.last_mut().unwrap()
         }
     }
@@ -489,7 +490,10 @@ mod tests {
 
         // Load manifest
         let manifest = storage.load_manifest().unwrap();
-        let child = manifest.child_proofs.iter().find(|c| c.child_id == child_id);
+        let child = manifest
+            .child_proofs
+            .iter()
+            .find(|c| c.child_id == child_id);
         assert!(child.is_some());
 
         let child = child.unwrap();

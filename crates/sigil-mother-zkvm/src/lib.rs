@@ -50,10 +50,8 @@ pub mod storage;
 pub mod types;
 pub mod verifiers;
 
-pub use error::{ZkvmError, Result};
+pub use error::{Result, ZkvmError};
 pub use merkle::MerkleTree;
-pub use provers::{
-    BatchPresigProver, DeriveProver, HardwareProver, KeygenProver, MotherProver,
-};
+pub use provers::{BatchPresigProver, DeriveProver, HardwareProver, KeygenProver, MotherProver};
 pub use storage::{ProofManifest, ProofStorage};
 pub use types::*;

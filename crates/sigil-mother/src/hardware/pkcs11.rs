@@ -288,9 +288,10 @@ impl Pkcs11Device {
             }
         }
 
-        // Default to 27 if we can't determine
-        warn!("Could not determine recovery ID, defaulting to 27");
-        Ok(27)
+        // If we can't determine the recovery ID, fail instead of defaulting
+        Err(MotherError::Crypto(
+            "Could not determine ECDSA recovery ID from signature and public key".to_string(),
+        ))
     }
 }
 
@@ -320,12 +321,16 @@ impl HardwareSigner for Pkcs11Device {
     }
 
     async fn get_public_key(&self, _path: &str) -> Result<([u8; 65], String)> {
-        // PKCS#11 doesn't use BIP32 paths - we use the configured key
+        // PKCS#11 devices don't support BIP32 derivation paths.
+        // The path parameter is ignored; we use the pre-configured key label instead.
+        // HSMs typically manage keys by label/ID rather than hierarchical derivation.
         let address = Self::pubkey_to_eth_address(&self.public_key);
         Ok((self.public_key, address))
     }
 
     async fn sign_message(&self, _path: &str, message: &[u8]) -> Result<[u8; 65]> {
+        // PKCS#11 devices don't support BIP32 derivation paths.
+        // The path parameter is ignored; we use the pre-configured key label instead.
         info!("Signing with PKCS#11 HSM...");
         self.sign_with_hsm(message)
     }

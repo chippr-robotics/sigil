@@ -118,8 +118,8 @@ impl KeygenProverTrait for Sp1KeygenProver {
         let output: KeygenOutput = proof.public_values.read();
 
         // Serialize proof
-        let proof_bytes = bincode::serialize(&proof)
-            .map_err(|e| ZkvmError::Serialization(e.to_string()))?;
+        let proof_bytes =
+            bincode::serialize(&proof).map_err(|e| ZkvmError::Serialization(e.to_string()))?;
 
         Ok((output, proof_bytes))
     }

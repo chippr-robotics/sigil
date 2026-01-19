@@ -152,11 +152,7 @@ impl MotherVerifier for CombinedVerifier {
         #[cfg(feature = "sp1-prover")]
         {
             if let Some(ref vkey) = self.batch_vkey {
-                return batch_presig::BatchPresigVerifier::verify_sp1(
-                    proof,
-                    vkey,
-                    expected_output,
-                );
+                return batch_presig::BatchPresigVerifier::verify_sp1(proof, vkey, expected_output);
             }
         }
 

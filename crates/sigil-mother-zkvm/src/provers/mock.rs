@@ -114,8 +114,7 @@ fn create_mock_proof<T: serde::Serialize>(proof_type: ProofType, output: &T) -> 
 
 /// Check if a proof is a mock proof
 pub fn is_mock_proof(proof: &[u8]) -> bool {
-    proof.len() >= MOCK_PROOF_HEADER.len()
-        && &proof[..MOCK_PROOF_HEADER.len()] == MOCK_PROOF_HEADER
+    proof.len() >= MOCK_PROOF_HEADER.len() && &proof[..MOCK_PROOF_HEADER.len()] == MOCK_PROOF_HEADER
 }
 
 /// Extract the proof type from a mock proof

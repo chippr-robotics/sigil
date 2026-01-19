@@ -22,7 +22,9 @@ impl MerkleTree {
     /// Internal nodes are `SHA256(left || right)`.
     pub fn from_leaves(leaves: &[[u8; 33]]) -> Result<Self> {
         if leaves.is_empty() {
-            return Err(ZkvmError::MerkleTree("Cannot create tree with no leaves".into()));
+            return Err(ZkvmError::MerkleTree(
+                "Cannot create tree with no leaves".into(),
+            ));
         }
 
         let mut nodes: Vec<Vec<[u8; 32]>> = Vec::new();
@@ -179,7 +181,12 @@ mod tests {
         // Verify both leaves
         for i in 0..2 {
             let proof = tree.proof(i).unwrap();
-            assert!(MerkleTree::verify_proof(&tree.root(), &leaves[i], i, &proof));
+            assert!(MerkleTree::verify_proof(
+                &tree.root(),
+                &leaves[i],
+                i,
+                &proof
+            ));
         }
     }
 
