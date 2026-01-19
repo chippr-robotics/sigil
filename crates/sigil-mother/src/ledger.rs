@@ -22,8 +22,6 @@ use sha2::{Digest, Sha256};
 use tracing::{debug, info, warn};
 
 #[cfg(feature = "ledger")]
-use ledger_transport::Exchange;
-#[cfg(feature = "ledger")]
 use ledger_transport_hid::TransportNativeHID;
 
 /// Ethereum app CLA (instruction class)
