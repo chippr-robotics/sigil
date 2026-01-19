@@ -9,7 +9,7 @@ use sigil_mother::{
     ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony},
     keygen::MasterKeyGenerator,
     reconciliation,
-    storage::MotherStorage,
+    storage::{MasterShardData, MotherStorage},
 };
 
 #[cfg(feature = "ledger")]
@@ -139,15 +139,10 @@ async fn main() -> anyhow::Result<()> {
                     let output = device.generate_master_key().await?;
 
                     // Convert to storage format
-                    let cold_shard = sigil_core::ColdMasterShard {
-                        master_pubkey: output.master_pubkey.as_bytes().to_vec(),
-                        secret_share: output.cold_master_shard.to_vec(),
-                        created_at: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
-                        next_child_index: 0,
-                    };
+                    let cold_shard = MasterShardData::new(
+                        output.cold_master_shard,
+                        *output.master_pubkey.as_bytes(),
+                    );
 
                     storage.save_master_shard(&cold_shard)?;
 
@@ -158,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
                     );
                     println!(
                         "Ledger Public Key: 0x{}",
-                        hex::encode(&output.ledger_pubkey)
+                        hex::encode(output.ledger_pubkey)
                     );
                     println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
                     println!(

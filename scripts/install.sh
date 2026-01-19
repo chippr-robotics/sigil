@@ -116,7 +116,7 @@ build_sigil() {
     cargo build --release --quiet \
         -p sigil-daemon \
         -p sigil-cli \
-        -p sigil-mother \
+        -p sigil-mother --features sigil-mother/ledger \
         -p sigil-frost --all-features \
         -p sigil-mcp \
         2>&1 | grep -v "Compiling\|Downloading" || true
