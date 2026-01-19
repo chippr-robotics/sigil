@@ -21,6 +21,7 @@ clap = { workspace = true }
 # Cryptography
 k256 = { workspace = true }
 sha2 = { workspace = true }
+sha3 = { workspace = true, optional = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 zeroize = { workspace = true }
@@ -45,10 +46,13 @@ anyhow = { workspace = true }
 # Time
 chrono = { workspace = true }
 
-# Ledger hardware wallet (optional)
+# Hardware wallet/HSM support (optional)
+async-trait = { workspace = true }
 ledger-transport = { workspace = true, optional = true }
 ledger-transport-hid = { workspace = true, optional = true }
 ledger-apdu = { workspace = true, optional = true }
+trezor-client = { workspace = true, optional = true }
+cryptoki = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
@@ -56,3 +60,7 @@ tempfile = { workspace = true }
 [features]
 default = []
 ledger = ["ledger-transport", "ledger-transport-hid", "ledger-apdu"]
+trezor = ["trezor-client"]
+pkcs11 = ["cryptoki", "sha3"]
+# Enable all hardware signers
+hardware-all = ["ledger", "trezor", "pkcs11"]

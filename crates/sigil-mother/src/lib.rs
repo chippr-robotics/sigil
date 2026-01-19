@@ -9,12 +9,16 @@
 //!
 //! # Optional Features
 //!
-//! - `ledger` - Enable Ledger hardware wallet support for secure key generation
+//! - `ledger` - Enable Ledger hardware wallet support
+//! - `trezor` - Enable Trezor hardware wallet support
+//! - `pkcs11` - Enable PKCS#11 HSM support (YubiHSM, SoftHSM, etc.)
+//! - `hardware-all` - Enable all hardware signer backends
 
 pub mod ceremony;
 pub mod error;
+pub mod hardware;
 pub mod keygen;
-pub mod ledger;
+pub mod ledger; // Backwards compatibility re-export
 pub mod presig_gen;
 pub mod reconciliation;
 pub mod registry;
@@ -22,8 +26,12 @@ pub mod storage;
 
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use error::{MotherError, Result};
+pub use hardware::HardwareSigner;
 pub use keygen::MasterKeyGenerator;
-pub use ledger::LedgerDevice;
 pub use presig_gen::PresigGenerator;
 pub use registry::ChildRegistry;
 pub use storage::MotherStorage;
+
+// Backwards compatibility: re-export LedgerDevice from old location
+#[cfg(feature = "ledger")]
+pub use hardware::ledger::LedgerDevice;
