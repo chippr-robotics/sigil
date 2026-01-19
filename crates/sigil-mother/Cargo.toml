@@ -14,6 +14,7 @@ path = "src/lib.rs"
 
 [dependencies]
 sigil-core = { workspace = true }
+sigil-mother-zkvm = { workspace = true, optional = true }
 
 # CLI
 clap = { workspace = true }
@@ -64,3 +65,9 @@ trezor = ["trezor-client"]
 pkcs11 = ["cryptoki", "sha3"]
 # Enable all hardware signers
 hardware-all = ["ledger", "trezor", "pkcs11"]
+# Enable zkVM proving for mother operations
+zkvm = ["sigil-mother-zkvm"]
+# Mock provers for testing without SP1
+zkvm-mock = ["zkvm", "sigil-mother-zkvm/mock"]
+# Real SP1 provers (requires SP1 toolchain)
+zkvm-sp1 = ["zkvm", "sigil-mother-zkvm/sp1-prover"]

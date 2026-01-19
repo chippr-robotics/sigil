@@ -59,6 +59,10 @@ pub enum MotherError {
     /// MPC protocol error
     #[error("MPC error: {0}")]
     Mpc(String),
+
+    /// Storage error
+    #[error("Storage error: {0}")]
+    Storage(String),
 }
 
 impl From<bitcode::Error> for MotherError {

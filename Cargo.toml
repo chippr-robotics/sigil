@@ -4,6 +4,7 @@ members = [
     "crates/sigil-core",
     "crates/sigil-frost",
     "crates/sigil-zkvm",
+    "crates/sigil-mother-zkvm",
     "crates/sigil-daemon",
     "crates/sigil-cli",
     "crates/sigil-mother",
@@ -26,6 +27,7 @@ sigil-zkvm = { path = "crates/sigil-zkvm" }
 sigil-daemon = { path = "crates/sigil-daemon" }
 sigil-cli = { path = "crates/sigil-cli" }
 sigil-mother = { path = "crates/sigil-mother" }
+sigil-mother-zkvm = { path = "crates/sigil-mother-zkvm" }
 sigil-mcp = { path = "crates/sigil-mcp" }
 
 # Cryptography

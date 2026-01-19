@@ -13,6 +13,9 @@
 //! - `trezor` - Enable Trezor hardware wallet support
 //! - `pkcs11` - Enable PKCS#11 HSM support (YubiHSM, SoftHSM, etc.)
 //! - `hardware-all` - Enable all hardware signer backends
+//! - `zkvm` - Enable zkVM proving for mother operations
+//! - `zkvm-mock` - Use mock provers for testing
+//! - `zkvm-sp1` - Use real SP1 provers (requires SP1 toolchain)
 
 pub mod ceremony;
 pub mod error;
@@ -23,6 +26,8 @@ pub mod presig_gen;
 pub mod reconciliation;
 pub mod registry;
 pub mod storage;
+#[cfg(feature = "zkvm")]
+pub mod zkvm;
 
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use error::{MotherError, Result};
@@ -31,6 +36,9 @@ pub use keygen::MasterKeyGenerator;
 pub use presig_gen::PresigGenerator;
 pub use registry::ChildRegistry;
 pub use storage::MotherStorage;
+
+#[cfg(feature = "zkvm")]
+pub use zkvm::ProofGenerator;
 
 // Backwards compatibility: re-export LedgerDevice from old location
 #[cfg(feature = "ledger")]
