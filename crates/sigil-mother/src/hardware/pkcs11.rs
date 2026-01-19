@@ -46,6 +46,9 @@ pub struct Pkcs11Config {
     pub pin: String,
     /// Label of the signing key
     pub key_label: String,
+    /// Optional model name for device identification (e.g., "YubiHSM 2", "SoftHSM")
+    /// If not provided, will attempt to use token info from the slot
+    pub model_name: Option<String>,
 }
 
 /// PKCS#11 HSM connection
@@ -55,6 +58,8 @@ pub struct Pkcs11Device {
     key_handle: ObjectHandle,
     public_key: [u8; 65],
     config: Pkcs11Config,
+    /// Token label from slot info (for device identification)
+    token_label: String,
 }
 
 impl Pkcs11Device {
@@ -63,9 +68,8 @@ impl Pkcs11Device {
         info!("Connecting to PKCS#11 HSM...");
 
         // Load the PKCS#11 library
-        let ctx = Pkcs11::new(Path::new(&config.library_path)).map_err(|e| {
-            MotherError::Crypto(format!("Failed to load PKCS#11 library: {}", e))
-        })?;
+        let ctx = Pkcs11::new(Path::new(&config.library_path))
+            .map_err(|e| MotherError::Crypto(format!("Failed to load PKCS#11 library: {}", e)))?;
 
         // Initialize the library
         ctx.initialize(CInitializeArgs::OsThreads)
@@ -85,6 +89,12 @@ impl Pkcs11Device {
         let slot = slots
             .get(config.slot as usize)
             .ok_or_else(|| MotherError::Crypto(format!("Slot {} not found", config.slot)))?;
+
+        // Get token info for device identification
+        let token_label = ctx
+            .get_token_info(*slot)
+            .map(|info| info.label().trim().to_string())
+            .unwrap_or_else(|_| "Unknown Token".to_string());
 
         // Open a session
         let session = ctx
@@ -111,6 +121,7 @@ impl Pkcs11Device {
             key_handle,
             public_key,
             config,
+            token_label,
         })
     }
 
@@ -132,6 +143,15 @@ impl Pkcs11Device {
     }
 
     /// Get public key from a private key handle
+    ///
+    /// Parses the EC point from the HSM's DER-encoded response. Different HSMs
+    /// may return EC points in various formats:
+    /// - Raw uncompressed point (65 bytes): 04 || x (32 bytes) || y (32 bytes)
+    /// - DER OCTET STRING wrapped: 04 || len || 04 || x || y
+    /// - Some HSMs may use different DER structures
+    ///
+    /// This implementation handles the most common formats but may need
+    /// extension for specific HSM implementations.
     fn get_public_key_from_handle(session: &Session, key_handle: ObjectHandle) -> Result<[u8; 65]> {
         // Get the EC point (public key) attribute
         let attrs = session
@@ -140,20 +160,7 @@ impl Pkcs11Device {
 
         for attr in attrs {
             if let Attribute::EcPoint(point) = attr {
-                // The EC point is DER encoded, need to extract the actual point
-                // Format: 04 || len || 04 || x || y (for uncompressed)
-                let point_bytes = if point.len() > 65 && point[0] == 0x04 {
-                    // DER encoded
-                    &point[point.len() - 65..]
-                } else if point.len() == 65 {
-                    &point[..]
-                } else {
-                    return Err(MotherError::Crypto(format!(
-                        "Invalid EC point length: {}",
-                        point.len()
-                    )));
-                };
-
+                let point_bytes = Self::parse_ec_point(&point)?;
                 let mut pubkey = [0u8; 65];
                 pubkey.copy_from_slice(point_bytes);
                 return Ok(pubkey);
@@ -163,6 +170,69 @@ impl Pkcs11Device {
         Err(MotherError::Crypto(
             "Could not retrieve public key from HSM".to_string(),
         ))
+    }
+
+    /// Parse EC point from various DER encodings
+    ///
+    /// Handles multiple formats that HSMs may return:
+    /// 1. Raw 65-byte uncompressed point (04 || x || y)
+    /// 2. DER OCTET STRING: 04 (tag) || length || point_data
+    /// 3. Nested structures where point is at the end
+    fn parse_ec_point(data: &[u8]) -> Result<&[u8]> {
+        // Case 1: Raw uncompressed point (65 bytes starting with 0x04)
+        if data.len() == 65 && data[0] == 0x04 {
+            return Ok(data);
+        }
+
+        // Case 2: DER OCTET STRING encoding
+        // Format: 04 (OCTET STRING tag) || length || actual_point
+        if data.len() > 2 && data[0] == 0x04 {
+            let length = data[1] as usize;
+
+            // Simple length encoding (length < 128)
+            if data[1] < 0x80 && data.len() >= 2 + length {
+                let point_start = 2;
+                let point_data = &data[point_start..point_start + length];
+
+                // The inner data should be an uncompressed point
+                if point_data.len() == 65 && point_data[0] == 0x04 {
+                    return Ok(point_data);
+                }
+            }
+
+            // Long-form length encoding (length >= 128)
+            // Format: 04 || 81 || actual_length || point_data
+            if data[1] == 0x81 && data.len() > 3 {
+                let length = data[2] as usize;
+                if data.len() >= 3 + length {
+                    let point_data = &data[3..3 + length];
+                    if point_data.len() == 65 && point_data[0] == 0x04 {
+                        return Ok(point_data);
+                    }
+                }
+            }
+        }
+
+        // Case 3: Point at end of larger structure (fallback)
+        // Some HSMs return extra metadata; try to find 65-byte sequence at end
+        if data.len() > 65 {
+            let potential_point = &data[data.len() - 65..];
+            if potential_point[0] == 0x04 {
+                warn!(
+                    "Using fallback EC point extraction from {} byte response",
+                    data.len()
+                );
+                return Ok(potential_point);
+            }
+        }
+
+        Err(MotherError::Crypto(format!(
+            "Unsupported EC point encoding: {} bytes, first byte: 0x{:02x}. \
+             Expected uncompressed secp256k1 point (65 bytes starting with 0x04) \
+             or DER-encoded OCTET STRING.",
+            data.len(),
+            data.first().copied().unwrap_or(0)
+        )))
     }
 
     /// Sign data with the HSM key
@@ -209,8 +279,7 @@ impl Pkcs11Device {
         // Try both possible recovery IDs
         for v in [0u8, 1u8] {
             let recovery_id = RecoveryId::from_byte(v).unwrap();
-            if let Ok(recovered) =
-                VerifyingKey::recover_from_prehash(hash, &signature, recovery_id)
+            if let Ok(recovered) = VerifyingKey::recover_from_prehash(hash, &signature, recovery_id)
             {
                 let recovered_bytes = recovered.to_encoded_point(false);
                 if recovered_bytes.as_bytes() == pubkey {
@@ -234,8 +303,15 @@ impl HardwareSigner for Pkcs11Device {
         // Convert public key to address
         let address = Self::pubkey_to_eth_address(&self.public_key);
 
+        // Use configured model name, fall back to token label
+        let model = self
+            .config
+            .model_name
+            .clone()
+            .unwrap_or_else(|| self.token_label.clone());
+
         Ok(DeviceInfo {
-            model: "PKCS#11 HSM".to_string(),
+            model,
             ready: true,
             public_key: Some(self.public_key),
             address: Some(address),

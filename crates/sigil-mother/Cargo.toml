@@ -48,7 +48,7 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 
 # Hardware wallet/HSM support (optional)
-async-trait = { workspace = true }
+async-trait = { workspace = true, optional = true }
 ledger-transport = { workspace = true, optional = true }
 ledger-transport-hid = { workspace = true, optional = true }
 ledger-apdu = { workspace = true, optional = true }
@@ -60,9 +60,9 @@ tempfile = { workspace = true }
 
 [features]
 default = []
-ledger = ["ledger-transport", "ledger-transport-hid", "ledger-apdu"]
-trezor = ["trezor-client"]
-pkcs11 = ["cryptoki", "sha3"]
+ledger = ["dep:async-trait", "ledger-transport", "ledger-transport-hid", "ledger-apdu"]
+trezor = ["dep:async-trait", "trezor-client"]
+pkcs11 = ["dep:async-trait", "cryptoki", "sha3"]
 # Enable all hardware signers
 hardware-all = ["ledger", "trezor", "pkcs11"]
 # Enable zkVM proving for mother operations

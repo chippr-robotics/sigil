@@ -19,6 +19,7 @@
 
 pub mod ceremony;
 pub mod error;
+#[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub mod hardware;
 pub mod keygen;
 pub mod ledger; // Backwards compatibility re-export
@@ -31,6 +32,7 @@ pub mod zkvm;
 
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use error::{MotherError, Result};
+#[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub use hardware::HardwareSigner;
 pub use keygen::MasterKeyGenerator;
 pub use presig_gen::PresigGenerator;

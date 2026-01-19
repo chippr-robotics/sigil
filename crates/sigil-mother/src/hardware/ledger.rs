@@ -91,11 +91,7 @@ impl LedgerDevice {
     }
 
     /// Internal: Sign a personal message using the Ledger
-    async fn sign_personal_message_internal(
-        &self,
-        path: &str,
-        message: &[u8],
-    ) -> Result<[u8; 65]> {
+    async fn sign_personal_message_internal(&self, path: &str, message: &[u8]) -> Result<[u8; 65]> {
         let path_bytes = encode_bip32_path(path)?;
 
         // Build message with path
