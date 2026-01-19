@@ -20,14 +20,9 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Development Artifacts
-# Ignore disk images and agent shards in most locations
+# Sigil artifacts
+# Ignore child disk images and agent shards
 *.img
 *.disk
 *agent_shares*.json
 *agent_shard*.json
-
-# But allow them in the artifacts/ directory
-!artifacts/**/*.img
-!artifacts/**/*.disk
-!artifacts/**/*.json

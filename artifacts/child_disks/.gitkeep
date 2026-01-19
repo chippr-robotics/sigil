@@ -1,4 +1,0 @@
-# This file ensures the child_disks directory is tracked in git even when empty
-# 
-# Place child disk image files (.img) here following the naming conventions
-# described in artifacts/README.md
