@@ -1,0 +1,40 @@
+[package]
+name = "sigil-mother-zkvm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SP1 zkVM proving for Sigil Mother operations"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# Cryptography (for verifiers and mock provers)
+k256 = { workspace = true }
+sha2 = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# SP1 SDK (optional, for real proving)
+sp1-sdk = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+rand = { workspace = true }
+
+[features]
+default = []
+# Enable real SP1 proving (requires SP1 toolchain installed)
+sp1-prover = ["sp1-sdk"]
+# Mock provers for testing without SP1
+mock = []

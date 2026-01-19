@@ -4,6 +4,7 @@ members = [
     "crates/sigil-core",
     "crates/sigil-frost",
     "crates/sigil-zkvm",
+    "crates/sigil-mother-zkvm",
     "crates/sigil-daemon",
     "crates/sigil-cli",
     "crates/sigil-mother",
@@ -26,10 +27,12 @@ sigil-zkvm = { path = "crates/sigil-zkvm" }
 sigil-daemon = { path = "crates/sigil-daemon" }
 sigil-cli = { path = "crates/sigil-cli" }
 sigil-mother = { path = "crates/sigil-mother" }
+sigil-mother-zkvm = { path = "crates/sigil-mother-zkvm" }
 sigil-mcp = { path = "crates/sigil-mcp" }
 
 # Cryptography
 k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
+sha3 = "0.10"
 
 # FROST threshold signatures (Zcash Foundation)
 frost-core = "2.1"
@@ -47,10 +50,13 @@ serde_json = "1.0"
 bitcode = "0.6"
 hex = "0.4"
 
-# Ledger hardware wallet support (optional)
+# Hardware wallet/HSM support (optional)
 ledger-transport = "0.11"
 ledger-transport-hid = "0.11"
 ledger-apdu = "0.11"
+trezor-client = "0.1"
+cryptoki = "0.7"
+async-trait = "0.1"
 
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }

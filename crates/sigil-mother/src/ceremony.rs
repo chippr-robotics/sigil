@@ -2,6 +2,12 @@
 //!
 //! Ceremonies are the secure processes for creating children,
 //! refilling presigs, and reconciliation.
+//!
+//! # zkVM Proving
+//!
+//! When the `zkvm` feature is enabled, ceremonies can optionally generate
+//! zero-knowledge proofs of their operations. Use `CreateChildCeremony::with_proof_generator`
+//! to enable proof generation.
 
 use sigil_core::{
     crypto::DerivationPath,
@@ -15,9 +21,14 @@ use crate::keygen::MasterKeyGenerator;
 use crate::presig_gen::PresigGenerator;
 use crate::storage::MotherStorage;
 
+#[cfg(feature = "zkvm")]
+use crate::zkvm::ProofGenerator;
+
 /// Ceremony for creating a new child disk
 pub struct CreateChildCeremony {
     storage: MotherStorage,
+    #[cfg(feature = "zkvm")]
+    proof_generator: Option<ProofGenerator>,
 }
 
 /// Output of child creation ceremony
@@ -41,7 +52,20 @@ pub struct CreateChildOutput {
 impl CreateChildCeremony {
     /// Create a new ceremony
     pub fn new(storage: MotherStorage) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            #[cfg(feature = "zkvm")]
+            proof_generator: None,
+        }
+    }
+
+    /// Create a ceremony with a proof generator for zkVM proving
+    #[cfg(feature = "zkvm")]
+    pub fn with_proof_generator(storage: MotherStorage, proof_generator: ProofGenerator) -> Self {
+        Self {
+            storage,
+            proof_generator: Some(proof_generator),
+        }
     }
 
     /// Execute the child creation ceremony
@@ -195,6 +219,48 @@ impl CreateChildCeremony {
             presig_pairs.iter().map(|p| p.cold_share.clone()).collect();
         let agent_shares: Vec<sigil_core::presig::PresigAgentShare> =
             presig_pairs.iter().map(|p| p.agent_share.clone()).collect();
+
+        // 7.5. Generate zkVM proofs if enabled
+        #[cfg(feature = "zkvm")]
+        if let Some(ref proof_gen) = self.proof_generator {
+            let child_id_hex = child_id.to_hex();
+
+            // Get the agent shard for proof generation
+            let agent_shard_for_proof = agent_master_shard.unwrap_or_else(|| {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(b"agent_shard_placeholder:");
+                hasher.update(derivation_path.to_bytes());
+                hasher.finalize().into()
+            });
+
+            // Generate derive proof
+            let _derive_output = proof_gen.prove_derive(
+                &child_id_hex,
+                &master.cold_master_shard,
+                &agent_shard_for_proof,
+                &derivation_path.to_bytes(),
+                &master.master_pubkey,
+            )?;
+
+            // Collect nonce shares for batch proof
+            let k_colds: Vec<[u8; 32]> = presig_pairs.iter().map(|p| p.cold_share.k_cold).collect();
+            let k_agents: Vec<[u8; 32]> =
+                presig_pairs.iter().map(|p| p.agent_share.k_agent).collect();
+
+            // Generate batch presig proof
+            let child_pubkey_bytes: &[u8; 33] = child_pubkey.as_bytes();
+            let _batch_output = proof_gen.prove_batch_presig(
+                &child_id_hex,
+                &cold_child_shard,
+                &agent_child_shard,
+                k_colds,
+                k_agents,
+                child_pubkey_bytes,
+                0,  // start_index
+                10, // sample_count
+            )?;
+        }
 
         // 8. Create disk header
         let created_at = std::time::SystemTime::now()
