@@ -65,18 +65,19 @@ pub struct LedgerInfo {
 }
 
 /// Output from Ledger-based master key generation
+///
+/// Both shards are deterministically derived from Ledger signatures,
+/// allowing full recovery from the same Ledger seed.
 #[derive(Debug)]
 pub struct LedgerMasterKeyOutput {
-    /// Cold master shard (derived from Ledger signature)
+    /// Cold master shard (derived from Ledger signature on cold message)
     pub cold_master_shard: [u8; 32],
-    /// Agent master shard (independently generated)
+    /// Agent master shard (derived from Ledger signature on agent message)
     pub agent_master_shard: [u8; 32],
     /// Combined master public key
     pub master_pubkey: sigil_core::PublicKey,
     /// Ledger's public key (for verification)
     pub ledger_pubkey: [u8; 65],
-    /// The message that was signed (for recovery)
-    pub derivation_message: String,
 }
 
 #[cfg(feature = "ledger")]
@@ -216,38 +217,39 @@ impl LedgerDevice {
     /// Generate master key using Ledger as entropy source
     ///
     /// This works by:
-    /// 1. Signing a deterministic "Sigil Master Key" message
-    /// 2. Using the signature as seed for the cold shard
-    /// 3. Generating agent shard independently
-    /// 4. Combining for master public key
+    /// 1. Signing a fixed "cold shard" message to derive the cold master shard
+    /// 2. Signing a fixed "agent shard" message to derive the agent master shard
+    /// 3. Combining public keys for the master public key
+    ///
+    /// Both shards are deterministically recoverable from the same Ledger seed,
+    /// as long as the same BIP32 path and messages are used.
     pub async fn generate_master_key(&self) -> Result<LedgerMasterKeyOutput> {
         info!("Generating master key using Ledger...");
 
-        // Deterministic message for master key derivation
-        let derivation_message = format!(
-            "Sigil MPC Master Key Derivation\nVersion: 1\nTimestamp: {}",
-            chrono::Utc::now().format("%Y-%m-%d")
-        );
+        // Fixed derivation messages for deterministic recovery
+        // These messages MUST NOT change to ensure recoverability
+        const COLD_SHARD_MESSAGE: &str = "Sigil MPC Cold Master Shard Derivation v1";
+        const AGENT_SHARD_MESSAGE: &str = "Sigil MPC Agent Master Shard Derivation v1";
 
         // Get Ledger's public key first
         let (ledger_pubkey, _address) = self.get_public_key(SIGIL_DERIVATION_PATH).await?;
 
-        // Sign the derivation message
-        let signature = self
-            .sign_personal_message(SIGIL_DERIVATION_PATH, derivation_message.as_bytes())
+        // Sign for cold shard derivation
+        info!("Signing cold shard derivation message...");
+        let cold_signature = self
+            .sign_personal_message(SIGIL_DERIVATION_PATH, COLD_SHARD_MESSAGE.as_bytes())
             .await?;
 
-        // Derive cold master shard from signature using HKDF-like construction
-        let cold_master_shard = derive_shard_from_signature(&signature, b"cold_master_shard");
+        // Sign for agent shard derivation
+        info!("Signing agent shard derivation message...");
+        let agent_signature = self
+            .sign_personal_message(SIGIL_DERIVATION_PATH, AGENT_SHARD_MESSAGE.as_bytes())
+            .await?;
 
-        // Generate agent shard using software RNG
-        // (In production, this could also come from the Ledger via a second signature)
-        let agent_master_shard = {
-            use rand::RngCore;
-            let mut shard = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut shard);
-            shard
-        };
+        // Derive both shards deterministically from signatures
+        let cold_master_shard = derive_shard_from_signature(&cold_signature, b"cold_master_shard");
+        let agent_master_shard =
+            derive_shard_from_signature(&agent_signature, b"agent_master_shard");
 
         // Derive public keys and combine
         let cold_pubkey = derive_public_key(&cold_master_shard)?;
@@ -261,7 +263,6 @@ impl LedgerDevice {
             agent_master_shard,
             master_pubkey,
             ledger_pubkey,
-            derivation_message,
         })
     }
 }

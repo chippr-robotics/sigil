@@ -155,6 +155,8 @@ async fn main() -> anyhow::Result<()> {
                         "Ledger Public Key: 0x{}",
                         hex::encode(output.ledger_pubkey)
                     );
+                    println!("\n✓ RECOVERY: Both shards can be recovered from your Ledger's seed phrase.");
+                    println!("  Keep your Ledger's 24-word recovery phrase safe - it backs up these keys.");
                     println!("\n⚠️  IMPORTANT: The agent shard must be securely transferred to the agent device.");
                     println!(
                         "Agent Master Shard: 0x{}",
@@ -162,10 +164,6 @@ async fn main() -> anyhow::Result<()> {
                     );
                     println!(
                         "\n⚠️  Write down or securely store the agent shard, then clear your terminal."
-                    );
-                    println!(
-                        "\nDerivation message (keep for recovery): {}",
-                        output.derivation_message
                     );
 
                     info!("Master shard saved to {:?}", cli.data_dir);
