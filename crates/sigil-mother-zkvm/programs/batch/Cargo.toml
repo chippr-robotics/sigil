@@ -8,7 +8,7 @@ name = "sigil-mother-zkvm-batch"
 path = "src/main.rs"
 
 [dependencies]
-sp1-zkvm = "4.1"
+sp1-zkvm = "5.2"
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 sha2 = { version = "0.10", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }

@@ -70,7 +70,7 @@ impl KeygenProver {
 /// SP1 keygen prover (requires sp1-prover feature)
 #[cfg(feature = "sp1-prover")]
 pub struct Sp1KeygenProver {
-    client: sp1_sdk::ProverClient,
+    prover: sp1_sdk::EnvProver,
     pk: sp1_sdk::SP1ProvingKey,
     vk: sp1_sdk::SP1VerifyingKey,
 }
@@ -81,15 +81,15 @@ impl Sp1KeygenProver {
     pub fn new() -> Result<Self> {
         use sp1_sdk::ProverClient;
 
-        let client = ProverClient::new();
+        let prover = ProverClient::from_env();
 
         // Load the ELF from the built program
         // The ELF path is determined by the SP1 build system
         let elf = include_bytes!("../../programs/keygen/elf/riscv32im-succinct-zkvm-elf");
 
-        let (pk, vk) = client.setup(elf);
+        let (pk, vk) = prover.setup(elf);
 
-        Ok(Self { client, pk, vk })
+        Ok(Self { prover, pk, vk })
     }
 
     /// Get the verification key
@@ -108,9 +108,9 @@ impl KeygenProverTrait for Sp1KeygenProver {
         stdin.write(&input);
 
         // Generate proof
-        let proof = self
-            .client
-            .prove(&self.pk, stdin)
+        let mut proof = self
+            .prover
+            .prove(&self.pk, &stdin)
             .run()
             .map_err(|e| ZkvmError::Sp1Error(e.to_string()))?;
 
