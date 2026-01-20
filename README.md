@@ -351,6 +351,16 @@ Run with debug logging:
 RUST_LOG=debug cargo run --bin sigil-daemon
 ```
 
+## Versioning
+
+Sigil follows [Semantic Versioning 2.0.0](https://semver.org/). See [VERSIONING.md](VERSIONING.md) for details on our versioning policy and release workflow.
+
+For version history and changelog, see [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute, including information about our versioning policy, commit message format, and development workflow.
+
 ## License
 
 Apache-2.0
