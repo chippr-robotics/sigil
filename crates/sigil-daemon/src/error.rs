@@ -64,6 +64,10 @@ pub enum DaemonError {
     #[error("Store error: {0}")]
     Store(String),
 
+    /// Cryptographic error
+    #[error("Crypto error: {0}")]
+    Crypto(String),
+
     /// Timeout
     #[error("Operation timed out")]
     Timeout,

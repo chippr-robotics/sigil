@@ -54,6 +54,30 @@ pub enum Commands {
 
     /// Show presig count
     PresigCount,
+
+    /// Import agent shard (agent's portion of master key)
+    ImportAgentShard {
+        /// Agent shard as hex string
+        #[arg(long, group = "input")]
+        hex: Option<String>,
+
+        /// Path to file containing agent shard (hex encoded)
+        #[arg(long, group = "input")]
+        file: Option<std::path::PathBuf>,
+    },
+
+    /// Import child presignature shares
+    ImportChildShares {
+        /// Path to JSON file with child shares
+        shares_file: std::path::PathBuf,
+
+        /// Replace existing shares if child already imported
+        #[arg(long)]
+        replace: bool,
+    },
+
+    /// List imported children
+    ListChildren,
 }
 
 /// Run the CLI
@@ -133,6 +157,57 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
         Commands::PresigCount => {
             let (remaining, total) = client.get_presig_count().await?;
             println!("Presigs: {}/{} remaining", remaining, total);
+        }
+
+        Commands::ImportAgentShard { hex, file } => {
+            let hex_string = if let Some(hex_str) = hex {
+                hex_str
+            } else if let Some(file_path) = file {
+                std::fs::read_to_string(&file_path)
+                    .map_err(|e| ClientError::Io(e))?
+                    .trim()
+                    .to_string()
+            } else {
+                return Err(ClientError::RequestFailed(
+                    "Must provide either --hex or --file".to_string(),
+                ));
+            };
+
+            // Validate hex string
+            let hex_str = hex_string.strip_prefix("0x").unwrap_or(&hex_string);
+            if hex_str.len() != 64 {
+                return Err(ClientError::RequestFailed(
+                    "Agent shard must be 32 bytes (64 hex characters)".to_string(),
+                ));
+            }
+
+            client.import_agent_shard(&hex_string).await?;
+            println!("✓ Agent shard imported successfully");
+            println!("The agent shard is now stored securely and ready for signing operations.");
+        }
+
+        Commands::ImportChildShares {
+            shares_file,
+            replace,
+        } => {
+            let shares_json = std::fs::read_to_string(&shares_file)
+                .map_err(|e| ClientError::Io(e))?;
+
+            client.import_child_shares(&shares_json, replace).await?;
+            println!("✓ Child shares imported successfully");
+        }
+
+        Commands::ListChildren => {
+            let children = client.list_children().await?;
+            if children.is_empty() {
+                println!("No children imported yet.");
+                println!("Import child shares with: sigil import-child-shares <file>");
+            } else {
+                println!("Imported children:");
+                for child_id in children {
+                    println!("  - {}", child_id);
+                }
+            }
         }
     }
 

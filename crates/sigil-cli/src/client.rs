@@ -163,6 +163,48 @@ impl SigilClient {
         }
     }
 
+    /// Import agent master shard
+    pub async fn import_agent_shard(&self, agent_shard_hex: &str) -> Result<()> {
+        let request = IpcRequest::ImportAgentShard {
+            agent_shard_hex: agent_shard_hex.to_string(),
+        };
+
+        match self.request(&request).await? {
+            IpcResponse::Ok => Ok(()),
+            IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
+        }
+    }
+
+    /// Import child presignature shares
+    pub async fn import_child_shares(&self, shares_json: &str, replace: bool) -> Result<()> {
+        let request = IpcRequest::ImportChildShares {
+            shares_json: shares_json.to_string(),
+            replace,
+        };
+
+        match self.request(&request).await? {
+            IpcResponse::Ok => Ok(()),
+            IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
+        }
+    }
+
+    /// List imported children
+    pub async fn list_children(&self) -> Result<Vec<String>> {
+        match self.request(&IpcRequest::ListChildren).await? {
+            IpcResponse::Children { child_ids } => Ok(child_ids),
+            IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
+            _ => Err(ClientError::RequestFailed(
+                "Unexpected response".to_string(),
+            )),
+        }
+    }
+
     /// Send a request to the daemon
     async fn request(&self, request: &IpcRequest) -> Result<IpcResponse> {
         let stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
