@@ -27,10 +27,12 @@ jobs:
           VERSION="${TAG#v}"
           
           # Validate semver format (X.Y.Z or X.Y.Z-prerelease.N)
+          # Note: This project uses lowercase prerelease identifiers (alpha, beta, rc)
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$ ]]; then
             echo "❌ Invalid semantic version tag: $TAG"
             echo "Expected format: vX.Y.Z or vX.Y.Z-prerelease.N"
             echo "Examples: v1.0.0, v0.2.0-alpha.1, v1.0.0-rc.2"
+            echo "Note: Prerelease identifiers must be lowercase (alpha, beta, rc)"
             exit 1
           fi
           
@@ -74,17 +76,20 @@ jobs:
             # Extract section between [VERSION] and next [VERSION] or end of file
             CHANGELOG=$(awk "/## \[$VERSION\]/,/## \[/" CHANGELOG.md | sed '1d;$d' | sed '/^$/d' || echo "")
             
-            if [ -n "$CHANGELOG" ]; then
-              echo "Found changelog for version $VERSION"
+            # Validate extracted content has meaningful text (at least 10 characters)
+            if [ -n "$CHANGELOG" ] && [ ${#CHANGELOG} -gt 10 ]; then
+              echo "Found changelog for version $VERSION (${#CHANGELOG} chars)"
               # Save changelog to file for use in release
               echo "$CHANGELOG" > /tmp/release-notes.md
             else
-              echo "No changelog found for version $VERSION, using default"
-              echo "See [CHANGELOG.md](https://github.com/chippr-robotics/sigil/blob/main/CHANGELOG.md) for details." > /tmp/release-notes.md
+              echo "No meaningful changelog found for version $VERSION, using default"
+              echo "## Release $VERSION" > /tmp/release-notes.md
+              echo "" >> /tmp/release-notes.md
+              echo "See [CHANGELOG.md](https://github.com/chippr-robotics/sigil/blob/main/CHANGELOG.md) for details." >> /tmp/release-notes.md
             fi
           else
             echo "No CHANGELOG.md found, using default"
-            echo "Release $VERSION" > /tmp/release-notes.md
+            echo "## Release $VERSION" > /tmp/release-notes.md
           fi
 
       - name: Create Release

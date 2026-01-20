@@ -96,7 +96,8 @@ NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 # Handle prerelease
 if [ -n "$PRERELEASE" ]; then
-    # If same prerelease type, increment the number
+    # If same prerelease type and has a number, increment it
+    # Otherwise, start at 1 (either new prerelease type or bumping from stable version)
     if [ "$CURRENT_PRERELEASE" = "$PRERELEASE" ] && [ -n "$PRERELEASE_NUM" ]; then
         PRERELEASE_NUM=$((PRERELEASE_NUM + 1))
     else
