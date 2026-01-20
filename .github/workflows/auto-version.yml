@@ -4,13 +4,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'CHANGELOG.md'
-      - 'VERSIONING.md'
-      - 'CONTRIBUTING.md'
-      - 'README.md'
-      - 'docs/**'
-      - '**.md'
 
 env:
   CARGO_TERM_COLOR: always
@@ -74,11 +67,12 @@ jobs:
           echo "Analyzing commits for version bump type..."
           
           # Determine bump type based on conventional commit messages
-          MAJOR_PATTERN="^(feat|fix|perf|refactor|build|ci|chore|docs|style|test)(\(.+\))?!:|^BREAKING CHANGE:"
+          # Only include types that should trigger version bumps
+          MAJOR_PATTERN="^(feat|fix|perf|refactor)(\(.+\))?!:|^BREAKING CHANGE:"
           MINOR_PATTERN="^feat(\(.+\))?:"
-          PATCH_PATTERN="^(fix|perf|refactor|build|ci|chore|docs|style|test)(\(.+\))?:"
+          PATCH_PATTERN="^(fix|perf|refactor)(\(.+\))?:"
           
-          BUMP_TYPE="patch"  # Default to patch
+          BUMP_TYPE="none"  # Default to no bump
           
           # Check for breaking changes (major version bump)
           if echo "$COMMITS" | grep -qE "$MAJOR_PATTERN"; then
@@ -93,9 +87,9 @@ jobs:
             BUMP_TYPE="patch"
             echo "Found fixes/improvements, will perform PATCH version bump"
           else
-            # If no conventional commits found, default to patch
-            echo "No conventional commits found, defaulting to PATCH version bump"
-            BUMP_TYPE="patch"
+            # If no version-bumping conventional commits found, skip version bump
+            echo "No version-bumping commits found (only docs, chore, ci, style, test, or build)"
+            BUMP_TYPE="none"
           fi
           
           # Special handling for 0.x.y versions (pre-1.0 development)
@@ -108,9 +102,21 @@ jobs:
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "Final bump type: $BUMP_TYPE"
 
+      - name: Check if version bump needed
+        id: should_bump
+        if: steps.check_version_commit.outputs.skip == 'false'
+        run: |
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          if [ "$BUMP_TYPE" = "none" ]; then
+            echo "skip_bump=true" >> $GITHUB_OUTPUT
+            echo "No version bump needed - only non-versioning commits present"
+          else
+            echo "skip_bump=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Bump version
         id: bump
-        if: steps.check_version_commit.outputs.skip == 'false'
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
         run: |
           BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
           
@@ -123,7 +129,7 @@ jobs:
           echo "Version bumped from ${{ steps.current_version.outputs.version }} to $NEW_VERSION"
 
       - name: Update CHANGELOG
-        if: steps.check_version_commit.outputs.skip == 'false'
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
         run: |
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
           TODAY=$(date +%Y-%m-%d)
@@ -147,7 +153,7 @@ jobs:
           
           # Update the comparison links at the bottom
           # Add new version link
-          if grep -q "\[Unreleased\]:" CHANGELOG.md; then
+          if grep -q "\[Unreleased\]:" "$TEMP_FILE"; then
             # Update unreleased link and add new version link
             sed -i "s|\[Unreleased\]:.*|\[Unreleased\]: https://github.com/chippr-robotics/sigil/compare/v${NEW_VERSION}...HEAD\n[${NEW_VERSION}]: https://github.com/chippr-robotics/sigil/compare/v${{ steps.current_version.outputs.version }}...v${NEW_VERSION}|" "$TEMP_FILE"
           else
@@ -162,7 +168,7 @@ jobs:
           echo "Updated CHANGELOG.md with version $NEW_VERSION"
 
       - name: Commit version bump
-        if: steps.check_version_commit.outputs.skip == 'false'
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
         run: |
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
           
@@ -173,7 +179,7 @@ jobs:
           echo "Committed and pushed version bump to main"
 
       - name: Create and push tag
-        if: steps.check_version_commit.outputs.skip == 'false'
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
         run: |
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
           
@@ -184,7 +190,7 @@ jobs:
           echo "This will trigger the release workflow"
 
       - name: Summary
-        if: steps.check_version_commit.outputs.skip == 'false'
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
         run: |
           echo "## 🎉 Version Bump Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -201,3 +207,17 @@ jobs:
           echo "## ⏭️ Version Bump Skipped" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "This commit is already a version bump commit. No action taken." >> $GITHUB_STEP_SUMMARY
+
+      - name: No bump needed summary
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'true'
+        run: |
+          echo "## ℹ️ No Version Bump Needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No version-bumping commits found. Only documentation, maintenance, or style changes detected." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit types that trigger version bumps:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat:\` - New features (MINOR bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`fix:\` - Bug fixes (PATCH bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`perf:\` - Performance improvements (PATCH bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`refactor:\` - Code refactoring (PATCH bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- Any type with \`!\` - Breaking changes (MAJOR bump)" >> $GITHUB_STEP_SUMMARY

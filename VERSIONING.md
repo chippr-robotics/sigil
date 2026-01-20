@@ -42,8 +42,8 @@ When a PR is merged to `main`, the `.github/workflows/auto-version.yml` workflow
      - Examples: `feat!: change disk format`, `fix!: update IPC protocol`
    - **New features** (MINOR bump): Commits starting with `feat:`
      - Example: `feat(daemon): add disk expiration warnings`
-   - **Bug fixes** (PATCH bump): Commits starting with `fix:`, `perf:`, `refactor:`, etc.
-     - Example: `fix(mother): correct presignature generation`
+   - **Bug fixes** (PATCH bump): Commits starting with `fix:`, `perf:`, or `refactor:`
+     - Example: `fix(mother): correct presignature generation`, `perf(core): optimize validation`
 3. **Updates version** in `Cargo.toml` and `Cargo.lock`
 4. **Updates CHANGELOG.md** with the new version entry
 5. **Creates and pushes a git tag** (e.g., `v0.2.0`)
