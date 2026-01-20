@@ -17,8 +17,14 @@ jobs:
   fmt:
     name: Format Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -26,7 +32,95 @@ jobs:
           components: rustfmt
 
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        id: fmt_check
+        run: |
+          if ! cargo fmt --all -- --check; then
+            echo "fmt_failed=true" >> $GITHUB_OUTPUT
+            echo "❌ Formatting issues detected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "fmt_failed=false" >> $GITHUB_OUTPUT
+            echo "✅ All files are properly formatted" >> $GITHUB_STEP_SUMMARY
+          fi
+        continue-on-error: true
+
+      - name: Apply formatting fixes
+        if: steps.fmt_check.outputs.fmt_failed == 'true'
+        run: |
+          echo "## 🔧 Applying Formatting Fixes" >> $GITHUB_STEP_SUMMARY
+          cargo fmt --all
+          echo "Formatting fixes applied successfully" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for changes
+        if: steps.fmt_check.outputs.fmt_failed == 'true'
+        id: check_changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "## 📝 Files Modified" >> $GITHUB_STEP_SUMMARY
+            git diff --name-only | while read file; do
+              echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push formatting fixes (non-PR)
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: auto-fix formatting with cargo fmt"
+          git push
+          echo "## ✅ Formatting Fixes Committed" >> $GITHUB_STEP_SUMMARY
+          echo "Changes have been automatically committed to the branch." >> $GITHUB_STEP_SUMMARY
+
+      - name: Create PR comment with suggestions (PR only)
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Get the diff
+            const diff = execSync('git diff', { encoding: 'utf-8' });
+            
+            const comment = `## 🔧 Formatting Issues Detected
+            
+            This PR has formatting issues that can be automatically fixed. Please run the following command locally:
+            
+            \`\`\`bash
+            cargo fmt --all
+            \`\`\`
+            
+            <details>
+            <summary>View suggested changes</summary>
+            
+            \`\`\`diff
+            ${diff}
+            \`\`\`
+            
+            </details>
+            
+            **Note:** These changes will be automatically applied when this PR is merged to a protected branch.`;
+            
+            // Post comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+            
+            core.setFailed('Formatting issues detected. Please run `cargo fmt --all` locally.');
+
+      - name: Fail if formatting issues remain
+        if: steps.fmt_check.outputs.fmt_failed == 'true' && steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+        run: |
+          echo "## ❌ Action Required" >> $GITHUB_STEP_SUMMARY
+          echo "Please run \`cargo fmt --all\` locally and push the changes." >> $GITHUB_STEP_SUMMARY
+          exit 1
 
   # ============================================
   # Lint Check
@@ -34,8 +128,14 @@ jobs:
   clippy:
     name: Clippy Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install system dependencies
         run: |
@@ -60,8 +160,138 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-clippy-
 
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Check Clippy
+        id: clippy_check
+        run: |
+          if ! cargo clippy --workspace --all-targets -- -D warnings; then
+            echo "clippy_failed=true" >> $GITHUB_OUTPUT
+            echo "❌ Clippy warnings detected" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "clippy_failed=false" >> $GITHUB_OUTPUT
+            echo "✅ No clippy warnings found" >> $GITHUB_STEP_SUMMARY
+          fi
+        continue-on-error: true
+
+      - name: Apply Clippy fixes
+        if: steps.clippy_check.outputs.clippy_failed == 'true'
+        run: |
+          echo "## 🔧 Attempting Clippy Auto-Fixes" >> $GITHUB_STEP_SUMMARY
+          # Use --fix to automatically fix issues, --allow-dirty allows fixing uncommitted changes
+          cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged || true
+          echo "Clippy auto-fix completed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for changes
+        if: steps.clippy_check.outputs.clippy_failed == 'true'
+        id: check_changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "## 📝 Files Modified by Auto-Fix" >> $GITHUB_STEP_SUMMARY
+            git diff --name-only | while read file; do
+              echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No automatic fixes available" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Verify fixes worked
+        if: steps.clippy_check.outputs.clippy_failed == 'true'
+        id: verify_fixes
+        run: |
+          if cargo clippy --workspace --all-targets -- -D warnings; then
+            echo "fixes_successful=true" >> $GITHUB_OUTPUT
+            echo "✅ All Clippy warnings resolved by auto-fix" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "fixes_successful=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Some Clippy warnings require manual intervention" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Remaining warnings</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cargo clippy --workspace --all-targets -- -D warnings 2>&1 | head -100 >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          fi
+        continue-on-error: true
+
+      - name: Commit and push Clippy fixes (non-PR)
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: auto-fix clippy warnings"
+          git push
+          echo "## ✅ Clippy Fixes Committed" >> $GITHUB_STEP_SUMMARY
+          echo "Changes have been automatically committed to the branch." >> $GITHUB_STEP_SUMMARY
+
+      - name: Create PR comment with auto-fixes (PR only)
+        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Get the diff
+            const diff = execSync('git diff', { encoding: 'utf-8' });
+            const fixesSuccessful = '${{ steps.verify_fixes.outputs.fixes_successful }}' === 'true';
+            
+            let comment = `## 🔧 Clippy Issues Detected\n\n`;
+            
+            if (fixesSuccessful) {
+              comment += `✅ All issues can be automatically fixed! Run the following command locally:\n\n`;
+            } else {
+              comment += `⚠️ Some issues can be automatically fixed, but manual intervention may be required. Start by running:\n\n`;
+            }
+            
+            comment += `\`\`\`bash
+cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged
+\`\`\`\n\n`;
+            
+            if (diff.length > 0 && diff.length < 10000) {
+              comment += `<details>
+<summary>View suggested auto-fixes</summary>
+
+\`\`\`diff
+${diff}
+\`\`\`
+
+</details>\n\n`;
+            }
+            
+            if (!fixesSuccessful) {
+              comment += `**Additional Manual Fixes Required:**
+After applying auto-fixes, you may need to address remaining warnings manually. Run:
+
+\`\`\`bash
+cargo clippy --workspace --all-targets -- -D warnings
+\`\`\`
+
+to see remaining issues.\n\n`;
+            }
+            
+            comment += `**Note:** These changes will be automatically applied when this PR is merged to a protected branch.`;
+            
+            // Post comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+      - name: Fail if issues remain on PR
+        if: steps.clippy_check.outputs.clippy_failed == 'true' && github.event_name == 'pull_request'
+        run: |
+          echo "## ❌ Action Required" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]]; then
+            echo "Please run \`cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged\` locally." >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ steps.verify_fixes.outputs.fixes_successful }}" == "false" ]]; then
+            echo "Some warnings require manual fixes. Check the comment above for details." >> $GITHUB_STEP_SUMMARY
+          fi
+          exit 1
 
   # ============================================
   # Build Check
