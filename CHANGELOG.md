@@ -5,12 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**Note**: Starting from version 0.1.0, versions are automatically bumped when changes are merged to main, based on [Conventional Commits](https://www.conventionalcommits.org/). See [VERSIONING.md](VERSIONING.md) for details.
+
 ## [Unreleased]
 
 ### Added
-- Semantic versioning documentation in VERSIONING.md
-- CHANGELOG.md for tracking version history
-- Version bump script for automated version management
+- Automatic semantic versioning on merge to main
+- Auto-version GitHub Actions workflow
+- Conventional Commits support for version control
+- Comprehensive documentation for automated versioning
 
 ## [0.1.0] - 2026-01-20
 

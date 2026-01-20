@@ -353,7 +353,14 @@ RUST_LOG=debug cargo run --bin sigil-daemon
 
 ## Versioning
 
-Sigil follows [Semantic Versioning 2.0.0](https://semver.org/). See [VERSIONING.md](VERSIONING.md) for details on our versioning policy and release workflow.
+Sigil follows [Semantic Versioning 2.0.0](https://semver.org/) with **automated version bumping**. 
+
+When changes are merged to the `main` branch, the version is automatically bumped based on [Conventional Commits](https://www.conventionalcommits.org/):
+- `feat:` commits trigger MINOR version bumps
+- `fix:`, `perf:`, `refactor:` commits trigger PATCH version bumps  
+- `feat!:` or `fix!:` commits (breaking changes) trigger MAJOR version bumps (or MINOR for 0.x.y versions)
+
+See [VERSIONING.md](VERSIONING.md) for details on our versioning policy and release workflow.
 
 For version history and changelog, see [CHANGELOG.md](CHANGELOG.md).
 

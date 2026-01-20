@@ -30,99 +30,121 @@ version = "0.1.0"
 
 ## Release Workflow
 
-### 1. Determine Version Bump
+Sigil uses **automated semantic versioning** that automatically bumps the version when changes are merged to the `main` branch.
 
-Analyze changes since last release to determine the appropriate version bump:
+### Automated Version Bumping
 
-- **Breaking changes** (require MAJOR bump):
-  - Disk format changes that break compatibility
-  - IPC protocol changes requiring daemon updates
-  - Cryptographic algorithm changes
-  - Removal of public APIs
-  - Changes to CLI command structure
+When a PR is merged to `main`, the `.github/workflows/auto-version.yml` workflow automatically:
 
-- **New features** (require MINOR bump):
-  - New CLI commands or options
-  - New daemon functionality
-  - New mother device features
-  - Additional cryptographic ciphersuites
-  - New hardware wallet integrations
+1. **Analyzes commit messages** using [Conventional Commits](https://www.conventionalcommits.org/) format
+2. **Determines the version bump type**:
+   - **Breaking changes** (MAJOR bump): Commits with `!` suffix or `BREAKING CHANGE:` in body
+     - Examples: `feat!: change disk format`, `fix!: update IPC protocol`
+   - **New features** (MINOR bump): Commits starting with `feat:`
+     - Example: `feat(daemon): add disk expiration warnings`
+   - **Bug fixes** (PATCH bump): Commits starting with `fix:`, `perf:`, `refactor:`, etc.
+     - Example: `fix(mother): correct presignature generation`
+3. **Updates version** in `Cargo.toml` and `Cargo.lock`
+4. **Updates CHANGELOG.md** with the new version entry
+5. **Creates and pushes a git tag** (e.g., `v0.2.0`)
+6. **Triggers the release workflow** to build and publish artifacts
 
-- **Bug fixes** (require PATCH bump):
-  - Security fixes
-  - Bug fixes that don't change APIs
-  - Performance improvements
-  - Documentation updates
+### Commit Message Format
 
-### 2. Update Version
+To ensure proper version bumping, use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
-Use the provided version bump script:
+```
+<type>[optional scope][optional !]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types that trigger version bumps:**
+- `feat`: New feature (MINOR bump, or MAJOR if `!` suffix)
+- `fix`: Bug fix (PATCH bump, or MAJOR if `!` suffix)
+- `perf`: Performance improvement (PATCH bump)
+- `refactor`: Code refactoring (PATCH bump)
+- Any type with `!` suffix: Breaking change (MAJOR bump)
+
+**Other types** (won't trigger automatic bumps by themselves):
+- `docs`: Documentation changes
+- `style`: Code style changes
+- `test`: Test changes
+- `chore`: Maintenance tasks
+- `ci`: CI/CD changes
+
+**Examples:**
 
 ```bash
-# For patch release (bug fixes)
-./scripts/bump-version.sh patch
+# PATCH bump (0.1.0 -> 0.1.1)
+fix(daemon): correct disk detection timeout
+fix: resolve memory leak in presignature cache
 
-# For minor release (new features)
-./scripts/bump-version.sh minor
+# MINOR bump (0.1.0 -> 0.2.0)
+feat(mother): add Trezor hardware wallet support
+feat: implement disk expiration warnings
 
-# For major release (breaking changes)
-./scripts/bump-version.sh major
+# MAJOR bump (0.1.0 -> 1.0.0) - Only when project is >= 1.0.0
+feat!: change disk format to v2
+fix!: update IPC protocol with incompatible changes
 
+# MAJOR bump converted to MINOR for pre-1.0 (0.1.0 -> 0.2.0)
+feat!: breaking change in 0.x.y converts to MINOR bump
+```
+
+**Note on Pre-1.0 Versions**: While the project is in `0.x.y` phase, breaking changes (marked with `!`) will bump the MINOR version instead of MAJOR, following semantic versioning guidelines for initial development.
+
+### Manual Version Bumping (Advanced)
+
+For special cases like pre-release versions, you can still use the manual bump script:
+
+```bash
 # For pre-release versions
 ./scripts/bump-version.sh minor alpha  # Creates X.Y.0-alpha.1
 ./scripts/bump-version.sh patch beta   # Creates X.Y.Z-beta.1
 ./scripts/bump-version.sh patch rc     # Creates X.Y.Z-rc.1
 ```
 
-This script will:
-- Update version in `Cargo.toml`
-- Update version in `Cargo.lock`
-- Prompt you to update `CHANGELOG.md`
-
-### 3. Update CHANGELOG
-
-Before creating a release, update `CHANGELOG.md` with all changes since the last release:
-
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- New features
-
-### Changed
-- Changes to existing functionality
-
-### Deprecated
-- Features marked for removal
-
-### Removed
-- Removed features
-
-### Fixed
-- Bug fixes
-
-### Security
-- Security fixes
-```
-
-### 4. Commit and Tag
-
+After running the script manually:
 ```bash
 # Commit version bump and changelog
 git add Cargo.toml Cargo.lock CHANGELOG.md
-git commit -m "chore: bump version to X.Y.Z"
+git commit -m "chore: bump version to X.Y.Z-alpha.1"
 
 # Create annotated tag
-git tag -a vX.Y.Z -m "Release version X.Y.Z"
+git tag -a vX.Y.Z-alpha.1 -m "Release version X.Y.Z-alpha.1"
 
 # Push changes and tag
 git push origin main
-git push origin vX.Y.Z
+git push origin vX.Y.Z-alpha.1
 ```
 
-### 5. GitHub Release
+### CHANGELOG Management
 
-When a tag matching `v*` is pushed, the `.github/workflows/release.yml` workflow automatically:
+The CHANGELOG.md is automatically updated by the auto-version workflow. However, for better release notes, you should add meaningful entries to the `[Unreleased]` section as you develop:
+
+```markdown
+## [Unreleased]
+
+### Added
+- New hardware wallet support for Trezor
+- Disk expiration warning system
+
+### Fixed
+- Memory leak in presignature cache
+- Disk detection timeout issues
+
+### Security
+- Updated cryptographic dependencies
+```
+
+When the version is bumped, the unreleased changes will become part of that version's history.
+
+### GitHub Release
+
+When a tag matching `v*` is pushed (either automatically or manually), the `.github/workflows/release.yml` workflow automatically:
 - Creates a GitHub release
 - Builds Linux binaries
 - Uploads release artifacts

@@ -131,7 +131,14 @@ When the CI detects issues in your PR, follow these steps:
 3. **Pass linting**: Run `cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged` to auto-fix issues, then verify with `cargo clippy --workspace --all-targets -- -D warnings`
 4. **Update documentation**: If you're changing public APIs or adding features
 5. **Add tests**: For new functionality
-6. **Update CHANGELOG.md**: Add your changes to the `[Unreleased]` section
+6. **Update CHANGELOG.md**: Add your changes to the `[Unreleased]` section (optional but recommended for better release notes)
+7. **Use conventional commits**: Ensure your commit messages follow the format described above for proper automatic versioning
+
+**Note on Automated Versioning:**
+- Your commit messages control version bumping automatically
+- Use `feat:` for new features, `fix:` for bug fixes, `feat!:` or `fix!:` for breaking changes
+- Version will be bumped automatically when merged to main
+- No need to manually update version numbers in Cargo.toml
 
 **Note on CI Auto-Fix:**
 - The CI pipeline will attempt to automatically fix formatting and clippy issues
@@ -173,30 +180,61 @@ Closes #123
 
 ## Versioning and Releases
 
-Sigil follows [Semantic Versioning 2.0.0](https://semver.org/). See [VERSIONING.md](VERSIONING.md) for detailed information.
+Sigil follows [Semantic Versioning 2.0.0](https://semver.org/) with **automated version bumping**. See [VERSIONING.md](VERSIONING.md) for detailed information.
+
+### Automated Version Bumping
+
+Version bumps happen automatically when PRs are merged to `main`, based on your commit messages:
+
+- **Breaking changes** (`type!:` or `BREAKING CHANGE:`) → MAJOR bump (or MINOR for 0.x.y)
+- **New features** (`feat:`) → MINOR bump
+- **Bug fixes** (`fix:`, `perf:`, `refactor:`) → PATCH bump
 
 ### Understanding Version Bumps
 
-When contributing, consider how your changes affect versioning:
+When contributing, write your commit messages to reflect how your changes should affect versioning:
 
-#### Breaking Changes (MAJOR version bump)
+#### Breaking Changes (MAJOR version bump, or MINOR for 0.x.y versions)
+Use `type!:` syntax or add `BREAKING CHANGE:` in the commit body for:
 - Changes to disk format that break compatibility
 - IPC protocol changes requiring daemon updates
 - Removal of public APIs
 - Changes to CLI command structure
 - Cryptographic algorithm changes
 
+Examples:
+```bash
+feat!: change disk format to v2
+fix!: update IPC protocol structure
+```
+
 #### New Features (MINOR version bump)
+Use `feat:` for:
 - New CLI commands or options
 - New daemon functionality
 - Additional cryptographic ciphersuites
 - New hardware wallet integrations
 
+Examples:
+```bash
+feat(mother): add Trezor support
+feat: implement disk expiration warnings
+```
+
 #### Bug Fixes (PATCH version bump)
+Use `fix:`, `perf:`, or `refactor:` for:
 - Security fixes
 - Bug fixes without API changes
 - Performance improvements
-- Documentation updates
+
+Examples:
+```bash
+fix(daemon): correct disk detection timeout
+perf(core): optimize signature validation
+```
+
+#### No Version Bump
+Use `docs:`, `test:`, `style:`, `chore:`, or `ci:` for changes that don't affect the released code.
 
 ### Changelog Entries
 
@@ -225,10 +263,12 @@ Categories:
 
 ## Commit Message Guidelines
 
-We follow conventional commit format:
+**Important**: Sigil uses **automated semantic versioning** based on commit messages. Your commit messages directly control version bumps!
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ```
-<type>(<scope>): <description>
+<type>[optional scope][optional !]: <description>
 
 [optional body]
 
@@ -237,29 +277,71 @@ We follow conventional commit format:
 
 ### Types
 
-- `feat`: New feature
-- `fix`: Bug fix
+**Types that trigger automatic version bumps:**
+- `feat`: New feature (triggers MINOR version bump)
+- `fix`: Bug fix (triggers PATCH version bump)
+- `perf`: Performance improvement (triggers PATCH version bump)
+- `refactor`: Code refactoring (triggers PATCH version bump)
+- Any type with `!` suffix: Breaking change (triggers MAJOR version bump)
+
+**Other types** (documentation, no version bump):
 - `docs`: Documentation changes
 - `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring without functionality changes
-- `perf`: Performance improvements
 - `test`: Adding or updating tests
-- `chore`: Maintenance tasks
+- `chore`: Maintenance tasks (like dependency updates)
 - `ci`: CI/CD changes
+
+### Breaking Changes
+
+To indicate a breaking change, add `!` after the type/scope:
+
+```
+feat!: change disk format to v2
+fix!: update IPC protocol with incompatible changes
+feat(daemon)!: remove deprecated API
+```
+
+Or add `BREAKING CHANGE:` in the commit body:
+
+```
+feat: new authentication system
+
+BREAKING CHANGE: The old authentication method is no longer supported.
+Users must migrate to the new system.
+```
 
 ### Examples
 
-```
-feat(daemon): add disk expiration warnings
+```bash
+# PATCH bump (0.1.0 -> 0.1.1)
+fix(daemon): correct disk detection timeout
+perf(core): optimize presignature validation
+refactor(cli): simplify error handling
 
-fix(mother): correct presignature generation for Ed25519
+# MINOR bump (0.1.0 -> 0.2.0)
+feat(mother): add Trezor hardware wallet support
+feat: implement disk expiration warnings
 
+# MAJOR bump (for projects >= 1.0.0, MINOR for 0.x.y)
+feat!: change disk format to v2
+fix!: update IPC protocol with incompatible changes
+
+# No version bump
 docs: update README with Ledger setup instructions
-
 test(core): add tests for disk format validation
-
-chore: bump version to 0.2.0
+ci: update GitHub Actions workflow
+style: apply rustfmt formatting
 ```
+
+### Version Bump on Merge
+
+When your PR is merged to `main`:
+1. The auto-version workflow analyzes all commit messages
+2. Determines the highest version bump needed (major > minor > patch)
+3. Automatically updates version files, CHANGELOG, and creates a release tag
+4. Triggers the release workflow to build and publish
+
+**Pro tip**: Squash your commits when merging PRs to ensure clean, semantic commit messages that properly control versioning.
 
 ## Code Style
 
