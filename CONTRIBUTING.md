@@ -59,6 +59,8 @@ RUST_LOG=debug cargo test
 
 ### Code Quality
 
+The CI pipeline includes automated code quality checks with auto-fix capabilities:
+
 ```bash
 # Format code
 cargo fmt --all
@@ -66,20 +68,76 @@ cargo fmt --all
 # Run linter
 cargo clippy --workspace --all-targets -- -D warnings
 
+# Apply automatic clippy fixes
+cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged
+
 # Check documentation
 cargo doc --workspace --no-deps
 ```
+
+#### CI Auto-Fix Behavior
+
+**For Direct Pushes (main, feature branches):**
+- The CI will automatically run `cargo fmt` and `cargo clippy --fix` to fix issues
+- Fixed code is automatically committed and pushed back to the branch
+- You'll see auto-fix commits from `github-actions[bot]`
+
+**For Pull Requests:**
+- The CI detects formatting and clippy issues but doesn't commit directly
+- A detailed comment is posted on your PR with:
+  - Commands to run locally to fix the issues
+  - A diff showing the suggested changes
+  - Additional guidance for issues requiring manual intervention
+- You should apply the fixes locally and push to your PR branch
+
+#### Applying CI Suggestions Locally
+
+When the CI detects issues in your PR, follow these steps:
+
+1. **For formatting issues:**
+   ```bash
+   cargo fmt --all
+   git add -A
+   git commit -m "style: apply formatting fixes"
+   git push
+   ```
+
+2. **For clippy warnings:**
+   ```bash
+   # Auto-fix what can be fixed automatically
+   cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged
+   
+   # Check if any issues remain
+   cargo clippy --workspace --all-targets -- -D warnings
+   
+   # Commit the changes
+   git add -A
+   git commit -m "fix: apply clippy fixes"
+   git push
+   ```
+
+3. **For issues requiring manual fixes:**
+   - Review the remaining clippy warnings in the CI output
+   - Make necessary code changes manually
+   - Test your changes with `cargo test`
+   - Commit and push
 
 ## Pull Request Guidelines
 
 ### Before Submitting
 
 1. **Test your changes**: Run the full test suite
-2. **Format your code**: Run `cargo fmt --all`
-3. **Pass linting**: Ensure `cargo clippy` produces no warnings
+2. **Format your code**: Run `cargo fmt --all` (CI will auto-fix on merge, but it's faster to do it locally)
+3. **Pass linting**: Run `cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged` to auto-fix issues, then verify with `cargo clippy --workspace --all-targets -- -D warnings`
 4. **Update documentation**: If you're changing public APIs or adding features
 5. **Add tests**: For new functionality
 6. **Update CHANGELOG.md**: Add your changes to the `[Unreleased]` section
+
+**Note on CI Auto-Fix:**
+- The CI pipeline will attempt to automatically fix formatting and clippy issues
+- For PRs, it will comment with suggested fixes instead of committing directly
+- For direct pushes to branches, fixes are automatically committed
+- It's still recommended to run these checks locally before pushing to minimize CI iterations
 
 ### PR Description
 
