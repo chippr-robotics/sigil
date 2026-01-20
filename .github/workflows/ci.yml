@@ -80,32 +80,23 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
             const { execSync } = require('child_process');
             
-            // Get the diff
             const diff = execSync('git diff', { encoding: 'utf-8' });
             
-            const comment = `## 🔧 Formatting Issues Detected
+            let comment = '## 🔧 Formatting Issues Detected\n\n';
+            comment += 'This PR has formatting issues that can be automatically fixed. Please run the following command locally:\n\n';
+            comment += '```bash\n';
+            comment += 'cargo fmt --all\n';
+            comment += '```\n\n';
+            comment += '<details>\n';
+            comment += '<summary>View suggested changes</summary>\n\n';
+            comment += '```diff\n';
+            comment += diff;
+            comment += '\n```\n\n';
+            comment += '</details>\n\n';
+            comment += '**Note:** These changes will be automatically applied when this PR is merged to a protected branch.';
             
-            This PR has formatting issues that can be automatically fixed. Please run the following command locally:
-            
-            \`\`\`bash
-            cargo fmt --all
-            \`\`\`
-            
-            <details>
-            <summary>View suggested changes</summary>
-            
-            \`\`\`diff
-            ${diff}
-            \`\`\`
-            
-            </details>
-            
-            **Note:** These changes will be automatically applied when this PR is merged to a protected branch.`;
-            
-            // Post comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -230,50 +221,43 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
             const { execSync } = require('child_process');
             
-            // Get the diff
             const diff = execSync('git diff', { encoding: 'utf-8' });
             const fixesSuccessful = '${{ steps.verify_fixes.outputs.fixes_successful }}' === 'true';
             
-            let comment = `## 🔧 Clippy Issues Detected\n\n`;
+            let comment = '## 🔧 Clippy Issues Detected\n\n';
             
             if (fixesSuccessful) {
-              comment += `✅ All issues can be automatically fixed! Run the following command locally:\n\n`;
+              comment += '✅ All issues can be automatically fixed! Run the following command locally:\n\n';
             } else {
-              comment += `⚠️ Some issues can be automatically fixed, but manual intervention may be required. Start by running:\n\n`;
+              comment += '⚠️ Some issues can be automatically fixed, but manual intervention may be required. Start by running:\n\n';
             }
             
-            comment += `\`\`\`bash
-cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged
-\`\`\`\n\n`;
+            comment += '```bash\n';
+            comment += 'cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged\n';
+            comment += '```\n\n';
             
             if (diff.length > 0 && diff.length < 10000) {
-              comment += `<details>
-<summary>View suggested auto-fixes</summary>
-
-\`\`\`diff
-${diff}
-\`\`\`
-
-</details>\n\n`;
+              comment += '<details>\n';
+              comment += '<summary>View suggested auto-fixes</summary>\n\n';
+              comment += '```diff\n';
+              comment += diff;
+              comment += '\n```\n\n';
+              comment += '</details>\n\n';
             }
             
             if (!fixesSuccessful) {
-              comment += `**Additional Manual Fixes Required:**
-After applying auto-fixes, you may need to address remaining warnings manually. Run:
-
-\`\`\`bash
-cargo clippy --workspace --all-targets -- -D warnings
-\`\`\`
-
-to see remaining issues.\n\n`;
+              comment += '**Additional Manual Fixes Required:**\n';
+              comment += 'After applying auto-fixes, you may need to address remaining warnings manually. Run:\n\n';
+              comment += '```bash\n';
+              comment += 'cargo clippy --workspace --all-targets -- -D warnings\n';
+              comment += '```\n\n';
+              comment += 'to see remaining issues.\n\n';
             }
             
-            comment += `**Note:** These changes will be automatically applied when this PR is merged to a protected branch.`;
+            comment += '**Note:** These changes will be automatically applied when this PR is merged to a protected branch.';
             
-            // Post comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
