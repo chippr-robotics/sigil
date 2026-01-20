@@ -26,3 +26,4 @@ target
 *.disk
 *agent_shares*.json
 *agent_shard*.json
+sigil_mother_data/

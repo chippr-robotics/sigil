@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "sigil": {
+      "command": "C:\\Users\\cody.burns\\sigil\\target\\release\\sigil-mcp.exe",
+      "args": ["--transport", "stdio"],
+      "env": {}
+    }
+  }
+}
