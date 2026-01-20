@@ -181,12 +181,7 @@ mod tests {
         // Verify both leaves
         for (i, leaf) in leaves.iter().enumerate().take(2) {
             let proof = tree.proof(i).unwrap();
-            assert!(MerkleTree::verify_proof(
-                &tree.root(),
-                leaf,
-                i,
-                &proof
-            ));
+            assert!(MerkleTree::verify_proof(&tree.root(), leaf, i, &proof));
         }
     }
 
