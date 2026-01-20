@@ -119,12 +119,19 @@ fi
 
 # Update Cargo.toml
 echo -e "${BLUE}Updating Cargo.toml...${NC}"
-sed -i "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+# Escape dots in version for sed regex
+ESCAPED_CURRENT=$(echo "$CURRENT_VERSION" | sed 's/\./\\./g')
+sed -i "s/^version = \"$ESCAPED_CURRENT\"/version = \"$NEW_VERSION\"/" "$CARGO_TOML"
 
 # Update Cargo.lock
 echo -e "${BLUE}Updating Cargo.lock...${NC}"
 cd "$PROJECT_ROOT"
-cargo update -w 2>&1 | grep -v "Updating\|Locking" || true
+if ! cargo update -w 2>&1 | grep -v "Updating\|Locking"; then
+    # cargo update failed, but check if it's just because there's nothing to update
+    if [ $? -ne 0 ] && [ $? -ne 141 ]; then
+        echo -e "${RED}Warning: cargo update may have encountered issues${NC}"
+    fi
+fi
 
 echo ""
 echo -e "${GREEN}✓ Version updated successfully!${NC}"

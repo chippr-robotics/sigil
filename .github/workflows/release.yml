@@ -74,7 +74,8 @@ jobs:
           # Try to extract changelog section for this version
           if [ -f CHANGELOG.md ]; then
             # Extract section between [VERSION] and next [VERSION] or end of file
-            CHANGELOG=$(awk "/## \[$VERSION\]/,/## \[/" CHANGELOG.md | sed '1d;$d' | sed '/^$/d' || echo "")
+            # Use more specific pattern to avoid matching the same section twice
+            CHANGELOG=$(awk "/## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}/,/## \[[0-9]/" CHANGELOG.md | sed '1d;$d' | sed '/^$/d' || echo "")
             
             # Validate extracted content has meaningful text (at least 10 characters)
             if [ -n "$CHANGELOG" ] && [ ${#CHANGELOG} -gt 10 ]; then
