@@ -4,7 +4,7 @@
 
 ⚠️ This repo is written completely by 🤖 
 
-⛔️ This is unaudited and involves breeding edge cryptography. 
+⛔️ This is unaudited and involves bleeding edge cryptography. 
 
 ⛔️ Read the security documents before using
 
