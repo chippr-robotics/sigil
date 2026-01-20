@@ -205,8 +205,9 @@ impl AgentStore {
 
     /// Get agent master shard (returns error if not loaded)
     pub fn get_agent_master_shard(&self) -> Result<[u8; 32]> {
-        self.agent_master_shard
-            .ok_or_else(|| DaemonError::AgentShardNotFound("Agent master shard not imported".to_string()))
+        self.agent_master_shard.ok_or_else(|| {
+            DaemonError::AgentShardNotFound("Agent master shard not imported".to_string())
+        })
     }
 
     /// Get path for agent master shard file
@@ -224,7 +225,9 @@ impl AgentStore {
 
         let bytes = std::fs::read(&path)?;
         if bytes.len() != 32 {
-            return Err(DaemonError::Crypto("Invalid agent master shard size".to_string()));
+            return Err(DaemonError::Crypto(
+                "Invalid agent master shard size".to_string(),
+            ));
         }
 
         let mut shard = [0u8; 32];

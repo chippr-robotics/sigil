@@ -322,7 +322,9 @@ async fn handle_request(
 
         IpcRequest::ImportAgentShard { agent_shard_hex } => {
             // Parse hex string
-            let agent_shard_hex = agent_shard_hex.strip_prefix("0x").unwrap_or(&agent_shard_hex);
+            let agent_shard_hex = agent_shard_hex
+                .strip_prefix("0x")
+                .unwrap_or(&agent_shard_hex);
             let mut shard = [0u8; 32];
             match hex::decode_to_slice(agent_shard_hex, &mut shard) {
                 Ok(()) => {
@@ -348,14 +350,17 @@ async fn handle_request(
             match serde_json::from_str::<crate::agent_store::AgentChildData>(&shares_json) {
                 Ok(child_data) => {
                     let mut store = agent_store.write().await;
-                    
+
                     // Check if child already exists
                     let child_id = child_data.child_id;
                     let exists = store.load_child(&child_id).is_ok();
-                    
+
                     if exists && !replace {
                         IpcResponse::Error {
-                            message: format!("Child {} already exists. Use --replace to overwrite.", child_id.short()),
+                            message: format!(
+                                "Child {} already exists. Use --replace to overwrite.",
+                                child_id.short()
+                            ),
                         }
                     } else {
                         match store.store_child(child_data) {
