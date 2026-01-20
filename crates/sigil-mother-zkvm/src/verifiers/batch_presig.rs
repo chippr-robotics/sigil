@@ -2,7 +2,6 @@
 
 use crate::error::{Result, ZkvmError};
 use crate::merkle::MerkleTree;
-use crate::provers::BatchPresigProver;
 use crate::types::BatchPresigOutput;
 
 /// Verifier for batch presignature proofs
@@ -99,6 +98,7 @@ impl BatchPresigVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provers::BatchPresigProver;
     use crate::types::BatchPresigInput;
 
     fn create_test_input(batch_size: u32) -> BatchPresigInput {
