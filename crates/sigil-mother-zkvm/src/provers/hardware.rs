@@ -204,7 +204,7 @@ mod tests {
 
         // Create 65-byte signature (r || s || v)
         let mut signature = [0u8; 65];
-        signature[..64].copy_from_slice(sig.to_bytes().as_slice());
+        signature[..64].copy_from_slice(&sig.to_bytes()[..]);
         signature[64] = 0; // Recovery ID placeholder
 
         (pubkey, signature, message.to_vec())
