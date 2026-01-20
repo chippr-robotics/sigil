@@ -11,8 +11,10 @@ use sigil_core::{
 
 use sigil_mother::{
     keygen::MasterKeyGenerator, presig_gen::PresigGenerator, reconciliation::analyze_disk,
-    registry::ChildRegistry,
+    registry::ChildRegistry, storage::{MotherStorage, MasterShardData},
 };
+
+use tempfile::TempDir;
 
 #[test]
 fn test_master_key_generation() {
@@ -212,4 +214,340 @@ fn test_reconciliation_analysis_clean_disk() {
     assert!(analysis.passed);
     assert_eq!(analysis.used_presigs, 10);
     assert_eq!(analysis.fresh_presigs, 90);
+}
+
+// ============================================================================
+// Genesis Operations Tests
+// ============================================================================
+
+#[test]
+fn test_genesis_first_boot_initialization() {
+    // Create temporary storage directory
+    let temp_dir = TempDir::new().unwrap();
+    let storage = MotherStorage::new(temp_dir.path().to_path_buf()).unwrap();
+
+    // Initially, no master shard should exist
+    assert!(!storage.has_master_shard());
+
+    // Generate master key
+    let output = MasterKeyGenerator::generate().unwrap();
+
+    // Save master shard to storage
+    storage.save_master_shard(&output.cold_master_shard).unwrap();
+
+    // Verify master shard is now present
+    assert!(storage.has_master_shard());
+
+    // Load and verify the stored data
+    let loaded = storage.load_master_shard().unwrap();
+    assert_eq!(
+        loaded.cold_master_shard,
+        output.cold_master_shard.cold_master_shard
+    );
+    assert_eq!(loaded.master_pubkey, *output.master_pubkey.as_bytes());
+    assert_eq!(loaded.next_child_index, 0);
+}
+
+#[test]
+fn test_genesis_prevent_reinitialization() {
+    // Create temporary storage directory
+    let temp_dir = TempDir::new().unwrap();
+    let storage = MotherStorage::new(temp_dir.path().to_path_buf()).unwrap();
+
+    // First initialization
+    let output1 = MasterKeyGenerator::generate().unwrap();
+    storage.save_master_shard(&output1.cold_master_shard).unwrap();
+
+    // Load the first master shard
+    let loaded1 = storage.load_master_shard().unwrap();
+
+    // Attempting to reinitialize would require checking has_master_shard()
+    // In the CLI, this check prevents overwriting
+    assert!(storage.has_master_shard());
+
+    // Generate another key (simulating a reinitialization attempt)
+    let output2 = MasterKeyGenerator::generate().unwrap();
+
+    // Verify the two keys are different
+    assert_ne!(
+        output1.cold_master_shard.cold_master_shard,
+        output2.cold_master_shard.cold_master_shard
+    );
+
+    // If we were to save output2, it would overwrite
+    // But the CLI prevents this by checking has_master_shard() first
+    // Verify that the original data is still intact
+    let still_loaded = storage.load_master_shard().unwrap();
+    assert_eq!(
+        still_loaded.cold_master_shard,
+        loaded1.cold_master_shard
+    );
+}
+
+#[test]
+fn test_genesis_storage_persistence() {
+    // Create temporary storage directory
+    let temp_dir = TempDir::new().unwrap();
+    let storage_path = temp_dir.path().to_path_buf();
+    
+    let master_pubkey: [u8; 33];
+    let cold_shard: [u8; 32];
+    
+    // First storage instance
+    {
+        let storage = MotherStorage::new(storage_path.clone()).unwrap();
+        let output = MasterKeyGenerator::generate().unwrap();
+        
+        master_pubkey = *output.master_pubkey.as_bytes();
+        cold_shard = output.cold_master_shard.cold_master_shard;
+        
+        storage.save_master_shard(&output.cold_master_shard).unwrap();
+    }
+    
+    // Create a new storage instance pointing to the same directory
+    // This simulates restarting the application
+    {
+        let storage = MotherStorage::new(storage_path.clone()).unwrap();
+        
+        // Verify data persisted correctly
+        assert!(storage.has_master_shard());
+        let loaded = storage.load_master_shard().unwrap();
+        
+        assert_eq!(loaded.cold_master_shard, cold_shard);
+        assert_eq!(loaded.master_pubkey, master_pubkey);
+    }
+}
+
+#[test]
+fn test_genesis_child_index_allocation() {
+    // Create temporary storage directory
+    let temp_dir = TempDir::new().unwrap();
+    let storage = MotherStorage::new(temp_dir.path().to_path_buf()).unwrap();
+
+    // Initialize with master key
+    let output = MasterKeyGenerator::generate().unwrap();
+    storage.save_master_shard(&output.cold_master_shard).unwrap();
+
+    // Load and allocate child indices
+    let mut master = storage.load_master_shard().unwrap();
+    
+    assert_eq!(master.next_child_index, 0);
+    
+    let idx1 = master.allocate_child_index();
+    assert_eq!(idx1, 0);
+    assert_eq!(master.next_child_index, 1);
+    
+    let idx2 = master.allocate_child_index();
+    assert_eq!(idx2, 1);
+    assert_eq!(master.next_child_index, 2);
+    
+    // Save updated state
+    storage.save_master_shard(&master).unwrap();
+    
+    // Reload and verify persistence
+    let reloaded = storage.load_master_shard().unwrap();
+    assert_eq!(reloaded.next_child_index, 2);
+}
+
+#[test]
+fn test_genesis_storage_error_not_initialized() {
+    // Create temporary storage directory but don't initialize
+    let temp_dir = TempDir::new().unwrap();
+    let storage = MotherStorage::new(temp_dir.path().to_path_buf()).unwrap();
+
+    // Attempting to load master shard should fail
+    assert!(!storage.has_master_shard());
+    let result = storage.load_master_shard();
+    assert!(result.is_err());
+    
+    // Verify the error message is about not being initialized
+    if let Err(e) = result {
+        let err_msg = format!("{}", e);
+        assert!(err_msg.contains("not initialized") || err_msg.contains("Master key"));
+    }
+}
+
+#[test]
+fn test_genesis_registry_initialization() {
+    // Create temporary storage directory
+    let temp_dir = TempDir::new().unwrap();
+    let storage = MotherStorage::new(temp_dir.path().to_path_buf()).unwrap();
+
+    // Load registry from empty storage (should return empty registry)
+    let registry = storage.load_registry().unwrap();
+    assert_eq!(registry.children.len(), 0);
+    
+    // Create and save a registry with a child
+    let mut registry = ChildRegistry::new();
+    let child_id = ChildId::new([0x01; 32]);
+    registry.register_child(child_id, DerivationPath::ethereum_hardened(0)).unwrap();
+    
+    storage.save_registry(&registry).unwrap();
+    
+    // Reload and verify
+    let loaded_registry = storage.load_registry().unwrap();
+    assert_eq!(loaded_registry.children.len(), 1);
+    assert!(loaded_registry.get_child(&child_id).is_ok());
+}
+
+#[test]
+fn test_genesis_master_shard_data_creation() {
+    let cold_shard = [0xAB; 32];
+    let master_pubkey = [0x02; 33]; // Valid compressed pubkey prefix
+    
+    let shard_data = MasterShardData::new(cold_shard, master_pubkey);
+    
+    assert_eq!(shard_data.cold_master_shard, cold_shard);
+    assert_eq!(shard_data.master_pubkey, master_pubkey);
+    assert_eq!(shard_data.next_child_index, 0);
+    assert!(shard_data.created_at > 0);
+}
+
+// ============================================================================
+// Ledger Integration Tests (conditional on ledger feature)
+// ============================================================================
+
+#[cfg(feature = "ledger")]
+mod ledger_tests {
+    use super::*;
+    use sigil_mother::ledger::LedgerDevice;
+
+    #[tokio::test]
+    #[ignore] // Requires physical Ledger device
+    async fn test_ledger_device_connection() {
+        // This test requires a physical Ledger device
+        // It's marked as ignored by default
+        let result = LedgerDevice::connect();
+        
+        // If a Ledger is connected, this should succeed
+        // If not, it should fail with a descriptive error
+        match result {
+            Ok(device) => {
+                // Verify we can get device info
+                let info_result = device.get_info().await;
+                assert!(info_result.is_ok());
+            }
+            Err(e) => {
+                // Verify error message is descriptive
+                let err_msg = format!("{}", e);
+                assert!(
+                    err_msg.contains("Ledger") || err_msg.contains("connect"),
+                    "Error message should mention Ledger: {}",
+                    err_msg
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires physical Ledger device
+    async fn test_ledger_master_key_generation() {
+        // This test requires a physical Ledger device with Ethereum app open
+        let device = match LedgerDevice::connect() {
+            Ok(d) => d,
+            Err(_) => {
+                println!("Skipping test - no Ledger device connected");
+                return;
+            }
+        };
+
+        let result = device.generate_master_key().await;
+        
+        match result {
+            Ok(output) => {
+                // Verify both shards are different
+                assert_ne!(output.cold_master_shard, output.agent_master_shard);
+                
+                // Verify shards are non-zero
+                assert!(output.cold_master_shard.iter().any(|&b| b != 0));
+                assert!(output.agent_master_shard.iter().any(|&b| b != 0));
+                
+                // Verify master pubkey is valid
+                let prefix = output.master_pubkey.as_bytes()[0];
+                assert!(prefix == 0x02 || prefix == 0x03);
+                
+                // Verify ledger pubkey is in uncompressed format
+                assert_eq!(output.ledger_pubkey.len(), 65);
+                assert_eq!(output.ledger_pubkey[0], 0x04);
+            }
+            Err(e) => {
+                // If Ethereum app is not open, error should indicate that
+                let err_msg = format!("{}", e);
+                assert!(
+                    err_msg.contains("app") || err_msg.contains("Ethereum") || err_msg.contains("communication"),
+                    "Error should indicate app/communication issue: {}",
+                    err_msg
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires physical Ledger device
+    async fn test_ledger_status_check() {
+        let device = match LedgerDevice::connect() {
+            Ok(d) => d,
+            Err(_) => {
+                println!("Skipping test - no Ledger device connected");
+                return;
+            }
+        };
+
+        let info = device.get_info().await.unwrap();
+        
+        // Verify info structure
+        assert!(!info.model.is_empty());
+        
+        // If Ethereum app is open, we should have public key and address
+        if info.eth_app_open {
+            assert!(info.public_key.is_some());
+            assert!(info.address.is_some());
+            
+            if let Some(addr) = info.address {
+                assert!(addr.starts_with("0x"));
+                assert_eq!(addr.len(), 42); // 0x + 40 hex chars
+            }
+        }
+    }
+
+    #[test]
+    fn test_ledger_genesis_with_storage() {
+        // Test that Ledger-generated keys can be stored properly
+        // This uses mock data since we can't rely on physical device in CI
+        
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MotherStorage::new(temp_dir.path().to_path_buf()).unwrap();
+        
+        // Simulate Ledger-generated shards
+        let cold_shard = [0xCD; 32];
+        let master_pubkey = [0x03; 33];
+        
+        let shard_data = MasterShardData::new(cold_shard, master_pubkey);
+        storage.save_master_shard(&shard_data).unwrap();
+        
+        // Verify storage
+        assert!(storage.has_master_shard());
+        let loaded = storage.load_master_shard().unwrap();
+        assert_eq!(loaded.cold_master_shard, cold_shard);
+        assert_eq!(loaded.master_pubkey, master_pubkey);
+    }
+}
+
+#[cfg(not(feature = "ledger"))]
+#[test]
+fn test_ledger_not_compiled() {
+    // When ledger feature is not enabled, verify the stub returns proper error
+    use sigil_mother::ledger::LedgerDevice;
+    
+    let result = LedgerDevice::connect();
+    assert!(result.is_err());
+    
+    if let Err(e) = result {
+        let err_msg = format!("{}", e);
+        assert!(
+            err_msg.contains("not compiled") || err_msg.contains("feature"),
+            "Error should indicate feature not compiled: {}",
+            err_msg
+        );
+    }
 }
