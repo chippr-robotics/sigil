@@ -18,6 +18,9 @@ pub struct AgentStore {
 
     /// In-memory cache of agent shares (child_id -> shares)
     cache: HashMap<ChildId, AgentChildData>,
+
+    /// Agent master shard (32 bytes) - agent's portion of the master key
+    agent_master_shard: Option<[u8; 32]>,
 }
 
 /// Data stored for each child
@@ -41,10 +44,16 @@ impl AgentStore {
     pub fn new(store_path: PathBuf) -> Result<Self> {
         std::fs::create_dir_all(&store_path)?;
 
-        Ok(Self {
+        let mut store = Self {
             store_path,
             cache: HashMap::new(),
-        })
+            agent_master_shard: None,
+        };
+
+        // Try to load agent master shard if it exists
+        store.load_agent_master_shard_from_disk()?;
+
+        Ok(store)
     }
 
     /// Load data for a specific child
@@ -178,6 +187,70 @@ impl AgentStore {
         let temp_path = path.with_extension("json.tmp");
         std::fs::write(&temp_path, &content)?;
         std::fs::rename(&temp_path, &path)?;
+
+        Ok(())
+    }
+
+    /// Import agent master shard (agent's portion of master key)
+    pub fn import_agent_master_shard(&mut self, shard: [u8; 32]) -> Result<()> {
+        self.agent_master_shard = Some(shard);
+        self.save_agent_master_shard_to_disk(&shard)?;
+        Ok(())
+    }
+
+    /// Check if agent master shard is loaded
+    pub fn has_agent_master_shard(&self) -> bool {
+        self.agent_master_shard.is_some()
+    }
+
+    /// Get agent master shard (returns error if not loaded)
+    pub fn get_agent_master_shard(&self) -> Result<[u8; 32]> {
+        self.agent_master_shard
+            .ok_or_else(|| DaemonError::AgentShardNotFound("Agent master shard not imported".to_string()))
+    }
+
+    /// Get path for agent master shard file
+    fn agent_master_shard_path(&self) -> PathBuf {
+        self.store_path.join("agent_master_shard.bin")
+    }
+
+    /// Load agent master shard from disk
+    fn load_agent_master_shard_from_disk(&mut self) -> Result<()> {
+        let path = self.agent_master_shard_path();
+        if !path.exists() {
+            // Not an error - shard just hasn't been imported yet
+            return Ok(());
+        }
+
+        let bytes = std::fs::read(&path)?;
+        if bytes.len() != 32 {
+            return Err(DaemonError::Crypto("Invalid agent master shard size".to_string()));
+        }
+
+        let mut shard = [0u8; 32];
+        shard.copy_from_slice(&bytes);
+        self.agent_master_shard = Some(shard);
+
+        Ok(())
+    }
+
+    /// Save agent master shard to disk (encrypted in production)
+    fn save_agent_master_shard_to_disk(&self, shard: &[u8; 32]) -> Result<()> {
+        let path = self.agent_master_shard_path();
+
+        // Write to temp file first, then rename for atomicity
+        let temp_path = path.with_extension("bin.tmp");
+        std::fs::write(&temp_path, shard)?;
+        std::fs::rename(&temp_path, &path)?;
+
+        // Set restrictive permissions (Unix only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&path)?.permissions();
+            perms.set_mode(0o600); // Read/write for owner only
+            std::fs::set_permissions(&path, perms)?;
+        }
 
         Ok(())
     }

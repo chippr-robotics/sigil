@@ -98,6 +98,7 @@ impl BatchPresigVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provers::BatchPresigProver;
     use crate::types::BatchPresigInput;
 
     fn create_test_input(batch_size: u32) -> BatchPresigInput {

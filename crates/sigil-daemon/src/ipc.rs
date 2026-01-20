@@ -46,6 +46,17 @@ pub enum IpcRequest {
 
     /// Get remaining presigs for current disk
     GetPresigCount,
+
+    /// Import agent master shard (agent's portion of master key)
+    ImportAgentShard {
+        agent_shard_hex: String, // hex encoded 32 bytes
+    },
+
+    /// Import child presignature shares
+    ImportChildShares {
+        shares_json: String, // JSON-encoded AgentChildData
+        replace: bool,       // Replace existing shares if true
+    },
 }
 
 /// IPC response types
@@ -308,6 +319,58 @@ async fn handle_request(
                 message: "No disk detected".to_string(),
             },
         },
+
+        IpcRequest::ImportAgentShard { agent_shard_hex } => {
+            // Parse hex string
+            let agent_shard_hex = agent_shard_hex.strip_prefix("0x").unwrap_or(&agent_shard_hex);
+            let mut shard = [0u8; 32];
+            match hex::decode_to_slice(agent_shard_hex, &mut shard) {
+                Ok(()) => {
+                    let mut store = agent_store.write().await;
+                    match store.import_agent_master_shard(shard) {
+                        Ok(()) => IpcResponse::Ok,
+                        Err(e) => IpcResponse::Error {
+                            message: format!("Failed to import agent shard: {}", e),
+                        },
+                    }
+                }
+                Err(e) => IpcResponse::Error {
+                    message: format!("Invalid hex string: {}", e),
+                },
+            }
+        }
+
+        IpcRequest::ImportChildShares {
+            shares_json,
+            replace,
+        } => {
+            // Parse JSON
+            match serde_json::from_str::<crate::agent_store::AgentChildData>(&shares_json) {
+                Ok(child_data) => {
+                    let mut store = agent_store.write().await;
+                    
+                    // Check if child already exists
+                    let child_id = child_data.child_id;
+                    let exists = store.load_child(&child_id).is_ok();
+                    
+                    if exists && !replace {
+                        IpcResponse::Error {
+                            message: format!("Child {} already exists. Use --replace to overwrite.", child_id.short()),
+                        }
+                    } else {
+                        match store.store_child(child_data) {
+                            Ok(()) => IpcResponse::Ok,
+                            Err(e) => IpcResponse::Error {
+                                message: format!("Failed to import child shares: {}", e),
+                            },
+                        }
+                    }
+                }
+                Err(e) => IpcResponse::Error {
+                    message: format!("Invalid JSON: {}", e),
+                },
+            }
+        }
     }
 }
 

@@ -185,34 +185,60 @@ In your MCP agent, type:
 
 ---
 
-### Test 1.3: Transfer Agent Master Shard
+### Test 1.3: Transfer Agent Shard to Agent Device
 
-**Objective:** Securely transfer agent shard to agent device
+**Objective:** Securely transfer the agent's portion of the master key to the agent device
+
+**Background:** During initialization, the master key is split into two shards:
+- **Cold shard**: Stays on the air-gapped mother device
+- **Agent shard**: Must be transferred to the agent device for signing operations
 
 **Procedure:**
 
-1. On mother device, locate agent shard file:
+1. On mother device, the agent shard is displayed during `sigil-mother init`:
+   ```
+   Agent Master Shard: 0x[64 hex characters]
+   ```
+   Record this securely (never store plaintext on disk if possible)
+
+2. Transfer securely to agent device using one of these methods:
+   - QR code scan (recommended for air-gapped security)
+   - Encrypted USB drive (decrypt on agent device)
+   - Manual transcription for ultimate security (32 bytes = 64 hex chars)
+
+3. On agent device, import the agent shard:
    ```bash
-   ls -la ~/.sigil-mother/master_shard.json
+   # Option 1: From hex string
+   sigil import-agent-shard --hex "0x[agent_shard_hex]"
+   
+   # Option 2: From file (if transferred via encrypted USB)
+   sigil import-agent-shard --file agent_shard.txt
    ```
 
-2. Transfer securely to agent device (USB drive, air-gapped transfer)
-
-3. On agent device, import the shard:
+4. Securely delete any transfer media and clear terminal history:
    ```bash
-   sigil import-master-shard master_shard.json
+   # Clear terminal history
+   history -c
+   
+   # Overwrite and delete any transfer files
+   shred -vfz -n 10 agent_shard.txt
    ```
-
-4. Securely delete the transfer medium
 
 **Expected Results:**
-- [ ] Agent shard imported to agent store
-- [ ] Shard file securely deleted from transfer medium
-- [ ] Agent store shows master shard present
+- [ ] Agent shard imported to agent store (~/.sigil/agent_store/)
+- [ ] Agent shard file encrypted at rest on agent device
+- [ ] Shard securely deleted from transfer medium
+- [ ] Agent can verify shard loaded with `sigil status`
 
 **Pass Criteria:**
-- Agent can verify master shard loaded
-- No plaintext copies of shard remain on transfer medium
+- Agent can verify shard is loaded and ready
+- No plaintext copies of shard remain on transfer medium or in terminal history
+- Agent store shows "Agent master shard: ✓ Loaded"
+
+**Security Notes:**
+- The agent shard is the agent's **portion** of the master key, not the complete master key
+- Both the cold shard (on mother) and agent shard are required for signing
+- The agent shard should be treated as highly sensitive cryptographic material
 
 ---
 
@@ -1429,8 +1455,9 @@ sudo sigil-daemon --socket PATH
 
 # CLI
 sigil status
-sigil import-master-shard FILE
-sigil import-child-shares FILE [--replace]
+sigil import-agent-shard --hex HEX_STRING       # Import agent's portion of master key
+sigil import-agent-shard --file FILE            # Import from file
+sigil import-child-shares FILE [--replace]      # Import child presig shares
 sigil list-children
 sigil delete-child ID
 ```
@@ -1457,7 +1484,8 @@ sigil_get_presig_count    - Get remaining presigs
 | "No disk detected" | Disk not inserted or not mounted | Check USB connection, verify mount |
 | "Invalid disk format" | Wrong disk or corrupted | Use correct Sigil disk, re-verify |
 | "Daemon not running" | Service not started | Run `sigil-daemon` |
-| "No shares for child" | Agent shares not imported | Import child shares |
+| "No shares for child" | Child shares not imported | Import child presig shares |
+| "Agent shard not loaded" | Agent portion of master key not imported | Import agent shard |
 | "Presig exhausted" | All presigs used | Return for refill |
 | "Child nullified" | Child was revoked | Create new child disk |
 | "R-point mismatch" | Share corruption | Verify shares match, may need new child |

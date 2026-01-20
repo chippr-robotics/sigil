@@ -80,6 +80,7 @@ fn decode_point(bytes: &[u8; 33]) -> Result<ProjectivePoint> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provers::KeygenProver;
     use crate::types::KeygenInput;
 
     #[test]
