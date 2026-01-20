@@ -59,7 +59,7 @@ jobs:
           if [ -n "$LAST_TAG" ]; then
             echo "Last tag: $LAST_TAG"
             # Get full commit messages (subject + body) since last tag
-            COMMITS=$(git log $LAST_TAG..HEAD --pretty=%B)
+            COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=%B)
           else
             echo "No previous tags found, analyzing recent commits"
             # If no tags, only analyze commits from the current push (to avoid analyzing entire history)
