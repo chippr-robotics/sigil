@@ -190,8 +190,7 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
             shares_file,
             replace,
         } => {
-            let shares_json =
-                std::fs::read_to_string(&shares_file).map_err(ClientError::Io)?;
+            let shares_json = std::fs::read_to_string(&shares_file).map_err(ClientError::Io)?;
 
             client.import_child_shares(&shares_json, replace).await?;
             println!("✓ Child shares imported successfully");

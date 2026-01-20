@@ -150,9 +150,7 @@ mod tests {
 
     #[test]
     fn test_verify_derivation() {
-        
         use k256::elliptic_curve::sec1::ToEncodedPoint;
-        
 
         // Create test signature
         let signature = [42u8; 65];
