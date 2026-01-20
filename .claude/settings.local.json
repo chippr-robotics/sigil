@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(ls:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(timeout:*)",
+      "Bash(target/release/sigil.exe:*)"
+    ]
+  }
+}

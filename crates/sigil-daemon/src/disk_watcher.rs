@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use sigil_core::{DiskFormat, DiskHeader, DISK_MAGIC};
 
@@ -132,14 +132,13 @@ impl DiskWatcher {
         #[cfg(not(target_os = "linux"))]
         {
             // Fallback: poll for changes on non-Linux systems
+            // This loop runs indefinitely on non-Linux platforms
             warn!("Udev not available, using polling fallback");
             loop {
                 self.scan_for_disks().await?;
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             }
         }
-
-        Ok(())
     }
 
     /// Scan for Sigil disks

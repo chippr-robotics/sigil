@@ -28,13 +28,10 @@ pub struct DaemonConfig {
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
-            agent_store_path: dirs::data_local_dir()
-                .unwrap_or_else(|| PathBuf::from("/var/lib"))
-                .join("sigil")
-                .join("agent_store"),
-            ipc_socket_path: PathBuf::from("/tmp/sigil.sock"),
+            agent_store_path: Self::default_agent_store_path(),
+            ipc_socket_path: Self::default_ipc_path(),
             enable_zkvm_proving: true,
-            disk_mount_pattern: "/media/*/SIGIL*".to_string(),
+            disk_mount_pattern: Self::default_disk_pattern(),
             signing_timeout_secs: 60,
             dev_mode: false,
         }
@@ -42,6 +39,48 @@ impl Default for DaemonConfig {
 }
 
 impl DaemonConfig {
+    /// Platform-appropriate default IPC path
+    #[cfg(unix)]
+    fn default_ipc_path() -> PathBuf {
+        // Use XDG_RUNTIME_DIR if available, fallback to /tmp
+        std::env::var_os("XDG_RUNTIME_DIR")
+            .map(|dir| PathBuf::from(dir).join("sigil.sock"))
+            .unwrap_or_else(|| PathBuf::from("/tmp/sigil.sock"))
+    }
+
+    #[cfg(windows)]
+    fn default_ipc_path() -> PathBuf {
+        // Windows named pipes use special path syntax
+        PathBuf::from(r"\\.\pipe\sigil")
+    }
+
+    #[cfg(unix)]
+    fn default_disk_pattern() -> String {
+        "/media/*/SIGIL*".to_string()
+    }
+
+    #[cfg(windows)]
+    fn default_disk_pattern() -> String {
+        // Windows: look for removable drives with SIGIL label
+        r"*:\SIGIL*".to_string()
+    }
+
+    fn default_agent_store_path() -> PathBuf {
+        dirs::data_local_dir()
+            .unwrap_or_else(|| {
+                #[cfg(unix)]
+                {
+                    PathBuf::from("/var/lib")
+                }
+                #[cfg(windows)]
+                {
+                    PathBuf::from(r"C:\ProgramData")
+                }
+            })
+            .join("sigil")
+            .join("agent_store")
+    }
+
     /// Load configuration from file
     pub fn load(path: &std::path::Path) -> crate::Result<Self> {
         let content = std::fs::read_to_string(path)?;
@@ -59,9 +98,16 @@ impl DaemonConfig {
     /// Create directories if they don't exist
     pub fn ensure_directories(&self) -> crate::Result<()> {
         std::fs::create_dir_all(&self.agent_store_path)?;
-        if let Some(parent) = self.ipc_socket_path.parent() {
-            std::fs::create_dir_all(parent)?;
+
+        // Only create parent directory for IPC path on Unix
+        // Windows named pipes don't use filesystem paths
+        #[cfg(unix)]
+        {
+            if let Some(parent) = self.ipc_socket_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
         }
+
         Ok(())
     }
 }

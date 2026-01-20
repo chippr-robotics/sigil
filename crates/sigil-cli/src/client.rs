@@ -1,14 +1,12 @@
 //! Client for communicating with the Sigil daemon
 
 use std::path::PathBuf;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 
-use sigil_daemon::ipc::{IpcRequest, IpcResponse};
+use sigil_daemon::ipc::{IpcClient, IpcRequest, IpcResponse};
 
 /// Client for the Sigil daemon
 pub struct SigilClient {
-    socket_path: PathBuf,
+    inner: IpcClient,
 }
 
 /// Error type for client operations
@@ -34,6 +32,20 @@ pub enum ClientError {
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+
+    #[error("Daemon error: {0}")]
+    DaemonError(String),
+}
+
+impl ClientError {
+    fn from_daemon_error(e: sigil_daemon::error::DaemonError) -> Self {
+        match &e {
+            sigil_daemon::error::DaemonError::Ipc(msg) if msg.contains("not running") => {
+                ClientError::DaemonNotRunning
+            }
+            _ => ClientError::DaemonError(e.to_string()),
+        }
+    }
 }
 
 pub type Result<T> = std::result::Result<T, ClientError>;
@@ -60,30 +72,47 @@ pub struct SignResult {
 impl SigilClient {
     /// Create a new client with the default socket path
     pub fn new() -> Self {
+        // Use platform-appropriate default path
+        #[cfg(unix)]
+        let socket_path = std::env::var_os("XDG_RUNTIME_DIR")
+            .map(|dir| PathBuf::from(dir).join("sigil.sock"))
+            .unwrap_or_else(|| PathBuf::from("/tmp/sigil.sock"));
+
+        #[cfg(windows)]
+        let socket_path = PathBuf::from(r"\\.\pipe\sigil");
+
         Self {
-            socket_path: PathBuf::from("/tmp/sigil.sock"),
+            inner: IpcClient::new(socket_path),
         }
     }
 
     /// Create a new client with a custom socket path
     pub fn with_socket_path(socket_path: PathBuf) -> Self {
-        Self { socket_path }
+        Self {
+            inner: IpcClient::new(socket_path),
+        }
     }
 
     /// Check if the daemon is running
     pub async fn ping(&self) -> Result<String> {
-        match self.request(&IpcRequest::Ping).await? {
-            IpcResponse::Pong { version } => Ok(version),
-            IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
-            _ => Err(ClientError::RequestFailed(
+        match self.inner.request(&IpcRequest::Ping).await {
+            Ok(IpcResponse::Pong { version }) => Ok(version),
+            Ok(IpcResponse::Error { message }) => Err(ClientError::RequestFailed(message)),
+            Ok(_) => Err(ClientError::RequestFailed(
                 "Unexpected response".to_string(),
             )),
+            Err(e) => Err(ClientError::from_daemon_error(e)),
         }
     }
 
     /// Get the current disk status
     pub async fn get_disk_status(&self) -> Result<DiskStatus> {
-        match self.request(&IpcRequest::GetDiskStatus).await? {
+        match self
+            .inner
+            .request(&IpcRequest::GetDiskStatus)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::DiskStatus {
                 detected,
                 child_id,
@@ -119,7 +148,12 @@ impl SigilClient {
             description: description.to_string(),
         };
 
-        match self.request(&request).await? {
+        match self
+            .inner
+            .request(&request)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::SignResult {
                 signature,
                 presig_index,
@@ -143,7 +177,12 @@ impl SigilClient {
             tx_hash: tx_hash.to_string(),
         };
 
-        match self.request(&request).await? {
+        match self
+            .inner
+            .request(&request)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::Ok => Ok(()),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
             _ => Err(ClientError::RequestFailed(
@@ -154,7 +193,12 @@ impl SigilClient {
 
     /// Get the presig count
     pub async fn get_presig_count(&self) -> Result<(u32, u32)> {
-        match self.request(&IpcRequest::GetPresigCount).await? {
+        match self
+            .inner
+            .request(&IpcRequest::GetPresigCount)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::PresigCount { remaining, total } => Ok((remaining, total)),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
             _ => Err(ClientError::RequestFailed(
@@ -169,7 +213,12 @@ impl SigilClient {
             agent_shard_hex: agent_shard_hex.to_string(),
         };
 
-        match self.request(&request).await? {
+        match self
+            .inner
+            .request(&request)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::Ok => Ok(()),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
             _ => Err(ClientError::RequestFailed(
@@ -185,7 +234,12 @@ impl SigilClient {
             replace,
         };
 
-        match self.request(&request).await? {
+        match self
+            .inner
+            .request(&request)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::Ok => Ok(()),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
             _ => Err(ClientError::RequestFailed(
@@ -196,42 +250,18 @@ impl SigilClient {
 
     /// List imported children
     pub async fn list_children(&self) -> Result<Vec<String>> {
-        match self.request(&IpcRequest::ListChildren).await? {
+        match self
+            .inner
+            .request(&IpcRequest::ListChildren)
+            .await
+            .map_err(ClientError::from_daemon_error)?
+        {
             IpcResponse::Children { child_ids } => Ok(child_ids),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
             _ => Err(ClientError::RequestFailed(
                 "Unexpected response".to_string(),
             )),
         }
-    }
-
-    /// Send a request to the daemon
-    async fn request(&self, request: &IpcRequest) -> Result<IpcResponse> {
-        let stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound
-                || e.kind() == std::io::ErrorKind::ConnectionRefused
-            {
-                ClientError::DaemonNotRunning
-            } else {
-                ClientError::ConnectionFailed(e.to_string())
-            }
-        })?;
-
-        let (reader, mut writer) = stream.into_split();
-        let mut reader = BufReader::new(reader);
-
-        // Send request
-        let json = serde_json::to_string(request)?;
-        writer.write_all(json.as_bytes()).await?;
-        writer.write_all(b"\n").await?;
-        writer.flush().await?;
-
-        // Read response
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-
-        let response: IpcResponse = serde_json::from_str(&line)?;
-        Ok(response)
     }
 }
 

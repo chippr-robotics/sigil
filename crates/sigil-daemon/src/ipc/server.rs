@@ -1,100 +1,20 @@
-//! IPC server for CLI communication
-//!
-//! Provides a Unix socket interface for the CLI to communicate with the daemon.
+//! IPC server implementation
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
 
-use serde::{Deserialize, Serialize};
-
-use sigil_core::types::{ChainId, MessageHash, TxHash};
+use sigil_core::types::ChainId;
 
 use crate::agent_store::AgentStore;
 use crate::disk_watcher::DiskWatcher;
-use crate::error::{DaemonError, Result};
+use crate::error::Result;
 use crate::signer::{Signer, SigningRequest};
 
-/// IPC request types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum IpcRequest {
-    /// Check if daemon is running
-    Ping,
-
-    /// Get disk status
-    GetDiskStatus,
-
-    /// Sign a message
-    Sign {
-        message_hash: String, // hex encoded
-        chain_id: u32,
-        description: String,
-    },
-
-    /// Update transaction hash after broadcast
-    UpdateTxHash {
-        presig_index: u32,
-        tx_hash: String, // hex encoded
-    },
-
-    /// List all stored children
-    ListChildren,
-
-    /// Get remaining presigs for current disk
-    GetPresigCount,
-
-    /// Import agent master shard (agent's portion of master key)
-    ImportAgentShard {
-        agent_shard_hex: String, // hex encoded 32 bytes
-    },
-
-    /// Import child presignature shares
-    ImportChildShares {
-        shares_json: String, // JSON-encoded AgentChildData
-        replace: bool,       // Replace existing shares if true
-    },
-}
-
-/// IPC response types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum IpcResponse {
-    /// Success with no data
-    Ok,
-
-    /// Pong response
-    Pong { version: String },
-
-    /// Error response
-    Error { message: String },
-
-    /// Disk status response
-    DiskStatus {
-        detected: bool,
-        child_id: Option<String>,
-        presigs_remaining: Option<u32>,
-        presigs_total: Option<u32>,
-        days_until_expiry: Option<u32>,
-        is_valid: Option<bool>,
-    },
-
-    /// Signing result
-    SignResult {
-        signature: String, // hex encoded
-        presig_index: u32,
-        proof_hash: String, // hex encoded
-    },
-
-    /// List of children
-    Children { child_ids: Vec<String> },
-
-    /// Presig count
-    PresigCount { remaining: u32, total: u32 },
-}
+use super::connection::{IpcTransport, PlatformTransport};
+use super::types::{parse_message_hash, parse_tx_hash, IpcRequest, IpcResponse};
 
 /// IPC server
 pub struct IpcServer {
@@ -129,19 +49,13 @@ impl IpcServer {
 
     /// Start the IPC server
     pub async fn run(&self) -> Result<()> {
-        // Remove existing socket if present
-        if self.socket_path.exists() {
-            std::fs::remove_file(&self.socket_path)?;
-        }
-
-        let listener = UnixListener::bind(&self.socket_path)
-            .map_err(|e| DaemonError::Ipc(format!("Failed to bind socket: {}", e)))?;
+        let transport = PlatformTransport::bind(&self.socket_path).await?;
 
         info!("IPC server listening on {:?}", self.socket_path);
 
         loop {
-            match listener.accept().await {
-                Ok((stream, _)) => {
+            match transport.accept().await {
+                Ok(stream) => {
                     let disk_watcher = Arc::clone(&self.disk_watcher);
                     let agent_store = Arc::clone(&self.agent_store);
                     let signer = Arc::clone(&self.signer);
@@ -163,13 +77,16 @@ impl IpcServer {
 }
 
 /// Handle a single IPC connection
-async fn handle_connection(
-    stream: UnixStream,
+async fn handle_connection<S>(
+    stream: S,
     disk_watcher: Arc<DiskWatcher>,
     agent_store: Arc<RwLock<AgentStore>>,
     signer: Arc<Signer>,
-) -> Result<()> {
-    let (reader, mut writer) = stream.into_split();
+) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
 
@@ -380,72 +297,13 @@ async fn handle_request(
 }
 
 /// Send a response over the socket
-async fn send_response(
-    writer: &mut tokio::net::unix::OwnedWriteHalf,
-    response: &IpcResponse,
-) -> Result<()> {
+async fn send_response<W>(writer: &mut W, response: &IpcResponse) -> Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
     let json = serde_json::to_string(response)?;
     writer.write_all(json.as_bytes()).await?;
     writer.write_all(b"\n").await?;
     writer.flush().await?;
     Ok(())
-}
-
-/// Parse a hex-encoded message hash
-fn parse_message_hash(s: &str) -> std::result::Result<MessageHash, String> {
-    let s = s.strip_prefix("0x").unwrap_or(s);
-    let mut bytes = [0u8; 32];
-    hex::decode_to_slice(s, &mut bytes).map_err(|e| e.to_string())?;
-    Ok(MessageHash::new(bytes))
-}
-
-/// Parse a hex-encoded transaction hash
-fn parse_tx_hash(s: &str) -> std::result::Result<TxHash, String> {
-    let s = s.strip_prefix("0x").unwrap_or(s);
-    let mut bytes = [0u8; 32];
-    hex::decode_to_slice(s, &mut bytes).map_err(|e| e.to_string())?;
-    Ok(TxHash::new(bytes))
-}
-
-/// IPC client for CLI use
-pub struct IpcClient {
-    socket_path: PathBuf,
-}
-
-impl IpcClient {
-    /// Create a new IPC client
-    pub fn new(socket_path: PathBuf) -> Self {
-        Self { socket_path }
-    }
-
-    /// Send a request and get a response
-    pub async fn request(&self, request: &IpcRequest) -> Result<IpcResponse> {
-        let stream = UnixStream::connect(&self.socket_path)
-            .await
-            .map_err(|e| DaemonError::Ipc(format!("Failed to connect: {}", e)))?;
-
-        let (reader, mut writer) = stream.into_split();
-        let mut reader = BufReader::new(reader);
-
-        // Send request
-        let json = serde_json::to_string(request)?;
-        writer.write_all(json.as_bytes()).await?;
-        writer.write_all(b"\n").await?;
-        writer.flush().await?;
-
-        // Read response
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-
-        let response: IpcResponse = serde_json::from_str(&line)?;
-        Ok(response)
-    }
-
-    /// Check if daemon is running
-    pub async fn ping(&self) -> bool {
-        matches!(
-            self.request(&IpcRequest::Ping).await,
-            Ok(IpcResponse::Pong { .. })
-        )
-    }
 }

@@ -27,8 +27,13 @@ async fn main() -> anyhow::Result<()> {
     let config_path = std::env::var("SIGIL_CONFIG")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
+            #[cfg(unix)]
+            let fallback = std::path::PathBuf::from("/etc");
+            #[cfg(windows)]
+            let fallback = std::path::PathBuf::from(r"C:\ProgramData");
+
             dirs::config_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("/etc"))
+                .unwrap_or(fallback)
                 .join("sigil")
                 .join("daemon.json")
         });
@@ -123,8 +128,16 @@ mod dirs {
     use std::path::PathBuf;
 
     pub fn config_dir() -> Option<PathBuf> {
-        std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+        #[cfg(unix)]
+        {
+            std::env::var_os("XDG_CONFIG_HOME")
+                .map(PathBuf::from)
+                .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+        }
+
+        #[cfg(windows)]
+        {
+            std::env::var_os("APPDATA").map(PathBuf::from)
+        }
     }
 }

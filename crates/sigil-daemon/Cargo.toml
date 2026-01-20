@@ -17,6 +17,7 @@ sigil-core = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
+async-trait = "0.1"
 
 # IPC
 prost = { workspace = true }
@@ -50,6 +51,16 @@ futures-util = "0.3"
 # Platform-specific disk detection
 [target.'cfg(target_os = "linux")'.dependencies]
 tokio-udev = { workspace = true }
+
+# Windows IPC (named pipes)
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Pipes",
+    "Win32_Storage_FileSystem",
+    "Win32_Security",
+    "Win32_System_IO",
+] }
 
 [dev-dependencies]
 tempfile = "3.10"

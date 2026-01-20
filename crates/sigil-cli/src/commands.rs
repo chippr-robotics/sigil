@@ -14,7 +14,13 @@ pub struct Cli {
     pub command: Commands,
 
     /// Path to daemon socket
+    #[cfg(unix)]
     #[arg(long, default_value = "/tmp/sigil.sock")]
+    pub socket: String,
+
+    /// Path to daemon socket
+    #[cfg(windows)]
+    #[arg(long, default_value = r"\\.\pipe\sigil")]
     pub socket: String,
 }
 
