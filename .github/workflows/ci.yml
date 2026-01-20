@@ -103,8 +103,6 @@ jobs:
               issue_number: context.issue.number,
               body: comment
             });
-            
-            core.setFailed('Formatting issues detected. Please run `cargo fmt --all` locally.');
 
       - name: Fail if formatting issues remain
         if: steps.fmt_check.outputs.fmt_failed == 'true' && steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
@@ -199,7 +197,8 @@ jobs:
             echo "<details><summary>Remaining warnings</summary>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            cargo clippy --workspace --all-targets -- -D warnings 2>&1 | head -100 >> $GITHUB_STEP_SUMMARY || true
+            # Limit output to 150 lines to keep summary readable while showing enough context
+            cargo clippy --workspace --all-targets -- -D warnings 2>&1 | head -150 >> $GITHUB_STEP_SUMMARY || true
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
           fi
@@ -223,6 +222,9 @@ jobs:
           script: |
             const { execSync } = require('child_process');
             
+            // GitHub comment size limit is ~65k chars, diff limit prevents exceeding this
+            const MAX_DIFF_LENGTH = 10000;
+            
             const diff = execSync('git diff', { encoding: 'utf-8' });
             const fixesSuccessful = '${{ steps.verify_fixes.outputs.fixes_successful }}' === 'true';
             
@@ -238,13 +240,15 @@ jobs:
             comment += 'cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged\n';
             comment += '```\n\n';
             
-            if (diff.length > 0 && diff.length < 10000) {
+            if (diff.length > 0 && diff.length < MAX_DIFF_LENGTH) {
               comment += '<details>\n';
               comment += '<summary>View suggested auto-fixes</summary>\n\n';
               comment += '```diff\n';
               comment += diff;
               comment += '\n```\n\n';
               comment += '</details>\n\n';
+            } else if (diff.length >= MAX_DIFF_LENGTH) {
+              comment += '_Diff is too large to display in comment. Run the command above to see changes._\n\n';
             }
             
             if (!fixesSuccessful) {
