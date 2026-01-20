@@ -10,7 +10,6 @@ use k256::{
 
 use crate::error::{Result, ZkvmError};
 use crate::merkle::MerkleTree;
-use crate::provers::BatchPresigProverTrait;
 use crate::types::{BatchPresigInput, BatchPresigOutput, SampledRPoint};
 
 /// Batch presig prover that can use mock or SP1 backend

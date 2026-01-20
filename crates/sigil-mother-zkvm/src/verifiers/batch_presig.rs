@@ -1,8 +1,7 @@
 //! Batch presig proof verifier
 
-use crate::error::{Result, ZkvmError};
+use crate::error::Result;
 use crate::merkle::MerkleTree;
-use crate::provers::BatchPresigProver;
 use crate::types::BatchPresigOutput;
 
 /// Verifier for batch presignature proofs

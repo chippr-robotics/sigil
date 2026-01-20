@@ -12,7 +12,6 @@ use k256::{
 use sha2::{Digest, Sha256};
 
 use crate::error::{Result, ZkvmError};
-use crate::provers::DeriveProverTrait;
 use crate::types::{DeriveInput, DeriveOutput};
 
 /// Derive prover that can use mock or SP1 backend

@@ -8,7 +8,6 @@ use k256::{
 };
 
 use crate::error::{Result, ZkvmError};
-use crate::provers::KeygenProverTrait;
 use crate::types::{KeygenInput, KeygenOutput};
 
 /// Keygen prover that can use mock or SP1 backend

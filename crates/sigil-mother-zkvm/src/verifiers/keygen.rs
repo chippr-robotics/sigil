@@ -1,7 +1,6 @@
 //! Keygen proof verifier
 
 use crate::error::{Result, ZkvmError};
-use crate::provers::KeygenProver;
 use crate::types::KeygenOutput;
 
 use k256::{

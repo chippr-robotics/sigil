@@ -6,14 +6,13 @@
 //! 3. Public key is correctly computed from shard
 
 use k256::{
-    ecdsa::{signature::Verifier, RecoveryId, Signature, VerifyingKey},
+    ecdsa::{signature::Verifier, Signature, VerifyingKey},
     elliptic_curve::sec1::ToEncodedPoint,
     SecretKey,
 };
 use sha2::{Digest, Sha256};
 
 use crate::error::{Result, ZkvmError};
-use crate::provers::HardwareProverTrait;
 use crate::types::{HardwareInput, HardwareOutput};
 
 /// Hardware derivation prover that can use mock or SP1 backend

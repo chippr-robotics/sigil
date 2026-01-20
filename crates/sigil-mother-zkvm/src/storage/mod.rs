@@ -23,9 +23,9 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Result, ZkvmError};
+use crate::error::Result;
 use crate::types::{
-    BatchPresigOutput, DeriveOutput, HardwareOutput, KeygenOutput, ProofMetadata, ProofType,
+    BatchPresigOutput, DeriveOutput, HardwareOutput, KeygenOutput, ProofType,
 };
 
 /// Manifest for all proofs stored on a mother device

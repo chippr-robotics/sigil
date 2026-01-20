@@ -91,7 +91,7 @@ impl Default for CombinedVerifier {
 }
 
 impl MotherVerifier for CombinedVerifier {
-    fn verify_keygen(&self, proof: &[u8], expected_output: &KeygenOutput) -> Result<bool> {
+    fn verify_keygen(&self, _proof: &[u8], _expected_output: &KeygenOutput) -> Result<bool> {
         #[cfg(feature = "mock")]
         {
             use crate::provers::mock;
@@ -113,7 +113,7 @@ impl MotherVerifier for CombinedVerifier {
         ))
     }
 
-    fn verify_derive(&self, proof: &[u8], expected_output: &DeriveOutput) -> Result<bool> {
+    fn verify_derive(&self, _proof: &[u8], _expected_output: &DeriveOutput) -> Result<bool> {
         #[cfg(feature = "mock")]
         {
             use crate::provers::mock;
@@ -137,8 +137,8 @@ impl MotherVerifier for CombinedVerifier {
 
     fn verify_batch_presig(
         &self,
-        proof: &[u8],
-        expected_output: &BatchPresigOutput,
+        _proof: &[u8],
+        _expected_output: &BatchPresigOutput,
     ) -> Result<bool> {
         #[cfg(feature = "mock")]
         {
@@ -161,7 +161,7 @@ impl MotherVerifier for CombinedVerifier {
         ))
     }
 
-    fn verify_hardware(&self, proof: &[u8], expected_output: &HardwareOutput) -> Result<bool> {
+    fn verify_hardware(&self, _proof: &[u8], _expected_output: &HardwareOutput) -> Result<bool> {
         #[cfg(feature = "mock")]
         {
             use crate::provers::mock;

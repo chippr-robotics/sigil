@@ -1,6 +1,6 @@
 //! Derive proof verifier
 
-use crate::error::{Result, ZkvmError};
+use crate::error::Result;
 use crate::provers::DeriveProver;
 use crate::types::DeriveOutput;
 
