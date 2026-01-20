@@ -1,0 +1,86 @@
+{
+  "children": {
+    "76c55719f2e2aa65914eea6042ddb641789a262c2964295e5edcab99206fb044": {
+      "child_id": "76c55719f2e2aa65914eea6042ddb641789a262c2964295e5edcab99206fb044",
+      "derivation_path": {
+        "components": [
+          2147483692,
+          2147483708,
+          2147483648,
+          2147483651,
+          0
+        ],
+        "depth": 4
+      },
+      "status": "Active",
+      "created_at": 1768867087,
+      "last_reconciliation": null,
+      "total_signatures": 0,
+      "refill_count": 0,
+      "nullifier": null
+    },
+    "fe1a9801b70d9d1ed2d3d61f668ab2c6f96645ea91bb965c6803c5ff97c81ad5": {
+      "child_id": "fe1a9801b70d9d1ed2d3d61f668ab2c6f96645ea91bb965c6803c5ff97c81ad5",
+      "derivation_path": {
+        "components": [
+          2147483692,
+          2147483708,
+          2147483648,
+          2147483648,
+          0
+        ],
+        "depth": 4
+      },
+      "status": "Active",
+      "created_at": 1768866317,
+      "last_reconciliation": null,
+      "total_signatures": 0,
+      "refill_count": 0,
+      "nullifier": null
+    },
+    "b03bcd47e7053611c347c04ac2763c13ce43cd46ad8a652675c7928f104c844f": {
+      "child_id": "b03bcd47e7053611c347c04ac2763c13ce43cd46ad8a652675c7928f104c844f",
+      "derivation_path": {
+        "components": [
+          2147483692,
+          2147483708,
+          2147483648,
+          2147483649,
+          0
+        ],
+        "depth": 4
+      },
+      "status": "Active",
+      "created_at": 1768866356,
+      "last_reconciliation": null,
+      "total_signatures": 0,
+      "refill_count": 0,
+      "nullifier": null
+    },
+    "17d73593b785c2364802a12bc705e89bae47e38b1fb5caab5d8fe7f997107904": {
+      "child_id": "17d73593b785c2364802a12bc705e89bae47e38b1fb5caab5d8fe7f997107904",
+      "derivation_path": {
+        "components": [
+          2147483692,
+          2147483708,
+          2147483648,
+          2147483650,
+          0
+        ],
+        "depth": 4
+      },
+      "status": "Active",
+      "created_at": 1768866362,
+      "last_reconciliation": null,
+      "total_signatures": 0,
+      "refill_count": 0,
+      "nullifier": null
+    }
+  },
+  "used_paths": [
+    "m/44'/60'/0'/0'",
+    "m/44'/60'/0'/1'",
+    "m/44'/60'/0'/2'",
+    "m/44'/60'/0'/3'"
+  ]
+}

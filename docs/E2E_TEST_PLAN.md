@@ -83,7 +83,7 @@ On the agent device:
 sudo sigil-daemon --socket /var/run/sigil/daemon.sock &
 
 # Verify daemon is running
-sigil status
+sudo sigil status
 ```
 
 **Expected Result:**
@@ -92,10 +92,18 @@ sigil status
 
 ### Setup Step 2: Verify MCP Server
 
+On the agent device:
+
 ```bash
-# Test MCP server manually
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' | sigil-mcp
+# start the agents MCP server
+sigil-mcp &
 ```
+
+```bash
+# Test MCP server manually with curl
+curl -X POST http://localhost:3000/rpc \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
 
 **Expected Result:**
 - JSON response with server capabilities
