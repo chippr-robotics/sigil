@@ -115,7 +115,7 @@ fn derive_public_key(secret: &[u8; 32]) -> Result<[u8; 33]> {
 /// SP1 hardware derivation prover (requires sp1-prover feature)
 #[cfg(feature = "sp1-prover")]
 pub struct Sp1HardwareProver {
-    client: sp1_sdk::ProverClient,
+    prover: sp1_sdk::EnvProver,
     pk: sp1_sdk::SP1ProvingKey,
     vk: sp1_sdk::SP1VerifyingKey,
 }
@@ -126,14 +126,18 @@ impl Sp1HardwareProver {
     pub fn new() -> Result<Self> {
         use sp1_sdk::ProverClient;
 
-        let client = ProverClient::new();
+        let client = ProverClient::from_env();
 
         // Load the ELF from the built program
         let elf = include_bytes!("../../programs/hardware/elf/riscv32im-succinct-zkvm-elf");
 
         let (pk, vk) = client.setup(elf);
 
-        Ok(Self { client, pk, vk })
+        Ok(Self {
+            prover: client,
+            pk,
+            vk,
+        })
     }
 
     /// Get the verification key
@@ -152,9 +156,9 @@ impl HardwareProverTrait for Sp1HardwareProver {
         stdin.write(&input);
 
         // Generate proof
-        let proof = self
-            .client
-            .prove(&self.pk, stdin)
+        let mut proof = self
+            .prover
+            .prove(&self.pk, &stdin)
             .run()
             .map_err(|e| ZkvmError::Sp1Error(e.to_string()))?;
 

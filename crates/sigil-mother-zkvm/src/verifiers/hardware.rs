@@ -78,7 +78,7 @@ impl HardwareVerifier {
         use sp1_sdk::ProverClient;
 
         // Deserialize proof
-        let proof: sp1_sdk::SP1ProofWithPublicValues = bincode::deserialize(proof_bytes)
+        let mut proof: sp1_sdk::SP1ProofWithPublicValues = bincode::deserialize(proof_bytes)
             .map_err(|e| ZkvmError::Serialization(e.to_string()))?;
 
         // Extract output from proof
@@ -90,7 +90,7 @@ impl HardwareVerifier {
         }
 
         // Verify the SP1 proof
-        let client = ProverClient::new();
+        let client = ProverClient::from_env();
         client
             .verify(&proof, vkey)
             .map_err(|e| ZkvmError::ProofVerificationFailed(e.to_string()))?;
