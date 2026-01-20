@@ -301,7 +301,7 @@ fix!: update IPC protocol with incompatible changes
 feat(daemon)!: remove deprecated API
 ```
 
-Or add `BREAKING CHANGE:` in the commit body:
+Or add `BREAKING CHANGE:` in the commit footer (after a blank line):
 
 ```
 feat: new authentication system
@@ -309,6 +309,8 @@ feat: new authentication system
 BREAKING CHANGE: The old authentication method is no longer supported.
 Users must migrate to the new system.
 ```
+
+**Note**: The `BREAKING CHANGE:` footer must appear after a blank line following the commit body, according to the [Conventional Commits specification](https://www.conventionalcommits.org/).
 
 ### Examples
 

@@ -38,8 +38,9 @@ When a PR is merged to `main`, the `.github/workflows/auto-version.yml` workflow
 
 1. **Analyzes commit messages** using [Conventional Commits](https://www.conventionalcommits.org/) format
 2. **Determines the version bump type**:
-   - **Breaking changes** (MAJOR bump): Commits with `!` suffix or `BREAKING CHANGE:` in body
+   - **Breaking changes** (MAJOR bump): Commits with `!` suffix or `BREAKING CHANGE:` in footer
      - Examples: `feat!: change disk format`, `fix!: update IPC protocol`
+     - With footer: commit body contains `BREAKING CHANGE: description`
    - **New features** (MINOR bump): Commits starting with `feat:`
      - Example: `feat(daemon): add disk expiration warnings`
    - **Bug fixes** (PATCH bump): Commits starting with `fix:`, `perf:`, or `refactor:`
@@ -89,6 +90,11 @@ feat: implement disk expiration warnings
 # MAJOR bump (0.1.0 -> 1.0.0) - Only when project is >= 1.0.0
 feat!: change disk format to v2
 fix!: update IPC protocol with incompatible changes
+
+# MAJOR bump with BREAKING CHANGE footer
+feat: new authentication system
+
+BREAKING CHANGE: The old authentication method is no longer supported.
 
 # MAJOR bump converted to MINOR for pre-1.0 (0.1.0 -> 0.2.0)
 feat!: breaking change in 0.x.y converts to MINOR bump

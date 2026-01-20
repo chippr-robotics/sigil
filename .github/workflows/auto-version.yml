@@ -68,7 +68,7 @@ jobs:
           
           # Determine bump type based on conventional commit messages
           # Only include types that should trigger version bumps
-          MAJOR_PATTERN="^(feat|fix|perf|refactor)(\(.+\))?!:|^BREAKING CHANGE:"
+          MAJOR_PATTERN="^(feat|fix|perf|refactor)(\(.+\))?!:|BREAKING CHANGE:"
           MINOR_PATTERN="^feat(\(.+\))?:"
           PATCH_PATTERN="^(fix|perf|refactor)(\(.+\))?:"
           
