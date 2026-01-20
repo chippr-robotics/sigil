@@ -6,6 +6,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/sigil-daemon
+ExecStartPost=/bin/sh -c 'sleep 0.5 && chmod 666 /tmp/sigil.sock'
 Restart=on-failure
 RestartSec=5
 
@@ -13,9 +14,10 @@ RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-PrivateTmp=true
+PrivateTmp=false
 PrivateDevices=false
 DeviceAllow=/dev/sd*
+ReadWritePaths=/tmp
 
 # Allow access to USB devices
 SupplementaryGroups=sigil plugdev
