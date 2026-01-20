@@ -33,7 +33,7 @@ impl HardwareProver {
         let expected_shard = {
             let mut hasher = Sha256::new();
             hasher.update(&input.domain);
-            hasher.update(&input.signature);
+            hasher.update(input.signature);
             let result: [u8; 32] = hasher.finalize().into();
             result
         };

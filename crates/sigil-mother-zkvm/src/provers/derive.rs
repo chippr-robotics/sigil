@@ -55,7 +55,7 @@ impl DeriveProver {
         // Derive child shards using SHA256 (simplified HKDF)
         let cold_child_shard = {
             let mut hasher = Sha256::new();
-            hasher.update(&input.cold_master_shard);
+            hasher.update(input.cold_master_shard);
             hasher.update(&input.derivation_path);
             let result: [u8; 32] = hasher.finalize().into();
             result
@@ -63,7 +63,7 @@ impl DeriveProver {
 
         let agent_child_shard = {
             let mut hasher = Sha256::new();
-            hasher.update(&input.agent_master_shard);
+            hasher.update(input.agent_master_shard);
             hasher.update(&input.derivation_path);
             let result: [u8; 32] = hasher.finalize().into();
             result

@@ -93,7 +93,7 @@ impl MerkleTree {
         let mut current_index = index;
 
         for level in &self.nodes[..self.nodes.len() - 1] {
-            let sibling_index = if current_index % 2 == 0 {
+            let sibling_index = if current_index.is_multiple_of(2) {
                 // We're a left child, sibling is to the right
                 if current_index + 1 < level.len() {
                     current_index + 1
@@ -131,14 +131,14 @@ impl MerkleTree {
 
         for sibling in proof {
             let mut hasher = Sha256::new();
-            if current_index % 2 == 0 {
+            if current_index.is_multiple_of(2) {
                 // We're a left child
-                hasher.update(&current_hash);
+                hasher.update(current_hash);
                 hasher.update(sibling);
             } else {
                 // We're a right child
                 hasher.update(sibling);
-                hasher.update(&current_hash);
+                hasher.update(current_hash);
             }
             current_hash = hasher.finalize().into();
             current_index /= 2;
