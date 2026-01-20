@@ -53,7 +53,7 @@ impl DeriveVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provers::{DeriveProver, KeygenProver};
+    use crate::provers::DeriveProver;
     use crate::types::DeriveInput;
     use k256::{
         elliptic_curve::{sec1::ToEncodedPoint, PrimeField},

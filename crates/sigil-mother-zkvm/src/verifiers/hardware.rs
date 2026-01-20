@@ -150,9 +150,9 @@ mod tests {
 
     #[test]
     fn test_verify_derivation() {
-        use k256::ecdsa::SigningKey;
+        
         use k256::elliptic_curve::sec1::ToEncodedPoint;
-        use rand::rngs::OsRng;
+        
 
         // Create test signature
         let signature = [42u8; 65];
@@ -162,7 +162,7 @@ mod tests {
         let expected_shard: [u8; 32] = {
             let mut hasher = Sha256::new();
             hasher.update(domain);
-            hasher.update(&signature);
+            hasher.update(signature);
             hasher.finalize().into()
         };
 

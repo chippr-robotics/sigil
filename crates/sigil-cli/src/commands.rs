@@ -164,7 +164,7 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
                 hex_str
             } else if let Some(file_path) = file {
                 std::fs::read_to_string(&file_path)
-                    .map_err(|e| ClientError::Io(e))?
+                    .map_err(ClientError::Io)?
                     .trim()
                     .to_string()
             } else {
@@ -191,7 +191,7 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
             replace,
         } => {
             let shares_json =
-                std::fs::read_to_string(&shares_file).map_err(|e| ClientError::Io(e))?;
+                std::fs::read_to_string(&shares_file).map_err(ClientError::Io)?;
 
             client.import_child_shares(&shares_json, replace).await?;
             println!("✓ Child shares imported successfully");
