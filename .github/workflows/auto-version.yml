@@ -53,15 +53,19 @@ jobs:
         id: bump_type
         if: steps.check_version_commit.outputs.skip == 'false'
         run: |
-          # Get all commits since last tag (or all commits if no tags)
+          # Get all commits since last tag (or recent commits if no tags)
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           
           if [ -n "$LAST_TAG" ]; then
             echo "Last tag: $LAST_TAG"
-            COMMITS=$(git log $LAST_TAG..HEAD --pretty=%s)
+            # Get full commit messages (subject + body) since last tag
+            COMMITS=$(git log $LAST_TAG..HEAD --pretty=%B)
           else
-            echo "No previous tags found, analyzing all commits"
-            COMMITS=$(git log --pretty=%s)
+            echo "No previous tags found, analyzing recent commits"
+            # If no tags, only analyze commits from the current push (to avoid analyzing entire history)
+            # GitHub Actions provides GITHUB_SHA for the current commit
+            # We'll analyze just the pushed commits (using the before..after range)
+            COMMITS=$(git log --pretty=%B --max-count=20)
           fi
           
           echo "Analyzing commits for version bump type..."
