@@ -4,7 +4,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Draw the reconciliation screen
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
@@ -12,7 +12,13 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let layout = ScreenLayout::new(area);
 
     // Header
-    render_header(frame, layout.header, "Dashboard > Reconciliation", None, theme);
+    render_header(
+        frame,
+        layout.header,
+        "Dashboard > Reconciliation",
+        None,
+        theme,
+    );
 
     // Main content
     let content_chunks = Layout::default()
@@ -94,12 +100,10 @@ fn render_analysis(frame: &mut Frame, area: Rect, app: &App) {
                 Span::styled("✓ REFILL APPROVED", theme.success()),
             ]),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("Presig Usage:", theme.text_secondary()),
-            ]),
-            Line::from(vec![
-                Span::raw("  Fresh: 847    Used: 150    Voided: 3    Total: 1000"),
-            ]),
+            Line::from(vec![Span::styled("Presig Usage:", theme.text_secondary())]),
+            Line::from(vec![Span::raw(
+                "  Fresh: 847    Used: 150    Voided: 3    Total: 1000",
+            )]),
             Line::from(""),
             Line::from(vec![
                 Span::styled("Log Entries:     ", theme.text_secondary()),
@@ -144,7 +148,10 @@ fn render_actions(frame: &mut Frame, area: Rect, app: &App) {
             Line::from(vec![
                 Span::styled("[R] ", theme.text_highlight()),
                 Span::raw("Approve & Refill"),
-                Span::styled(" - Add new presignatures (requires approval)", theme.text_muted()),
+                Span::styled(
+                    " - Add new presignatures (requires approval)",
+                    theme.text_muted(),
+                ),
             ]),
             Line::from(vec![
                 Span::styled("[E] ", theme.text_highlight()),
@@ -158,11 +165,10 @@ fn render_actions(frame: &mut Frame, area: Rect, app: &App) {
             ]),
         ]
     } else {
-        vec![
-            Line::from(vec![
-                Span::styled("Insert a disk to see available actions", theme.text_muted()),
-            ]),
-        ]
+        vec![Line::from(vec![Span::styled(
+            "Insert a disk to see available actions",
+            theme.text_muted(),
+        )])]
     };
 
     let actions_widget = Paragraph::new(actions);

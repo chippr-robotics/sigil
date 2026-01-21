@@ -4,7 +4,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Wizard step titles
 const STEP_TITLES: &[&str] = &[
@@ -144,20 +144,13 @@ fn render_step_config(frame: &mut Frame, area: Rect, app: &App) {
                     "○ "
                 };
                 ListItem::new(vec![
-                    Line::from(vec![
-                        Span::raw(marker),
-                        Span::styled(*name, theme.text()),
-                    ]),
-                    Line::from(Span::styled(
-                        format!("    {}", desc),
-                        theme.text_muted(),
-                    )),
+                    Line::from(vec![Span::raw(marker), Span::styled(*name, theme.text())]),
+                    Line::from(Span::styled(format!("    {}", desc), theme.text_muted())),
                 ])
             })
             .collect();
 
-        let list = List::new(items)
-            .highlight_style(theme.selection());
+        let list = List::new(items).highlight_style(theme.selection());
 
         let mut state = ListState::default().with_selected(Some(app.state.selected_scheme));
         frame.render_stateful_widget(list, inner, &mut state);
@@ -179,8 +172,7 @@ fn render_step_config(frame: &mut Frame, area: Rect, app: &App) {
              Recommended: 1000 (allows ~1000 transactions before refill)",
             app.state.presig_count
         );
-        let presig = Paragraph::new(presig_text)
-            .style(theme.text());
+        let presig = Paragraph::new(presig_text).style(theme.text());
         frame.render_widget(presig, inner);
     }
 
@@ -200,8 +192,7 @@ fn render_step_config(frame: &mut Frame, area: Rect, app: &App) {
              Disk must be reconciled before this deadline",
             app.state.validity_days
         );
-        let validity = Paragraph::new(validity_text)
-            .style(theme.text());
+        let validity = Paragraph::new(validity_text).style(theme.text());
         frame.render_widget(validity, inner);
     }
 }
@@ -247,10 +238,7 @@ When you press Enter:
 Press Enter to begin child creation.
 Press Esc to go back and modify settings.
 "#,
-        scheme_name,
-        app.state.presig_count,
-        app.state.validity_days,
-        app.state.presig_count,
+        scheme_name, app.state.presig_count, app.state.validity_days, app.state.presig_count,
     );
 
     let paragraph = Paragraph::new(content)
@@ -302,8 +290,7 @@ If you need to format a new disk:
     } else {
         Span::styled("○ Waiting for disk...", theme.text_muted())
     };
-    let status_widget = Paragraph::new(Line::from(status))
-        .alignment(Alignment::Center);
+    let status_widget = Paragraph::new(Line::from(status)).alignment(Alignment::Center);
     frame.render_widget(status_widget, Rect::new(inner.x, status_y, inner.width, 1));
 }
 
@@ -327,9 +314,25 @@ fn render_step_generating(frame: &mut Frame, area: Rect, app: &App) {
     let progress = ((app.tick % 300) as f64 / 300.0 * 100.0) as u32;
 
     let spinner_str = spinner.to_string();
-    let step3 = if progress > 30 { "✓" } else { spinner_str.as_str() };
-    let step4 = if progress > 70 { "✓" } else if progress > 30 { spinner_str.as_str() } else { "○" };
-    let step5 = if progress > 90 { "✓" } else if progress > 70 { spinner_str.as_str() } else { "○" };
+    let step3 = if progress > 30 {
+        "✓"
+    } else {
+        spinner_str.as_str()
+    };
+    let step4 = if progress > 70 {
+        "✓"
+    } else if progress > 30 {
+        spinner_str.as_str()
+    } else {
+        "○"
+    };
+    let step5 = if progress > 90 {
+        "✓"
+    } else if progress > 70 {
+        spinner_str.as_str()
+    } else {
+        "○"
+    };
 
     let content = format!(
         r#"
@@ -349,12 +352,7 @@ Steps:
 
 DO NOT remove the disk during this process.
 "#,
-        spinner,
-        app.state.presig_count,
-        progress,
-        step3,
-        step4,
-        step5,
+        spinner, app.state.presig_count, progress, step3, step4, step5,
     );
 
     let paragraph = Paragraph::new(content)
@@ -366,7 +364,12 @@ DO NOT remove the disk during this process.
     let bar_width = 50usize;
     let filled = (progress as usize * bar_width / 100).min(bar_width);
     let empty = bar_width - filled;
-    let bar = format!("[{}{}] {}%", "█".repeat(filled), "░".repeat(empty), progress);
+    let bar = format!(
+        "[{}{}] {}%",
+        "█".repeat(filled),
+        "░".repeat(empty),
+        progress
+    );
 
     let bar_y = inner.y + inner.height.saturating_sub(3);
     let bar_widget = Paragraph::new(bar)

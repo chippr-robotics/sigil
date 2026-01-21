@@ -4,9 +4,9 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::App;
-use crate::ui::components::floppy::{FloppyDisk, DiskStatus};
+use crate::ui::components::floppy::{DiskStatus, FloppyDisk};
 use crate::ui::components::progress::PresigInventory;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Draw the disk status screen
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
@@ -19,10 +19,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     // Main content
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(40),
-            Constraint::Percentage(60),
-        ])
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(layout.content);
 
     // Left side: Floppy visualization
@@ -40,10 +37,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             ("Esc", "Back"),
         ]
     } else {
-        vec![
-            ("F", "Format New"),
-            ("Esc", "Back"),
-        ]
+        vec![("F", "Format New"), ("Esc", "Back")]
     };
     render_footer(frame, layout.footer, &hints, theme);
 }
@@ -187,7 +181,10 @@ fn render_presig_panel(frame: &mut Frame, area: Rect, app: &App) {
             let warning_widget = Paragraph::new(warning)
                 .style(theme.warning())
                 .alignment(Alignment::Center);
-            frame.render_widget(warning_widget, Rect::new(inner.x, warning_y, inner.width, 1));
+            frame.render_widget(
+                warning_widget,
+                Rect::new(inner.x, warning_y, inner.width, 1),
+            );
         }
     } else {
         let msg = Paragraph::new("No disk inserted")
@@ -221,10 +218,7 @@ fn render_expiry_panel(frame: &mut Frame, area: Rect, app: &App) {
         let lines = vec![
             Line::from(vec![
                 Span::styled("Validity:              ", theme.text_secondary()),
-                Span::styled(
-                    format!("{} days remaining", days_remaining),
-                    validity_style,
-                ),
+                Span::styled(format!("{} days remaining", days_remaining), validity_style),
             ]),
             Line::from(vec![
                 Span::styled("Reconciliation Due:    ", theme.text_secondary()),

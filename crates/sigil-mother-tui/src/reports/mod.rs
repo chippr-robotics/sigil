@@ -79,7 +79,9 @@ impl ReportGenerator {
     ) -> Result<String> {
         match report_type {
             ReportType::ChildInventory => Self::generate_child_inventory(format),
-            ReportType::SignatureAudit => Self::generate_signature_audit(format, start_date, end_date),
+            ReportType::SignatureAudit => {
+                Self::generate_signature_audit(format, start_date, end_date)
+            }
             ReportType::ReconciliationHistory => Self::generate_reconciliation_history(format),
             ReportType::SecurityEvents => Self::generate_security_events(format),
         }

@@ -41,10 +41,7 @@ impl LockoutPolicy {
 
     /// Get the maximum attempts before any lockout
     pub fn max_attempts(&self) -> u32 {
-        self.thresholds
-            .first()
-            .map(|(min, _)| *min)
-            .unwrap_or(3)
+        self.thresholds.first().map(|(min, _)| *min).unwrap_or(3)
     }
 
     /// Check if currently locked out
@@ -122,15 +119,24 @@ mod tests {
         assert_eq!(policy.lockout_duration(9), Some(Duration::from_secs(1800)));
 
         // 24 hours for 10+
-        assert_eq!(policy.lockout_duration(10), Some(Duration::from_secs(86400)));
-        assert_eq!(policy.lockout_duration(100), Some(Duration::from_secs(86400)));
+        assert_eq!(
+            policy.lockout_duration(10),
+            Some(Duration::from_secs(86400))
+        );
+        assert_eq!(
+            policy.lockout_duration(100),
+            Some(Duration::from_secs(86400))
+        );
     }
 
     #[test]
     fn test_lockout_description() {
         let policy = LockoutPolicy::default();
 
-        assert_eq!(policy.lockout_description(4), Some("30 seconds".to_string()));
+        assert_eq!(
+            policy.lockout_description(4),
+            Some("30 seconds".to_string())
+        );
         assert_eq!(policy.lockout_description(6), Some("5 minutes".to_string()));
         assert_eq!(policy.lockout_description(10), Some("24 hours".to_string()));
     }

@@ -36,10 +36,10 @@ const SUBTITLE: &str = "MOTHER - Air-Gapped MPC Guardian";
 
 /// Animation frames for floppy disk positions
 const FLOPPY_POSITIONS: &[(i16, i16)] = &[
-    (-2, -1),   // Top-left
-    (2, -1),    // Top-right
-    (2, 1),     // Bottom-right
-    (-2, 1),    // Bottom-left
+    (-2, -1), // Top-left
+    (2, -1),  // Top-right
+    (2, 1),   // Bottom-right
+    (-2, 1),  // Bottom-left
 ];
 
 /// Logo component with animation support
@@ -106,10 +106,7 @@ impl Logo {
             if y < area.y + area.height {
                 let x = area.x + (area.width.saturating_sub(line.len() as u16)) / 2;
                 let text = Paragraph::new(*line).style(theme.title());
-                frame.render_widget(
-                    text,
-                    Rect::new(x, y, line.len() as u16, 1),
-                );
+                frame.render_widget(text, Rect::new(x, y, line.len() as u16, 1));
             }
         }
 
@@ -125,10 +122,7 @@ impl Logo {
             let y = floppy_y + i as u16;
             if y < area.y + area.height && !line.is_empty() {
                 let text = Paragraph::new(*line).style(theme.text_highlight());
-                frame.render_widget(
-                    text,
-                    Rect::new(floppy_x, y, line.len() as u16, 1),
-                );
+                frame.render_widget(text, Rect::new(floppy_x, y, line.len() as u16, 1));
             }
         }
 
@@ -137,10 +131,7 @@ impl Logo {
         if subtitle_y < area.y + area.height {
             let x = area.x + (area.width.saturating_sub(SUBTITLE.len() as u16)) / 2;
             let subtitle = Paragraph::new(SUBTITLE).style(theme.text_secondary());
-            frame.render_widget(
-                subtitle,
-                Rect::new(x, subtitle_y, SUBTITLE.len() as u16, 1),
-            );
+            frame.render_widget(subtitle, Rect::new(x, subtitle_y, SUBTITLE.len() as u16, 1));
         }
     }
 
@@ -155,10 +146,7 @@ impl Logo {
             if y < area.y + area.height {
                 let x = area.x + (area.width.saturating_sub(line.len() as u16)) / 2;
                 let text = Paragraph::new(*line).style(theme.title());
-                frame.render_widget(
-                    text,
-                    Rect::new(x, y, line.len() as u16, 1),
-                );
+                frame.render_widget(text, Rect::new(x, y, line.len() as u16, 1));
             }
         }
     }

@@ -33,12 +33,7 @@ impl<'a> ConfirmDialog<'a> {
     }
 
     /// Create a typed confirmation dialog
-    pub fn typed(
-        title: &'a str,
-        message: &'a str,
-        confirm_text: &'a str,
-        input: &'a str,
-    ) -> Self {
+    pub fn typed(title: &'a str, message: &'a str, confirm_text: &'a str, input: &'a str) -> Self {
         Self {
             title,
             message,
@@ -64,7 +59,11 @@ impl<'a> ConfirmDialog<'a> {
 
         let block = Block::default()
             .title(format!(" {} ", self.title))
-            .title_style(if self.dangerous { theme.danger() } else { theme.title() })
+            .title_style(if self.dangerous {
+                theme.danger()
+            } else {
+                theme.title()
+            })
             .borders(Borders::ALL)
             .border_style(border_style);
 

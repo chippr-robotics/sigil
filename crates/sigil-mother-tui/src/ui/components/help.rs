@@ -143,12 +143,7 @@ pub fn help_for_screen(screen: &Screen) -> HelpContent {
 }
 
 /// Render help content
-pub fn render_help(
-    frame: &mut Frame,
-    area: Rect,
-    content: &HelpContent,
-    theme: &Theme,
-) {
+pub fn render_help(frame: &mut Frame, area: Rect, content: &HelpContent, theme: &Theme) {
     let block = Block::default()
         .title(format!(" Help: {} ", content.title))
         .title_style(theme.title())
@@ -162,8 +157,8 @@ pub fn render_help(
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
-            Constraint::Length(4),  // Description
-            Constraint::Min(5),     // Key bindings
+            Constraint::Length(4), // Description
+            Constraint::Min(5),    // Key bindings
         ])
         .split(inner);
 
@@ -174,13 +169,13 @@ pub fn render_help(
     frame.render_widget(desc, chunks[0]);
 
     // Key bindings
-    let keys_text: String = content.keys
+    let keys_text: String = content
+        .keys
         .iter()
         .map(|(key, action)| format!("  [{:^8}]  {}", key, action))
         .collect::<Vec<_>>()
         .join("\n");
 
-    let keys = Paragraph::new(keys_text)
-        .style(theme.text_secondary());
+    let keys = Paragraph::new(keys_text).style(theme.text_secondary());
     frame.render_widget(keys, chunks[1]);
 }

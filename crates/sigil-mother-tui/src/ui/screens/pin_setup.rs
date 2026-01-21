@@ -28,14 +28,14 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(2),  // Welcome
-            Constraint::Length(4),  // Instructions
-            Constraint::Length(2),  // Step indicator
-            Constraint::Length(3),  // PIN display
-            Constraint::Length(2),  // Requirements
-            Constraint::Length(2),  // Error
-            Constraint::Min(1),     // Spacer
-            Constraint::Length(1),  // Help
+            Constraint::Length(2), // Welcome
+            Constraint::Length(4), // Instructions
+            Constraint::Length(2), // Step indicator
+            Constraint::Length(3), // PIN display
+            Constraint::Length(2), // Requirements
+            Constraint::Length(2), // Error
+            Constraint::Min(1),    // Spacer
+            Constraint::Length(1), // Help
         ])
         .split(inner);
 
@@ -153,9 +153,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         let notice_widget = Paragraph::new(notice)
             .style(theme.warning())
             .alignment(Alignment::Center);
-        frame.render_widget(
-            notice_widget,
-            Rect::new(area.x, notice_y, area.width, 1),
-        );
+        frame.render_widget(notice_widget, Rect::new(area.x, notice_y, area.width, 1));
     }
 }

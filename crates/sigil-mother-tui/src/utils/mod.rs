@@ -4,7 +4,9 @@ use chrono::{DateTime, Duration, Local, Utc};
 
 /// Format a timestamp for display
 pub fn format_timestamp(ts: DateTime<Utc>) -> String {
-    ts.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()
+    ts.with_timezone(&Local)
+        .format("%Y-%m-%d %H:%M")
+        .to_string()
 }
 
 /// Format a timestamp as relative time (e.g., "2 hours ago")
@@ -77,7 +79,11 @@ pub fn format_hex(hex: &str, max_len: Option<usize>) -> String {
     match max_len {
         Some(len) if display.len() > len => {
             let half = (len - 5) / 2; // Account for "0x" and "..."
-            format!("{}...{}", &display[..half + 2], &display[display.len() - half..])
+            format!(
+                "{}...{}",
+                &display[..half + 2],
+                &display[display.len() - half..]
+            )
         }
         _ => display,
     }

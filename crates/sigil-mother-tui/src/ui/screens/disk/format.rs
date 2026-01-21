@@ -4,7 +4,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 use crate::app::App;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Wizard step titles
 const STEP_TITLES: &[&str] = &[
@@ -49,8 +49,8 @@ fn render_step_indicator(frame: &mut Frame, area: Rect, app: &App, step: u8) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Progress indicator
-            Constraint::Min(10),    // Step content
+            Constraint::Length(3), // Progress indicator
+            Constraint::Min(10),   // Step content
         ])
         .split(area);
 
@@ -85,8 +85,7 @@ fn render_step_indicator(frame: &mut Frame, area: Rect, app: &App, step: u8) {
         }
     }
 
-    let progress = Paragraph::new(Line::from(progress_line))
-        .alignment(Alignment::Center);
+    let progress = Paragraph::new(Line::from(progress_line)).alignment(Alignment::Center);
     frame.render_widget(progress, chunks[0]);
 
     // Step content
@@ -144,8 +143,7 @@ fn render_step_insert(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         Span::styled("○ Waiting for disk insertion...", theme.text_muted())
     };
-    let status_widget = Paragraph::new(Line::from(status))
-        .alignment(Alignment::Center);
+    let status_widget = Paragraph::new(Line::from(status)).alignment(Alignment::Center);
     frame.render_widget(status_widget, Rect::new(inner.x, status_y, inner.width, 1));
 }
 

@@ -153,10 +153,7 @@ impl FloppyDisk {
                 .replace("{label_line3}", &self.pad_label(&self.label_line3, 17));
 
             let text = Paragraph::new(rendered).style(style);
-            frame.render_widget(
-                text,
-                Rect::new(start_x, y, 35, 1),
-            );
+            frame.render_widget(text, Rect::new(start_x, y, 35, 1));
         }
 
         // Status indicator below disk
@@ -166,10 +163,7 @@ impl FloppyDisk {
             let status_widget = Paragraph::new(status_text)
                 .style(style)
                 .alignment(Alignment::Center);
-            frame.render_widget(
-                status_widget,
-                Rect::new(area.x, status_y, area.width, 1),
-            );
+            frame.render_widget(status_widget, Rect::new(area.x, status_y, area.width, 1));
         }
     }
 
@@ -189,10 +183,7 @@ impl FloppyDisk {
 
             let rendered = line.replace("{id}", &format!("{:^4}", short_id));
             let text = Paragraph::new(rendered).style(style);
-            frame.render_widget(
-                text,
-                Rect::new(start_x, y, 13, 1),
-            );
+            frame.render_widget(text, Rect::new(start_x, y, 13, 1));
         }
     }
 
@@ -207,12 +198,7 @@ impl FloppyDisk {
 }
 
 /// Render disk detection status
-pub fn render_disk_indicator(
-    frame: &mut Frame,
-    area: Rect,
-    detected: bool,
-    theme: &Theme,
-) {
+pub fn render_disk_indicator(frame: &mut Frame, area: Rect, detected: bool, theme: &Theme) {
     let (indicator, label, style) = if detected {
         ("●", "Disk: Detected", theme.success())
     } else {

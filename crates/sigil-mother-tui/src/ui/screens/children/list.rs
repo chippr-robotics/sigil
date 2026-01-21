@@ -4,7 +4,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Cell, Row, Table, TableState};
 
 use crate::app::App;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Sample child data for display
 struct ChildRow {
@@ -77,8 +77,8 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let content_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(10),    // Table
-            Constraint::Length(3),  // Legend
+            Constraint::Min(10),   // Table
+            Constraint::Length(3), // Legend
         ])
         .split(layout.content);
 
@@ -163,8 +163,11 @@ fn render_table(frame: &mut Frame, area: Rect, app: &App) {
         .highlight_style(theme.selection())
         .highlight_symbol("▶ ");
 
-    let mut state = TableState::default()
-        .with_selected(Some(app.state.child_list_index.min(SAMPLE_CHILDREN.len().saturating_sub(1))));
+    let mut state = TableState::default().with_selected(Some(
+        app.state
+            .child_list_index
+            .min(SAMPLE_CHILDREN.len().saturating_sub(1)),
+    ));
     frame.render_stateful_widget(table, area, &mut state);
 }
 
@@ -184,7 +187,11 @@ fn render_legend(frame: &mut Frame, area: Rect, app: &App) {
 
     let legend = ratatui::widgets::Paragraph::new(Line::from(legend_items))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::TOP).border_style(theme.border()));
+        .block(
+            Block::default()
+                .borders(Borders::TOP)
+                .border_style(theme.border()),
+        );
 
     frame.render_widget(legend, area);
 }

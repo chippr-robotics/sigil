@@ -4,14 +4,26 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
 use crate::app::App;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Report types
 const REPORT_TYPES: &[(&str, &str)] = &[
-    ("Child Inventory Report", "Complete list of all children with status and presig counts"),
-    ("Signature Audit Trail", "All signatures with timestamps, chains, and TX hashes"),
-    ("Reconciliation History", "All reconciliation events and their outcomes"),
-    ("Security Events Log", "Authentication attempts and session activity"),
+    (
+        "Child Inventory Report",
+        "Complete list of all children with status and presig counts",
+    ),
+    (
+        "Signature Audit Trail",
+        "All signatures with timestamps, chains, and TX hashes",
+    ),
+    (
+        "Reconciliation History",
+        "All reconciliation events and their outcomes",
+    ),
+    (
+        "Security Events Log",
+        "Authentication attempts and session activity",
+    ),
 ];
 
 /// Draw the reports screen
@@ -25,10 +37,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     // Main content
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
-        ])
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(layout.content);
 
     // Left: Report type selection
@@ -70,21 +79,14 @@ fn render_report_types(frame: &mut Frame, area: Rect, app: &App) {
                 "○ "
             };
             ListItem::new(vec![
-                Line::from(vec![
-                    Span::raw(marker),
-                    Span::styled(*name, theme.text()),
-                ]),
-                Line::from(Span::styled(
-                    format!("  {}", desc),
-                    theme.text_muted(),
-                )),
+                Line::from(vec![Span::raw(marker), Span::styled(*name, theme.text())]),
+                Line::from(Span::styled(format!("  {}", desc), theme.text_muted())),
                 Line::from(""),
             ])
         })
         .collect();
 
-    let list = List::new(items)
-        .highlight_style(theme.selection());
+    let list = List::new(items).highlight_style(theme.selection());
 
     let mut state = ListState::default().with_selected(Some(app.state.report_type_index));
     frame.render_stateful_widget(list, inner, &mut state);
@@ -97,9 +99,9 @@ fn render_options(frame: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(8),  // Format options
-            Constraint::Length(6),  // Export destination
-            Constraint::Min(3),     // Status
+            Constraint::Length(8), // Format options
+            Constraint::Length(6), // Export destination
+            Constraint::Min(3),    // Status
         ])
         .split(area);
 
@@ -149,12 +151,11 @@ fn render_options(frame: &mut Frame, area: Rect, app: &App) {
         frame.render_widget(block, chunks[1]);
 
         let dest = vec![
-            Line::from(vec![
-                Span::raw("○ Display on screen"),
-            ]),
-            Line::from(vec![
-                Span::styled("● Export to USB drive", theme.text_highlight()),
-            ]),
+            Line::from(vec![Span::raw("○ Display on screen")]),
+            Line::from(vec![Span::styled(
+                "● Export to USB drive",
+                theme.text_highlight(),
+            )]),
             Line::from(vec![
                 Span::styled("  Detected: ", theme.text_muted()),
                 Span::raw("/media/usb/BACKUP (14.2 GB free)"),

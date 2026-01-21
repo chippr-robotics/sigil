@@ -21,9 +21,9 @@ impl ScreenLayout {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Min(10),    // Content
-                Constraint::Length(2),  // Footer
+                Constraint::Length(3), // Header
+                Constraint::Min(10),   // Content
+                Constraint::Length(2), // Footer
             ])
             .split(area);
 
@@ -38,10 +38,7 @@ impl ScreenLayout {
     pub fn with_sidebar(area: Rect, sidebar_width: u16) -> (Self, Rect) {
         let horizontal = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Length(sidebar_width),
-                Constraint::Min(40),
-            ])
+            .constraints([Constraint::Length(sidebar_width), Constraint::Min(40)])
             .split(area);
 
         (Self::new(horizontal[1]), horizontal[0])
@@ -102,8 +99,7 @@ pub fn render_header(
         .split(inner);
 
     // Logo/title
-    let logo = Paragraph::new(format!(" {} SIGIL MOTHER", '\u{25C6}'))
-        .style(theme.title());
+    let logo = Paragraph::new(format!(" {} SIGIL MOTHER", '\u{25C6}')).style(theme.title());
     frame.render_widget(logo, chunks[0]);
 
     // Breadcrumb
@@ -123,12 +119,7 @@ pub fn render_header(
 }
 
 /// Render a standard footer with help hints
-pub fn render_footer(
-    frame: &mut Frame,
-    area: Rect,
-    hints: &[(&str, &str)],
-    theme: &Theme,
-) {
+pub fn render_footer(frame: &mut Frame, area: Rect, hints: &[(&str, &str)], theme: &Theme) {
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(theme.border());
@@ -165,10 +156,7 @@ pub fn render_status_bar(
         theme.text_secondary()
     };
 
-    let text = error
-        .or(session_warning)
-        .or(status)
-        .unwrap_or("");
+    let text = error.or(session_warning).or(status).unwrap_or("");
 
     let status_bar = Paragraph::new(text)
         .style(style)

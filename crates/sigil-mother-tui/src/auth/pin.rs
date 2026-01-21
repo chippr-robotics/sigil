@@ -47,10 +47,9 @@ impl PinManager {
     pub fn load_or_create() -> Result<Self> {
         let storage_path = Self::storage_path()?;
         let storage = if storage_path.exists() {
-            let contents = fs::read_to_string(&storage_path)
-                .context("Failed to read PIN storage")?;
-            Some(serde_json::from_str(&contents)
-                .context("Failed to parse PIN storage")?)
+            let contents =
+                fs::read_to_string(&storage_path).context("Failed to read PIN storage")?;
+            Some(serde_json::from_str(&contents).context("Failed to parse PIN storage")?)
         } else {
             None
         };
@@ -75,8 +74,7 @@ impl PinManager {
             .join("sigil-mother");
 
         // Create directory if it doesn't exist
-        fs::create_dir_all(&config_dir)
-            .context("Failed to create config directory")?;
+        fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
 
         Ok(config_dir.join("pin.json"))
     }
@@ -90,7 +88,11 @@ impl PinManager {
     pub fn set_pin(&mut self, pin: &str) -> Result<()> {
         // Validate PIN
         if pin.len() < MIN_PIN_LENGTH || pin.len() > MAX_PIN_LENGTH {
-            anyhow::bail!("PIN must be between {} and {} digits", MIN_PIN_LENGTH, MAX_PIN_LENGTH);
+            anyhow::bail!(
+                "PIN must be between {} and {} digits",
+                MIN_PIN_LENGTH,
+                MAX_PIN_LENGTH
+            );
         }
 
         if !pin.chars().all(|c| c.is_ascii_digit()) {
@@ -116,8 +118,7 @@ impl PinManager {
 
         // Save to file
         let contents = serde_json::to_string_pretty(&storage)?;
-        fs::write(&self.storage_path, contents)
-            .context("Failed to write PIN storage")?;
+        fs::write(&self.storage_path, contents).context("Failed to write PIN storage")?;
 
         // Set restrictive permissions (Unix only)
         #[cfg(unix)]
@@ -143,7 +144,9 @@ impl PinManager {
             }
         }
 
-        let storage = self.storage.as_mut()
+        let storage = self
+            .storage
+            .as_mut()
             .ok_or_else(|| anyhow::anyhow!("No PIN has been set"))?;
 
         // Parse the stored hash
@@ -168,7 +171,7 @@ impl PinManager {
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
-                    .as_secs()
+                    .as_secs(),
             );
             self.save_storage()?;
 
@@ -192,8 +195,7 @@ impl PinManager {
     fn save_storage(&self) -> Result<()> {
         if let Some(storage) = &self.storage {
             let contents = serde_json::to_string_pretty(storage)?;
-            fs::write(&self.storage_path, contents)
-                .context("Failed to write PIN storage")?;
+            fs::write(&self.storage_path, contents).context("Failed to write PIN storage")?;
         }
         Ok(())
     }
@@ -216,9 +218,8 @@ impl PinManager {
 
     /// Get remaining lockout seconds
     pub fn lockout_remaining_seconds(&self) -> Option<u64> {
-        self.lockout_until().map(|until| {
-            until.duration_since(Instant::now()).as_secs()
-        })
+        self.lockout_until()
+            .map(|until| until.duration_since(Instant::now()).as_secs())
     }
 
     /// Change PIN (requires old PIN verification first)
@@ -237,8 +238,7 @@ impl PinManager {
     /// Reset PIN storage (factory reset)
     pub fn factory_reset(&mut self) -> Result<()> {
         if self.storage_path.exists() {
-            fs::remove_file(&self.storage_path)
-                .context("Failed to remove PIN storage")?;
+            fs::remove_file(&self.storage_path).context("Failed to remove PIN storage")?;
         }
         self.storage = None;
         self.lockout_until = None;

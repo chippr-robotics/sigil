@@ -38,24 +38,24 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             // Primary branding - Sigil Gold
-            sigil_gold: Color::Rgb(255, 193, 7),    // #FFC107
-            sigil_amber: Color::Rgb(255, 152, 0),   // #FF9800
-            sigil_dark: Color::Rgb(33, 33, 33),     // #212121
+            sigil_gold: Color::Rgb(255, 193, 7),  // #FFC107
+            sigil_amber: Color::Rgb(255, 152, 0), // #FF9800
+            sigil_dark: Color::Rgb(33, 33, 33),   // #212121
 
             // Status colors
-            success: Color::Rgb(76, 175, 80),       // #4CAF50 - Green
-            warning: Color::Rgb(255, 152, 0),       // #FF9800 - Orange
-            danger: Color::Rgb(244, 67, 54),        // #F44336 - Red
-            info: Color::Rgb(33, 150, 243),         // #2196F3 - Blue
+            success: Color::Rgb(76, 175, 80), // #4CAF50 - Green
+            warning: Color::Rgb(255, 152, 0), // #FF9800 - Orange
+            danger: Color::Rgb(244, 67, 54),  // #F44336 - Red
+            info: Color::Rgb(33, 150, 243),   // #2196F3 - Blue
 
             // UI elements
-            border: Color::Rgb(66, 66, 66),         // #424242
-            border_focused: Color::Rgb(255, 193, 7),// #FFC107
-            text_primary: Color::Rgb(250, 250, 250),// #FAFAFA
-            text_secondary: Color::Rgb(189, 189, 189),// #BDBDBD
-            text_muted: Color::Rgb(117, 117, 117),  // #757575
-            highlight: Color::Rgb(255, 193, 7),     // #FFC107
-            selection: Color::Rgb(55, 55, 55),      // #373737
+            border: Color::Rgb(66, 66, 66),            // #424242
+            border_focused: Color::Rgb(255, 193, 7),   // #FFC107
+            text_primary: Color::Rgb(250, 250, 250),   // #FAFAFA
+            text_secondary: Color::Rgb(189, 189, 189), // #BDBDBD
+            text_muted: Color::Rgb(117, 117, 117),     // #757575
+            highlight: Color::Rgb(255, 193, 7),        // #FFC107
+            selection: Color::Rgb(55, 55, 55),         // #373737
 
             // Floppy disk
             floppy_body: Color::Rgb(30, 30, 30),
@@ -101,8 +101,7 @@ impl Theme {
 
     /// Get subtitle style
     pub fn subtitle(&self) -> Style {
-        Style::default()
-            .fg(self.text_secondary)
+        Style::default().fg(self.text_secondary)
     }
 
     /// Get border style
@@ -139,9 +138,7 @@ impl Theme {
 
     /// Get selection/highlight style
     pub fn selection(&self) -> Style {
-        Style::default()
-            .bg(self.selection)
-            .fg(self.sigil_gold)
+        Style::default().bg(self.selection).fg(self.sigil_gold)
     }
 
     /// Get menu item style
@@ -174,13 +171,9 @@ impl Theme {
     /// Get input field style
     pub fn input(&self, focused: bool) -> Style {
         if focused {
-            Style::default()
-                .fg(self.text_primary)
-                .bg(self.sigil_dark)
+            Style::default().fg(self.text_primary).bg(self.sigil_dark)
         } else {
-            Style::default()
-                .fg(self.text_secondary)
-                .bg(self.sigil_dark)
+            Style::default().fg(self.text_secondary).bg(self.sigil_dark)
         }
     }
 

@@ -29,12 +29,7 @@ impl Default for SystemStatus {
 }
 
 /// Render the status bar
-pub fn render_status_bar(
-    frame: &mut Frame,
-    area: Rect,
-    status: &SystemStatus,
-    theme: &Theme,
-) {
+pub fn render_status_bar(frame: &mut Frame, area: Rect, status: &SystemStatus, theme: &Theme) {
     let block = Block::default()
         .borders(Borders::TOP)
         .border_style(theme.border());
@@ -93,12 +88,7 @@ pub fn render_status_bar(
 }
 
 /// Render help hints in footer
-pub fn render_help_footer(
-    frame: &mut Frame,
-    area: Rect,
-    hints: &[(&str, &str)],
-    theme: &Theme,
-) {
+pub fn render_help_footer(frame: &mut Frame, area: Rect, hints: &[(&str, &str)], theme: &Theme) {
     let hint_spans: Vec<Span> = hints
         .iter()
         .flat_map(|(key, action)| {

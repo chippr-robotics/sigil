@@ -72,14 +72,16 @@ impl<'a> DataTable<'a> {
 
     /// Add a row
     pub fn row(mut self, cells: Vec<impl Into<String>>) -> Self {
-        self.rows.push(cells.into_iter().map(|c| c.into()).collect());
+        self.rows
+            .push(cells.into_iter().map(|c| c.into()).collect());
         self.row_styles.push(None);
         self
     }
 
     /// Add a row with custom style
     pub fn styled_row(mut self, cells: Vec<impl Into<String>>, style: Style) -> Self {
-        self.rows.push(cells.into_iter().map(|c| c.into()).collect());
+        self.rows
+            .push(cells.into_iter().map(|c| c.into()).collect());
         self.row_styles.push(Some(style));
         self
     }
@@ -103,17 +105,16 @@ impl<'a> DataTable<'a> {
     /// Render the table
     pub fn render(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
         // Create header row
-        let header_cells: Vec<Cell> = self.columns
+        let header_cells: Vec<Cell> = self
+            .columns
             .iter()
-            .map(|c| {
-                Cell::from(c.header.clone())
-                    .style(theme.text_highlight())
-            })
+            .map(|c| Cell::from(c.header.clone()).style(theme.text_highlight()))
             .collect();
         let header = Row::new(header_cells).height(1);
 
         // Create data rows
-        let rows: Vec<Row> = self.rows
+        let rows: Vec<Row> = self
+            .rows
             .iter()
             .enumerate()
             .map(|(i, row_data)| {
@@ -121,7 +122,9 @@ impl<'a> DataTable<'a> {
                     .iter()
                     .enumerate()
                     .map(|(j, cell)| {
-                        let alignment = self.columns.get(j)
+                        let alignment = self
+                            .columns
+                            .get(j)
                             .map(|c| c.alignment)
                             .unwrap_or(Alignment::Left);
                         Cell::from(cell.clone())
@@ -131,7 +134,11 @@ impl<'a> DataTable<'a> {
                 let style = if i == self.selected {
                     theme.selection()
                 } else {
-                    self.row_styles.get(i).copied().flatten().unwrap_or_default()
+                    self.row_styles
+                        .get(i)
+                        .copied()
+                        .flatten()
+                        .unwrap_or_default()
                 };
 
                 Row::new(cells).style(style)
@@ -139,10 +146,7 @@ impl<'a> DataTable<'a> {
             .collect();
 
         // Column widths
-        let widths: Vec<Constraint> = self.columns
-            .iter()
-            .map(|c| c.width)
-            .collect();
+        let widths: Vec<Constraint> = self.columns.iter().map(|c| c.width).collect();
 
         // Create table
         let table = RatatuiTable::new(rows, widths)
@@ -152,7 +156,7 @@ impl<'a> DataTable<'a> {
                     .title(format!(" {} ", self.title))
                     .title_style(theme.title())
                     .borders(Borders::ALL)
-                    .border_style(theme.border())
+                    .border_style(theme.border()),
             )
             .highlight_style(theme.selection());
 
@@ -186,12 +190,7 @@ impl<'a> InfoTable<'a> {
     }
 
     /// Add an item with style
-    pub fn styled_item(
-        mut self,
-        label: &'a str,
-        value: impl Into<String>,
-        style: Style,
-    ) -> Self {
+    pub fn styled_item(mut self, label: &'a str, value: impl Into<String>, style: Style) -> Self {
         self.items.push((label, value.into(), Some(style)));
         self
     }
@@ -217,8 +216,8 @@ impl<'a> InfoTable<'a> {
             // Label
             let label_width = 20.min(inner.width as usize / 2);
             let label_text = format!("{:>width$}:", label, width = label_width);
-            let label_widget = ratatui::widgets::Paragraph::new(label_text)
-                .style(theme.text_secondary());
+            let label_widget =
+                ratatui::widgets::Paragraph::new(label_text).style(theme.text_secondary());
             frame.render_widget(
                 label_widget,
                 Rect::new(inner.x, y, label_width as u16 + 1, 1),
@@ -228,12 +227,8 @@ impl<'a> InfoTable<'a> {
             let value_x = inner.x + label_width as u16 + 2;
             let value_width = inner.width.saturating_sub(label_width as u16 + 2);
             let value_style = style.unwrap_or_else(|| theme.text());
-            let value_widget = ratatui::widgets::Paragraph::new(value.as_str())
-                .style(value_style);
-            frame.render_widget(
-                value_widget,
-                Rect::new(value_x, y, value_width, 1),
-            );
+            let value_widget = ratatui::widgets::Paragraph::new(value.as_str()).style(value_style);
+            frame.render_widget(value_widget, Rect::new(value_x, y, value_width, 1));
         }
     }
 }

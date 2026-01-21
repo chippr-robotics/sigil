@@ -4,15 +4,27 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
 use crate::app::App;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Settings menu items
 const SETTINGS_ITEMS: &[(&str, &str, &str)] = &[
     ("🔐", "Change PIN", "Update your authentication PIN"),
     ("⏱️", "Session Timeout", "Configure auto-lock timing"),
-    ("📅", "Expiry Settings", "Default validity period for new children"),
-    ("💾", "Backup & Restore", "Backup mother state to external storage"),
-    ("⚠️", "Factory Reset", "Erase all data and start fresh (DANGEROUS)"),
+    (
+        "📅",
+        "Expiry Settings",
+        "Default validity period for new children",
+    ),
+    (
+        "💾",
+        "Backup & Restore",
+        "Backup mother state to external storage",
+    ),
+    (
+        "⚠️",
+        "Factory Reset",
+        "Erase all data and start fresh (DANGEROUS)",
+    ),
 ];
 
 /// Draw the settings screen
@@ -26,10 +38,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     // Main content
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(40),
-            Constraint::Percentage(60),
-        ])
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(layout.content);
 
     // Left: Settings menu
@@ -39,11 +48,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     render_detail(frame, content_chunks[1], app);
 
     // Footer
-    let hints = &[
-        ("↑/↓", "Navigate"),
-        ("Enter", "Select"),
-        ("Esc", "Back"),
-    ];
+    let hints = &[("↑/↓", "Navigate"), ("Enter", "Select"), ("Esc", "Back")];
     render_footer(frame, layout.footer, hints, theme);
 }
 
@@ -122,26 +127,20 @@ fn render_detail(frame: &mut Frame, area: Rect, app: &App) {
 fn render_change_pin_detail(theme: &crate::ui::Theme) -> Vec<Line<'static>> {
     vec![
         Line::from(""),
-        Line::from(vec![
-            Span::styled("Change your authentication PIN.", theme.text()),
-        ]),
+        Line::from(vec![Span::styled(
+            "Change your authentication PIN.",
+            theme.text(),
+        )]),
         Line::from(""),
-        Line::from(vec![
-            Span::raw("You will need to:"),
-        ]),
-        Line::from(vec![
-            Span::raw("  1. Enter your current PIN"),
-        ]),
-        Line::from(vec![
-            Span::raw("  2. Enter a new PIN (6-12 digits)"),
-        ]),
-        Line::from(vec![
-            Span::raw("  3. Confirm the new PIN"),
-        ]),
+        Line::from(vec![Span::raw("You will need to:")]),
+        Line::from(vec![Span::raw("  1. Enter your current PIN")]),
+        Line::from(vec![Span::raw("  2. Enter a new PIN (6-12 digits)")]),
+        Line::from(vec![Span::raw("  3. Confirm the new PIN")]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("Press Enter to change PIN.", theme.text_highlight()),
-        ]),
+        Line::from(vec![Span::styled(
+            "Press Enter to change PIN.",
+            theme.text_highlight(),
+        )]),
     ]
 }
 
@@ -153,30 +152,24 @@ fn render_session_timeout_detail(theme: &crate::ui::Theme) -> Vec<Line<'static>>
             Span::raw("5 minutes"),
         ]),
         Line::from(""),
-        Line::from(vec![
-            Span::raw("Available options:"),
-        ]),
-        Line::from(vec![
-            Span::raw("  ○ 2 minutes (high security)"),
-        ]),
-        Line::from(vec![
-            Span::styled("  ● 5 minutes (default)", theme.text_highlight()),
-        ]),
-        Line::from(vec![
-            Span::raw("  ○ 15 minutes (convenience)"),
-        ]),
-        Line::from(vec![
-            Span::raw("  ○ 30 minutes"),
-        ]),
+        Line::from(vec![Span::raw("Available options:")]),
+        Line::from(vec![Span::raw("  ○ 2 minutes (high security)")]),
+        Line::from(vec![Span::styled(
+            "  ● 5 minutes (default)",
+            theme.text_highlight(),
+        )]),
+        Line::from(vec![Span::raw("  ○ 15 minutes (convenience)")]),
+        Line::from(vec![Span::raw("  ○ 30 minutes")]),
     ]
 }
 
 fn render_expiry_detail(theme: &crate::ui::Theme) -> Vec<Line<'static>> {
     vec![
         Line::from(""),
-        Line::from(vec![
-            Span::styled("Default validity for new children:", theme.text()),
-        ]),
+        Line::from(vec![Span::styled(
+            "Default validity for new children:",
+            theme.text(),
+        )]),
         Line::from(""),
         Line::from(vec![
             Span::styled("Validity Period:    ", theme.text_secondary()),
@@ -200,63 +193,49 @@ fn render_expiry_detail(theme: &crate::ui::Theme) -> Vec<Line<'static>> {
 fn render_backup_detail(theme: &crate::ui::Theme) -> Vec<Line<'static>> {
     vec![
         Line::from(""),
-        Line::from(vec![
-            Span::styled("Backup Mother State", theme.text()),
-        ]),
+        Line::from(vec![Span::styled("Backup Mother State", theme.text())]),
         Line::from(""),
-        Line::from(vec![
-            Span::raw("Creates a backup of:"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • Master key shards (encrypted)"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • Child registry"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • Reconciliation history"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • Configuration settings"),
-        ]),
+        Line::from(vec![Span::raw("Creates a backup of:")]),
+        Line::from(vec![Span::raw("  • Master key shards (encrypted)")]),
+        Line::from(vec![Span::raw("  • Child registry")]),
+        Line::from(vec![Span::raw("  • Reconciliation history")]),
+        Line::from(vec![Span::raw("  • Configuration settings")]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("⚠ Store backup securely - it contains", theme.warning()),
-        ]),
-        Line::from(vec![
-            Span::styled("  sensitive cryptographic material.", theme.warning()),
-        ]),
+        Line::from(vec![Span::styled(
+            "⚠ Store backup securely - it contains",
+            theme.warning(),
+        )]),
+        Line::from(vec![Span::styled(
+            "  sensitive cryptographic material.",
+            theme.warning(),
+        )]),
     ]
 }
 
 fn render_factory_reset_detail(theme: &crate::ui::Theme) -> Vec<Line<'static>> {
     vec![
         Line::from(""),
-        Line::from(vec![
-            Span::styled("⚠ DANGER: Factory Reset", theme.danger()),
-        ]),
+        Line::from(vec![Span::styled(
+            "⚠ DANGER: Factory Reset",
+            theme.danger(),
+        )]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("This will PERMANENTLY DELETE:", theme.danger()),
-        ]),
-        Line::from(vec![
-            Span::raw("  • Master key shards"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • All child registrations"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • Reconciliation history"),
-        ]),
-        Line::from(vec![
-            Span::raw("  • All configuration"),
-        ]),
+        Line::from(vec![Span::styled(
+            "This will PERMANENTLY DELETE:",
+            theme.danger(),
+        )]),
+        Line::from(vec![Span::raw("  • Master key shards")]),
+        Line::from(vec![Span::raw("  • All child registrations")]),
+        Line::from(vec![Span::raw("  • Reconciliation history")]),
+        Line::from(vec![Span::raw("  • All configuration")]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("This action CANNOT be undone.", theme.danger()),
-        ]),
-        Line::from(vec![
-            Span::styled("All associated funds may be LOST.", theme.danger()),
-        ]),
+        Line::from(vec![Span::styled(
+            "This action CANNOT be undone.",
+            theme.danger(),
+        )]),
+        Line::from(vec![Span::styled(
+            "All associated funds may be LOST.",
+            theme.danger(),
+        )]),
     ]
 }

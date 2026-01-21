@@ -28,12 +28,12 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),  // Title
-            Constraint::Length(2),  // Instructions
-            Constraint::Length(3),  // PIN display
-            Constraint::Length(2),  // Error message
-            Constraint::Min(1),     // Spacer
-            Constraint::Length(1),  // Help
+            Constraint::Length(3), // Title
+            Constraint::Length(2), // Instructions
+            Constraint::Length(3), // PIN display
+            Constraint::Length(2), // Error message
+            Constraint::Min(1),    // Spacer
+            Constraint::Length(1), // Help
         ])
         .split(inner);
 
@@ -107,10 +107,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             let warning_widget = Paragraph::new(warning)
                 .style(theme.warning())
                 .alignment(Alignment::Center);
-            frame.render_widget(
-                warning_widget,
-                Rect::new(area.x, warning_y, area.width, 1),
-            );
+            frame.render_widget(warning_widget, Rect::new(area.x, warning_y, area.width, 1));
         }
     }
 }

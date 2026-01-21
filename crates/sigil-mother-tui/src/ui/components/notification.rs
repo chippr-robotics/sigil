@@ -95,9 +95,7 @@ impl Notification {
         frame.render_widget(Clear, toast_area);
 
         // Render toast
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(style);
+        let block = Block::default().borders(Borders::ALL).border_style(style);
 
         let text = format!("{} {}", self.icon(), self.message);
         let content = Paragraph::new(text)

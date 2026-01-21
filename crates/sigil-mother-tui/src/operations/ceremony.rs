@@ -22,10 +22,7 @@ pub struct CeremonyProgress {
 #[derive(Clone, Debug)]
 pub enum CeremonyResult {
     /// Child created successfully
-    ChildCreated {
-        child_id: String,
-        address: String,
-    },
+    ChildCreated { child_id: String, address: String },
     /// Disk formatted successfully
     DiskFormatted,
     /// Reconciliation complete
@@ -34,13 +31,9 @@ pub enum CeremonyResult {
         anomalies: Vec<String>,
     },
     /// Refill complete
-    RefillComplete {
-        new_presigs: u32,
-    },
+    RefillComplete { new_presigs: u32 },
     /// Child nullified
-    ChildNullified {
-        child_id: String,
-    },
+    ChildNullified { child_id: String },
 }
 
 /// Ceremony executor for async ceremony execution
@@ -87,7 +80,11 @@ impl CeremonyExecutor {
         self.report(2, 5, "Deriving child key...");
         tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
 
-        self.report(3, 5, &format!("Generating {} presignatures...", presig_count));
+        self.report(
+            3,
+            5,
+            &format!("Generating {} presignatures...", presig_count),
+        );
         // This would be the actual presig generation
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
@@ -142,7 +139,11 @@ impl CeremonyExecutor {
         self.report(1, 4, "Verifying reconciliation...");
         tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
 
-        self.report(2, 4, &format!("Generating {} presignatures...", new_presigs));
+        self.report(
+            2,
+            4,
+            &format!("Generating {} presignatures...", new_presigs),
+        );
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
         self.report(3, 4, "Writing to disk...");

@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 use crate::app::{App, QrDisplayType};
 use crate::ui::components::qr_display::QrCode;
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Draw the QR display screen
 pub fn draw(frame: &mut Frame, area: Rect, app: &App, qr_type: &QrDisplayType) {
@@ -38,9 +38,9 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App, qr_type: &QrDisplayType) {
     let content_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),  // Instructions
-            Constraint::Min(15),    // QR code
-            Constraint::Length(3),  // Security notice
+            Constraint::Length(4), // Instructions
+            Constraint::Min(15),   // QR code
+            Constraint::Length(3), // Security notice
         ])
         .split(layout.content);
 
@@ -100,9 +100,7 @@ fn render_qr(frame: &mut Frame, area: Rect, app: &App, qr_type: &QrDisplayType) 
         QrDisplayType::NewChildShard => {
             "SIGIL:SHARD:NEW:a1b2c3d4e5f6g7h8:9a8b7c6d5e4f3g2h1i0j9k8l7m6n5o4p3q2r1s0"
         }
-        QrDisplayType::DkgPackage => {
-            "SIGIL:DKG:1:3:PACKAGE_DATA_WOULD_BE_HERE_BASE64_ENCODED"
-        }
+        QrDisplayType::DkgPackage => "SIGIL:DKG:1:3:PACKAGE_DATA_WOULD_BE_HERE_BASE64_ENCODED",
     };
 
     let qr = QrCode::new(data);
@@ -134,9 +132,9 @@ fn render_security_notice(frame: &mut Frame, area: Rect, theme: &crate::ui::Them
             Span::styled("⚠ SECURITY: ", theme.warning()),
             Span::raw("Anyone with this QR code + the floppy disk can sign transactions."),
         ]),
-        Line::from(vec![
-            Span::raw("   Do not photograph, share, or display in insecure environments."),
-        ]),
+        Line::from(vec![Span::raw(
+            "   Do not photograph, share, or display in insecure environments.",
+        )]),
     ];
 
     let block = Block::default()

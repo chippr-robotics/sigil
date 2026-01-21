@@ -59,9 +59,7 @@ impl Session {
     /// Get remaining time until expiry in seconds
     pub fn remaining_seconds(&self) -> u64 {
         let elapsed = self.last_activity.elapsed();
-        self.timeout
-            .saturating_sub(elapsed)
-            .as_secs()
+        self.timeout.saturating_sub(elapsed).as_secs()
     }
 
     /// Get session duration since creation

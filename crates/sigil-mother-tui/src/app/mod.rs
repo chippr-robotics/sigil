@@ -66,7 +66,10 @@ impl App {
     }
 
     /// Main event loop
-    pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<()> {
+    pub fn run(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    ) -> Result<()> {
         let mut last_tick = Instant::now();
 
         // Show splash screen briefly
@@ -269,7 +272,8 @@ impl App {
                     if self.state.pin_input.len() >= 6 {
                         self.state.setup_step = 1;
                     } else {
-                        self.state.error_message = Some("PIN must be at least 6 digits".to_string());
+                        self.state.error_message =
+                            Some("PIN must be at least 6 digits".to_string());
                     }
                 } else {
                     if self.state.pin_input == self.state.pin_confirm {
@@ -279,9 +283,11 @@ impl App {
                         self.auth = AuthState::Authenticated;
                         self.session = Some(Session::new());
                         self.state.current_screen = Screen::Dashboard;
-                        self.state.status_message = Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
+                        self.state.status_message =
+                            Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
                     } else {
-                        self.state.error_message = Some("PINs do not match. Please try again.".to_string());
+                        self.state.error_message =
+                            Some("PINs do not match. Please try again.".to_string());
                         self.state.pin_input.clear();
                         self.state.pin_confirm.clear();
                         self.state.setup_step = 0;
@@ -644,7 +650,8 @@ impl App {
                 // Requires typing "NULLIFY <child_id>"
                 // For now, just return to dashboard
                 self.state.current_screen = Screen::Dashboard;
-                self.state.status_message = Some("Child nullification not yet implemented".to_string());
+                self.state.status_message =
+                    Some("Child nullification not yet implemented".to_string());
             }
             ConfirmAction::FactoryReset => {
                 // Requires typing "FACTORY RESET"
@@ -675,10 +682,12 @@ impl App {
                 self.session = None;
                 self.auth = AuthState::RequiresPin;
                 self.state.current_screen = Screen::PinEntry;
-                self.state.status_message = Some("Session timed out. Please re-authenticate.".to_string());
+                self.state.status_message =
+                    Some("Session timed out. Please re-authenticate.".to_string());
             } else if session.is_warning_period() {
                 let remaining = session.remaining_seconds();
-                self.state.session_warning = Some(format!("Session expires in {} seconds", remaining));
+                self.state.session_warning =
+                    Some(format!("Session expires in {} seconds", remaining));
             } else {
                 self.state.session_warning = None;
             }

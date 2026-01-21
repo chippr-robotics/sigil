@@ -30,11 +30,11 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App, until: Instant) {
         .direction(Direction::Vertical)
         .margin(2)
         .constraints([
-            Constraint::Length(3),  // Warning icon
-            Constraint::Length(3),  // Message
-            Constraint::Length(3),  // Countdown
-            Constraint::Min(1),     // Spacer
-            Constraint::Length(2),  // Help
+            Constraint::Length(3), // Warning icon
+            Constraint::Length(3), // Message
+            Constraint::Length(3), // Countdown
+            Constraint::Min(1),    // Spacer
+            Constraint::Length(2), // Help
         ])
         .split(inner);
 

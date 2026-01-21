@@ -1,8 +1,8 @@
 //! QR code display component for terminal
 
+use qrcode::{EcLevel, QrCode as QrCodeLib};
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
-use qrcode::{QrCode as QrCodeLib, EcLevel};
 
 use crate::ui::Theme;
 
@@ -35,7 +35,11 @@ impl QrCode {
             Err(e) => (None, Some(format!("QR generation failed: {}", e))),
         };
 
-        Self { data, matrix, error }
+        Self {
+            data,
+            matrix,
+            error,
+        }
     }
 
     /// Get the raw matrix for custom rendering
@@ -71,13 +75,7 @@ impl QrCode {
     }
 
     /// Render the QR matrix using half-block characters
-    fn render_matrix(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        matrix: &[Vec<bool>],
-        theme: &Theme,
-    ) {
+    fn render_matrix(&self, frame: &mut Frame, area: Rect, matrix: &[Vec<bool>], theme: &Theme) {
         let qr_height = matrix.len();
         let qr_width = matrix.first().map(|r| r.len()).unwrap_or(0);
 
@@ -101,8 +99,16 @@ impl QrCode {
             let mut line = String::with_capacity(display_width);
 
             for col in 0..qr_width {
-                let top = matrix.get(top_row).and_then(|r| r.get(col)).copied().unwrap_or(false);
-                let bottom = matrix.get(bottom_row).and_then(|r| r.get(col)).copied().unwrap_or(false);
+                let top = matrix
+                    .get(top_row)
+                    .and_then(|r| r.get(col))
+                    .copied()
+                    .unwrap_or(false);
+                let bottom = matrix
+                    .get(bottom_row)
+                    .and_then(|r| r.get(col))
+                    .copied()
+                    .unwrap_or(false);
 
                 let char = match (top, bottom) {
                     (true, true) => '█',   // Full block
@@ -114,10 +120,7 @@ impl QrCode {
             }
 
             let text = Paragraph::new(line).style(theme.text());
-            frame.render_widget(
-                text,
-                Rect::new(start_x, y, display_width as u16, 1),
-            );
+            frame.render_widget(text, Rect::new(start_x, y, display_width as u16, 1));
         }
     }
 
@@ -133,9 +136,9 @@ impl QrCode {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(2),  // Title
-                Constraint::Min(10),    // QR code
-                Constraint::Length(2),  // Chunk info
+                Constraint::Length(2), // Title
+                Constraint::Min(10),   // QR code
+                Constraint::Length(2), // Chunk info
             ])
             .split(area);
 

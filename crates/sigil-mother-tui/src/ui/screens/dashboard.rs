@@ -4,12 +4,16 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
 use crate::app::App;
-use crate::ui::components::floppy::{render_disk_indicator, FloppyDisk, DiskStatus};
-use crate::ui::layout::{render_header, render_footer, ScreenLayout};
+use crate::ui::components::floppy::{render_disk_indicator, DiskStatus, FloppyDisk};
+use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Menu items on the dashboard
 const MENU_ITEMS: &[(&str, &str, &str)] = &[
-    ("💾", "Disk Management", "View disk status and format new disks"),
+    (
+        "💾",
+        "Disk Management",
+        "View disk status and format new disks",
+    ),
     ("👶", "Children", "Manage child signing keys"),
     ("🔄", "Reconciliation", "Analyze and refill returning disks"),
     ("📋", "Reports", "Generate and export reports"),
@@ -28,10 +32,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     // Main content area
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(40),
-            Constraint::Percentage(60),
-        ])
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(layout.content);
 
     // Left side: Menu
@@ -100,10 +101,7 @@ fn render_menu(frame: &mut Frame, area: Rect, app: &App) {
             };
             ListItem::new(vec![
                 content,
-                Line::from(Span::styled(
-                    format!("    {}", desc),
-                    theme.text_muted(),
-                )),
+                Line::from(Span::styled(format!("    {}", desc), theme.text_muted())),
                 Line::from(""),
             ])
         })
@@ -237,19 +235,36 @@ fn render_system_panel(frame: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(vec![
             Span::styled(
-                if app.state.disk_detected { "● " } else { "○ " },
-                if app.state.disk_detected { theme.success() } else { theme.text_muted() },
+                if app.state.disk_detected {
+                    "● "
+                } else {
+                    "○ "
+                },
+                if app.state.disk_detected {
+                    theme.success()
+                } else {
+                    theme.text_muted()
+                },
             ),
             Span::raw("Disk: "),
             Span::styled(
-                if app.state.disk_detected { "Detected" } else { "Not Detected" },
-                if app.state.disk_detected { theme.success() } else { theme.text_muted() },
+                if app.state.disk_detected {
+                    "Detected"
+                } else {
+                    "Not Detected"
+                },
+                if app.state.disk_detected {
+                    theme.success()
+                } else {
+                    theme.text_muted()
+                },
             ),
         ]),
         Line::from(vec![
             Span::raw("Session: "),
             Span::styled(
-                app.session.as_ref()
+                app.session
+                    .as_ref()
                     .map(|s| s.remaining_formatted())
                     .unwrap_or_else(|| "N/A".to_string()),
                 theme.text(),
@@ -275,9 +290,7 @@ fn render_activity_panel(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(block, area);
 
     // Placeholder activity
-    let activity = vec![
-        "No recent activity",
-    ];
+    let activity = vec!["No recent activity"];
 
     let activity_widget = Paragraph::new(activity.join("\n"))
         .style(theme.text_muted())

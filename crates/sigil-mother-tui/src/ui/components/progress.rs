@@ -53,7 +53,11 @@ impl ProgressBar {
 
         let gauge = Gauge::default()
             .block(Block::default().borders(Borders::NONE))
-            .gauge_style(Style::default().fg(theme.progress_filled).bg(theme.progress_empty))
+            .gauge_style(
+                Style::default()
+                    .fg(theme.progress_filled)
+                    .bg(theme.progress_empty),
+            )
             .percent(percent)
             .label(label);
 
@@ -114,8 +118,7 @@ impl Spinner {
         let spinner_char = self.chars[self.frame];
         let text = format!("{} {}", spinner_char, self.label);
 
-        let paragraph = Paragraph::new(text)
-            .style(theme.text_highlight());
+        let paragraph = Paragraph::new(text).style(theme.text_highlight());
 
         frame.render_widget(paragraph, area);
     }
@@ -136,7 +139,12 @@ pub struct PresigInventory {
 impl PresigInventory {
     /// Create new inventory display
     pub fn new(fresh: u32, used: u32, voided: u32, total: u32) -> Self {
-        Self { fresh, used, voided, total }
+        Self {
+            fresh,
+            used,
+            voided,
+            total,
+        }
     }
 
     /// Get percentage remaining
@@ -153,9 +161,9 @@ impl PresigInventory {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),  // Stats line
-                Constraint::Length(1),  // Bar
-                Constraint::Length(1),  // Legend
+                Constraint::Length(1), // Stats line
+                Constraint::Length(1), // Bar
+                Constraint::Length(1), // Legend
             ])
             .split(area);
 
@@ -170,15 +178,20 @@ impl PresigInventory {
         // Visual bar
         let bar_width = layout[1].width as usize;
         if self.total > 0 && bar_width > 0 {
-            let fresh_width = (self.fresh as usize * bar_width / self.total as usize).min(bar_width);
-            let used_width = (self.used as usize * bar_width / self.total as usize).min(bar_width - fresh_width);
-            let voided_width = (self.voided as usize * bar_width / self.total as usize).min(bar_width - fresh_width - used_width);
+            let fresh_width =
+                (self.fresh as usize * bar_width / self.total as usize).min(bar_width);
+            let used_width =
+                (self.used as usize * bar_width / self.total as usize).min(bar_width - fresh_width);
+            let voided_width = (self.voided as usize * bar_width / self.total as usize)
+                .min(bar_width - fresh_width - used_width);
 
             let mut bar = String::new();
             bar.push_str(&"█".repeat(fresh_width));
             bar.push_str(&"▓".repeat(used_width));
             bar.push_str(&"░".repeat(voided_width));
-            bar.push_str(&"░".repeat(bar_width.saturating_sub(fresh_width + used_width + voided_width)));
+            bar.push_str(
+                &"░".repeat(bar_width.saturating_sub(fresh_width + used_width + voided_width)),
+            );
 
             let bar_widget = Paragraph::new(bar).style(theme.text_highlight());
             frame.render_widget(bar_widget, layout[1]);
