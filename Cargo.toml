@@ -8,6 +8,7 @@ members = [
     "crates/sigil-daemon",
     "crates/sigil-cli",
     "crates/sigil-mother",
+    "crates/sigil-mother-tui",
     "crates/sigil-mcp",
     "crates/sigil-tests",
 ]
@@ -27,12 +28,15 @@ sigil-zkvm = { path = "crates/sigil-zkvm" }
 sigil-daemon = { path = "crates/sigil-daemon" }
 sigil-cli = { path = "crates/sigil-cli" }
 sigil-mother = { path = "crates/sigil-mother" }
+sigil-mother-tui = { path = "crates/sigil-mother-tui" }
 sigil-mother-zkvm = { path = "crates/sigil-mother-zkvm" }
 sigil-mcp = { path = "crates/sigil-mcp" }
 
 # Cryptography
 k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
 sha3 = "0.10"
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
 
 # FROST threshold signatures (Zcash Foundation)
 frost-core = "2.1"
@@ -90,6 +94,10 @@ uuid = { version = "1.0", features = ["v4"] }
 qrcode = "0.14"
 image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.22"
+
+# TUI framework
+ratatui = "0.29"
+crossterm = "0.28"
 
 # SP1 zkVM
 sp1-sdk = "5.2"

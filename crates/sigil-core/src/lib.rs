@@ -5,6 +5,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod accumulator;
+pub mod agent;
 pub mod child;
 pub mod crypto;
 pub mod disk;
@@ -14,6 +16,11 @@ pub mod presig;
 pub mod types;
 pub mod usage;
 
+pub use accumulator::{
+    AccumulatorWitness, NonMembershipWitness, PresigWithAccumulatorBinding, RsaAccumulator,
+    StoredAccumulator, RSA_MODULUS_SIZE,
+};
+pub use agent::{AgentId, AgentMetadata, AgentRegistryEntry, AgentStatus};
 pub use child::{ChildStatus, NullificationReason};
 pub use crypto::{ChildKeyPair, DerivationPath, PublicKey};
 pub use disk::{DiskFormat, DiskHeader, DISK_MAGIC, PRESIG_TABLE_OFFSET, USAGE_LOG_OFFSET};

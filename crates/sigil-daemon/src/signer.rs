@@ -5,6 +5,8 @@ use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 use sigil_core::{
+    accumulator::{NonMembershipWitness, RsaAccumulator, StoredAccumulator},
+    agent::AgentId,
     presig::PresigAgentShare,
     types::{ChainId, MessageHash, Signature, TxHash, ZkProofHash},
     usage::UsageLogEntry,
@@ -24,6 +26,15 @@ pub struct Signer {
 
     /// Whether to enable zkVM proving
     enable_proving: bool,
+
+    /// Stored accumulator for nullification verification
+    accumulator: Arc<RwLock<Option<StoredAccumulator>>>,
+
+    /// Non-membership witnesses for agents (keyed by agent_id hex)
+    witnesses: Arc<RwLock<std::collections::HashMap<String, NonMembershipWitness>>>,
+
+    /// Agent ID for this daemon (derived from agent's master shard)
+    agent_id: Option<AgentId>,
 }
 
 /// Result of a signing operation
@@ -66,7 +77,107 @@ impl Signer {
             agent_store,
             disk_watcher,
             enable_proving,
+            accumulator: Arc::new(RwLock::new(None)),
+            witnesses: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            agent_id: None,
         }
+    }
+
+    /// Create a new signer with agent identity
+    pub fn with_agent_id(
+        agent_store: Arc<RwLock<AgentStore>>,
+        disk_watcher: Arc<DiskWatcher>,
+        enable_proving: bool,
+        agent_id: AgentId,
+    ) -> Self {
+        Self {
+            agent_store,
+            disk_watcher,
+            enable_proving,
+            accumulator: Arc::new(RwLock::new(None)),
+            witnesses: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            agent_id: Some(agent_id),
+        }
+    }
+
+    /// Load accumulator from file
+    ///
+    /// The accumulator should be exported from the mother device and
+    /// transferred via USB or other secure channel.
+    pub async fn load_accumulator(&self, path: &std::path::Path) -> Result<()> {
+        let bytes = std::fs::read(path)
+            .map_err(|e| DaemonError::Store(format!("Failed to read accumulator: {}", e)))?;
+
+        let stored = StoredAccumulator::from_bytes(&bytes)
+            .ok_or_else(|| DaemonError::Store("Invalid accumulator format".to_string()))?;
+
+        // Verify version is not going backwards (prevent rollback)
+        {
+            let current = self.accumulator.read().await;
+            if let Some(ref curr) = *current {
+                if stored.version() <= curr.version() {
+                    return Err(DaemonError::Store(format!(
+                        "Cannot load older accumulator (current: {}, new: {})",
+                        curr.version(),
+                        stored.version()
+                    )));
+                }
+            }
+        }
+
+        info!("Loaded accumulator version {}", stored.version());
+        *self.accumulator.write().await = Some(stored);
+
+        Ok(())
+    }
+
+    /// Load non-membership witness for this agent
+    pub async fn load_witness(&self, path: &std::path::Path) -> Result<()> {
+        let bytes = std::fs::read(path)
+            .map_err(|e| DaemonError::Store(format!("Failed to read witness: {}", e)))?;
+
+        let witness = NonMembershipWitness::from_bytes(&bytes)
+            .ok_or_else(|| DaemonError::Store("Invalid witness format".to_string()))?;
+
+        let agent_id_hex = witness.agent_id.to_hex();
+        info!("Loaded witness for agent {}", witness.agent_id.short());
+
+        self.witnesses.write().await.insert(agent_id_hex, witness);
+
+        Ok(())
+    }
+
+    /// Get the current accumulator version
+    pub async fn accumulator_version(&self) -> Option<u64> {
+        self.accumulator.read().await.as_ref().map(|a| a.version())
+    }
+
+    /// Check if an agent is verified as non-nullified
+    pub async fn verify_agent_non_nullified(&self, agent_id: &AgentId) -> Result<bool> {
+        let accumulator_guard = self.accumulator.read().await;
+        let accumulator = accumulator_guard
+            .as_ref()
+            .ok_or_else(|| DaemonError::Store("No accumulator loaded".to_string()))?;
+
+        let witnesses_guard = self.witnesses.read().await;
+        let witness = witnesses_guard
+            .get(&agent_id.to_hex())
+            .ok_or_else(|| DaemonError::Store("No witness for agent".to_string()))?;
+
+        // Verify witness version matches accumulator
+        if witness.accumulator_version != accumulator.version() {
+            return Err(DaemonError::Store(format!(
+                "Witness version mismatch (witness: {}, accumulator: {})",
+                witness.accumulator_version,
+                accumulator.version()
+            )));
+        }
+
+        // Verify non-membership (using accumulator's verify function)
+        let is_valid =
+            sigil_core::accumulator::verify_non_membership(&accumulator.accumulator, witness);
+
+        Ok(is_valid)
     }
 
     /// Sign a message

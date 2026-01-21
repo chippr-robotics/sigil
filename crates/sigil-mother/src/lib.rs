@@ -6,6 +6,7 @@
 //! - Presignature generation
 //! - Reconciliation and refill
 //! - Nullification
+//! - Agent registry and management
 //!
 //! # Optional Features
 //!
@@ -17,12 +18,16 @@
 //! - `zkvm-mock` - Use mock provers for testing
 //! - `zkvm-sp1` - Use real SP1 provers (requires SP1 toolchain)
 
+pub mod accumulator_publish;
+pub mod agent_registry;
+pub mod agent_shard_encryption;
 pub mod ceremony;
 pub mod error;
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub mod hardware;
 pub mod keygen;
 pub mod ledger; // Backwards compatibility re-export
+pub mod nullification;
 pub mod presig_gen;
 pub mod reconciliation;
 pub mod registry;
@@ -30,11 +35,18 @@ pub mod storage;
 #[cfg(feature = "zkvm")]
 pub mod zkvm;
 
+pub use accumulator_publish::{AccumulatorExport, AccumulatorPublisher};
+pub use agent_registry::AgentRegistry;
+pub use agent_shard_encryption::{
+    decrypt_agent_shard, encode_for_qr, encrypt_agent_shard, AgentShardData, EncryptedAgentShard,
+    Passcode, ENCRYPTED_SHARD_PREFIX,
+};
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use error::{MotherError, Result};
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub use hardware::HardwareSigner;
 pub use keygen::MasterKeyGenerator;
+pub use nullification::{NullificationManager, NullificationResult};
 pub use presig_gen::PresigGenerator;
 pub use registry::ChildRegistry;
 pub use storage::MotherStorage;

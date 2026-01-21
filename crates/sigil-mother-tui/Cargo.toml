@@ -1,0 +1,48 @@
+[package]
+name = "sigil-mother-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Terminal user interface for Sigil Mother device"
+
+[[bin]]
+name = "sigil-mother-tui"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+sigil-core = { workspace = true }
+sigil-mother = { workspace = true }
+
+# TUI framework
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Random number generation
+rand = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# QR code rendering
+qrcode = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
