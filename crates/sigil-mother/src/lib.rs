@@ -43,7 +43,11 @@ pub use agent_shard_encryption::{
     Passcode, ENCRYPTED_SHARD_PREFIX,
 };
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
-pub use disk_ops::{DiskStatus, FloppyManager, FormatType};
+pub use disk_ops::{
+    list_all_block_devices, list_removable_devices, get_device_info, get_mount_point,
+    BlockDevice, DiskStatus, FloppyManager, FormatType, MountMethod,
+    FLOPPY_SIZE_144MB, FLOPPY_SIZE_TOLERANCE,
+};
 pub use error::{MotherError, Result};
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub use hardware::HardwareSigner;

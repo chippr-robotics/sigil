@@ -1,7 +1,9 @@
 //! Application state and event handling
 
+mod config;
 mod state;
 
+pub use config::{ConfigError, MountMethodConfig, TuiConfig};
 pub use state::{AppState, Screen};
 
 use std::time::{Duration, Instant};
@@ -96,6 +98,7 @@ impl App {
             Screen::ChildList => self.handle_child_list_key(key),
             Screen::ChildCreate => self.handle_child_create_key(key),
             Screen::DiskManagement => self.handle_disk_management_key(key),
+            Screen::DiskSelect => self.handle_disk_select_key(key),
             Screen::DiskFormat => self.handle_disk_format_key(key),
             Screen::QrDisplay => self.handle_qr_display_key(key),
             Screen::Help => self.handle_help_key(key),
@@ -344,13 +347,14 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                if self.state.disk_action_index < 4 {
+                if self.state.disk_action_index < 5 {
                     self.state.disk_action_index += 1;
                 }
             }
             KeyCode::Char('r') => {
                 // Refresh disk status
                 self.state.refresh_disk_status();
+                self.state.refresh_available_devices();
             }
             KeyCode::Char('m') => {
                 // Quick mount
@@ -360,19 +364,62 @@ impl App {
                 // Quick unmount
                 self.unmount_disk();
             }
+            KeyCode::Char('s') => {
+                // Open device selection screen
+                self.state.refresh_available_devices();
+                self.state.device_select_index = 0;
+                self.state.current_screen = Screen::DiskSelect;
+            }
             KeyCode::Enter => {
                 match self.state.disk_action_index {
-                    0 => self.mount_disk(),   // Mount
-                    1 => self.unmount_disk(), // Unmount
-                    2 => {
+                    0 => {
+                        // Select Device - go to device selection screen
+                        self.state.refresh_available_devices();
+                        self.state.device_select_index = 0;
+                        self.state.current_screen = Screen::DiskSelect;
+                    }
+                    1 => self.mount_disk(),   // Mount
+                    2 => self.unmount_disk(), // Unmount
+                    3 => {
                         // Format - go to confirmation screen
                         self.state.format_confirmed = false;
                         self.state.format_type_index = 0;
                         self.state.current_screen = Screen::DiskFormat;
                     }
-                    3 => self.eject_disk(), // Eject
-                    4 => self.state.current_screen = Screen::Dashboard, // Back
+                    4 => self.eject_disk(), // Eject
+                    5 => self.state.current_screen = Screen::Dashboard, // Back
                     _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_disk_select_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.device_select_index > 0 {
+                    self.state.device_select_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let count = self.state.available_devices.len();
+                if count > 0 && self.state.device_select_index < count - 1 {
+                    self.state.device_select_index += 1;
+                }
+            }
+            KeyCode::Char('r') => {
+                // Refresh device list
+                self.state.refresh_available_devices();
+            }
+            KeyCode::Enter => {
+                // Select the device
+                if !self.state.available_devices.is_empty() {
+                    self.state.select_device(self.state.device_select_index);
+                    self.state.current_screen = Screen::DiskManagement;
                 }
             }
             _ => {}

@@ -6266,6 +6266,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "crossterm",
+ "dirs",
  "qrcode",
  "rand 0.8.5",
  "ratatui",

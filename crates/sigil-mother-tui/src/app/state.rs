@@ -1,6 +1,8 @@
 //! Application state
 
-use sigil_mother::{AgentRegistry, ChildRegistry, DiskStatus, FloppyManager};
+use sigil_mother::{AgentRegistry, BlockDevice, ChildRegistry, DiskStatus, FloppyManager, MountMethod};
+
+use super::config::TuiConfig;
 
 /// Current screen/view
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -32,6 +34,9 @@ pub enum Screen {
 
     /// Disk management screen
     DiskManagement,
+
+    /// Disk device selection screen
+    DiskSelect,
 
     /// Disk format confirmation
     DiskFormat,
@@ -104,6 +109,18 @@ pub struct AppState {
 
     /// Whether format is confirmed
     pub format_confirmed: bool,
+
+    /// Available removable block devices
+    pub available_devices: Vec<BlockDevice>,
+
+    /// Device selection index in the device list
+    pub device_select_index: usize,
+
+    /// Currently selected device path (persisted)
+    pub selected_device_path: Option<String>,
+
+    /// TUI configuration (persisted)
+    pub config: TuiConfig,
 }
 
 impl Default for AppState {
@@ -115,8 +132,28 @@ impl Default for AppState {
 impl AppState {
     /// Create new application state
     pub fn new() -> Self {
-        let floppy_manager = FloppyManager::new();
+        // Load persisted configuration
+        let config = TuiConfig::load();
+
+        // Create floppy manager with config settings
+        let mut floppy_manager = FloppyManager::new()
+            .with_mount_method(MountMethod::from(config.mount_method));
+
+        // Apply selected device from config if set
+        if let Some(ref device) = config.selected_device {
+            floppy_manager.set_device(device);
+        }
+
+        // Set mount point from config
+        floppy_manager.set_mount_point(&config.mount_point);
+
         let disk_status = Some(floppy_manager.check_status());
+
+        // Try to load available devices at startup
+        let available_devices = sigil_mother::list_removable_devices().unwrap_or_default();
+
+        // Restore selected device path from config
+        let selected_device_path = config.selected_device.clone();
 
         Self {
             current_screen: Screen::Splash,
@@ -139,12 +176,55 @@ impl AppState {
             disk_action_index: 0,
             format_type_index: 0,
             format_confirmed: false,
+            available_devices,
+            device_select_index: 0,
+            selected_device_path,
+            config,
         }
     }
 
     /// Refresh disk status
     pub fn refresh_disk_status(&mut self) {
         self.disk_status = Some(self.floppy_manager.check_status());
+    }
+
+    /// Refresh available devices list
+    pub fn refresh_available_devices(&mut self) {
+        match sigil_mother::list_removable_devices() {
+            Ok(devices) => {
+                self.available_devices = devices;
+                // Reset index if it's out of bounds
+                if self.device_select_index >= self.available_devices.len() {
+                    self.device_select_index = 0;
+                }
+            }
+            Err(e) => {
+                self.error_message = Some(format!("Failed to list devices: {}", e));
+            }
+        }
+    }
+
+    /// Select a device by index and update the floppy manager
+    pub fn select_device(&mut self, index: usize) {
+        if let Some(device) = self.available_devices.get(index) {
+            self.selected_device_path = Some(device.path.clone());
+            self.floppy_manager.set_device(&device.path);
+            self.status_message = Some(format!("Selected device: {}", device.display_name()));
+
+            // Persist the selection
+            if let Err(e) = self.config.set_selected_device(Some(device.path.clone())) {
+                tracing::warn!("Failed to save config: {}", e);
+            }
+
+            self.refresh_disk_status();
+        }
+    }
+
+    /// Get the currently selected device info
+    pub fn selected_device(&self) -> Option<&BlockDevice> {
+        self.selected_device_path.as_ref().and_then(|path| {
+            self.available_devices.iter().find(|d| &d.path == path)
+        })
     }
 
     /// Get currently selected agent (if any)

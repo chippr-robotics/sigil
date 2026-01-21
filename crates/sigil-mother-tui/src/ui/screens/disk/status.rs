@@ -7,7 +7,8 @@ use crate::app::AppState;
 use crate::ui::components::header;
 
 /// Disk action menu items
-const DISK_ACTIONS: [&str; 5] = [
+const DISK_ACTIONS: [&str; 6] = [
+    "Select Device   - Choose removable device",
     "Mount Disk      - Mount the floppy disk",
     "Unmount Disk    - Safely unmount the disk",
     "Format Disk     - Format disk for Sigil use",
@@ -23,7 +24,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),  // Header
-            Constraint::Length(10), // Status panel
+            Constraint::Length(12), // Status panel (increased for more info)
             Constraint::Min(8),     // Actions menu
             Constraint::Length(3),  // Help bar
         ])
@@ -40,13 +41,18 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
 
     // Help bar
     let help =
-        Paragraph::new(" [j/k] Navigate | [Enter] Select | [m] Mount | [u] Unmount | [Esc] Back ")
+        Paragraph::new(" [j/k] Navigate | [Enter] Select | [s] Select Device | [m] Mount | [u] Unmount | [r] Refresh | [Esc] Back ")
             .style(Style::default().fg(Color::White).bg(Color::DarkGray));
     frame.render_widget(help, chunks[3]);
 }
 
 /// Render the disk status panel
 fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
+    // Get selected device info if available
+    let selected_device_info = state.selected_device_path.as_ref().map(|path| {
+        state.available_devices.iter().find(|d| &d.path == path)
+    }).flatten();
+
     let (status_text, status_color, details) = match &state.disk_status {
         Some(status) => {
             use sigil_mother::DiskStatus;
@@ -55,18 +61,32 @@ fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
                     "NO DISK DETECTED",
                     Color::Red,
                     vec![
+                        format!("Selected Device: {}", state.selected_device_path.as_deref().unwrap_or("None")),
                         "Insert a floppy disk into the drive.".to_string(),
-                        "USB floppy drives are also supported.".to_string(),
+                        "Press 's' to select a different device.".to_string(),
                     ],
                 ),
-                DiskStatus::Unmounted { device } => (
-                    "DISK DETECTED (UNMOUNTED)",
-                    Color::Yellow,
-                    vec![
+                DiskStatus::Unmounted { device } => {
+                    let mut details = vec![
                         format!("Device: {}", device),
-                        "Press 'm' or select 'Mount Disk' to mount.".to_string(),
-                    ],
-                ),
+                    ];
+                    if let Some(dev_info) = selected_device_info {
+                        details.push(format!("Size: {} {}", dev_info.size_human,
+                            if dev_info.is_floppy_size { "(floppy)" } else { "" }));
+                        if let Some(label) = &dev_info.label {
+                            details.push(format!("Label: {}", label));
+                        }
+                        if let Some(fstype) = &dev_info.fstype {
+                            details.push(format!("Filesystem: {}", fstype));
+                        }
+                    }
+                    details.push("Press 'm' or select 'Mount Disk' to mount.".to_string());
+                    (
+                        "DISK DETECTED (UNMOUNTED)",
+                        Color::Yellow,
+                        details,
+                    )
+                }
                 DiskStatus::Mounted {
                     device,
                     mount_point,
@@ -78,15 +98,23 @@ fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
                     } else {
                         "No (blank or other format)"
                     };
+                    let mut details = vec![
+                        format!("Device: {}", device),
+                        format!("Mount Point: {}", mount_point.display()),
+                        format!("Filesystem: {}", filesystem),
+                    ];
+                    if let Some(dev_info) = selected_device_info {
+                        details.push(format!("Size: {} {}", dev_info.size_human,
+                            if dev_info.is_floppy_size { "(floppy)" } else { "" }));
+                        if let Some(label) = &dev_info.label {
+                            details.push(format!("Label: {}", label));
+                        }
+                    }
+                    details.push(format!("Sigil Disk: {}", sigil_status));
                     (
                         "DISK MOUNTED",
                         Color::Green,
-                        vec![
-                            format!("Device: {}", device),
-                            format!("Mount Point: {}", mount_point.display()),
-                            format!("Filesystem: {}", filesystem),
-                            format!("Sigil Disk: {}", sigil_status),
-                        ],
+                        details,
                     )
                 }
                 DiskStatus::Error(e) => ("ERROR", Color::Red, vec![format!("Error: {}", e)]),
@@ -166,13 +194,14 @@ fn is_action_available(action_index: usize, status: &Option<sigil_mother::DiskSt
     use sigil_mother::DiskStatus;
 
     match status {
-        None => false,
+        None => action_index == 0 || action_index == 5, // Select device and Back always available
         Some(status) => match action_index {
-            0 => matches!(status, DiskStatus::Unmounted { .. }), // Mount
-            1 => matches!(status, DiskStatus::Mounted { .. }),   // Unmount
-            2 => !matches!(status, DiskStatus::NoDisk),          // Format (need disk)
-            3 => !matches!(status, DiskStatus::NoDisk),          // Eject
-            4 => true,                                           // Back always available
+            0 => true,                                           // Select Device always available
+            1 => matches!(status, DiskStatus::Unmounted { .. }), // Mount
+            2 => matches!(status, DiskStatus::Mounted { .. }),   // Unmount
+            3 => !matches!(status, DiskStatus::NoDisk),          // Format (need disk)
+            4 => !matches!(status, DiskStatus::NoDisk),          // Eject
+            5 => true,                                           // Back always available
             _ => false,
         },
     }
