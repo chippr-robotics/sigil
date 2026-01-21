@@ -1,6 +1,6 @@
 //! Application state
 
-use sigil_mother::{AgentRegistry, ChildRegistry};
+use sigil_mother::{AgentRegistry, ChildRegistry, DiskStatus, FloppyManager};
 
 /// Current screen/view
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -29,6 +29,12 @@ pub enum Screen {
 
     /// Create new child disk
     ChildCreate,
+
+    /// Disk management screen
+    DiskManagement,
+
+    /// Disk format confirmation
+    DiskFormat,
 
     /// QR code display
     QrDisplay,
@@ -83,6 +89,21 @@ pub struct AppState {
 
     /// Error message to display
     pub error_message: Option<String>,
+
+    /// Floppy disk manager
+    pub floppy_manager: FloppyManager,
+
+    /// Current disk status
+    pub disk_status: Option<DiskStatus>,
+
+    /// Disk action menu index
+    pub disk_action_index: usize,
+
+    /// Format type selection index (0 = ext2, 1 = FAT12)
+    pub format_type_index: usize,
+
+    /// Whether format is confirmed
+    pub format_confirmed: bool,
 }
 
 impl Default for AppState {
@@ -94,6 +115,9 @@ impl Default for AppState {
 impl AppState {
     /// Create new application state
     pub fn new() -> Self {
+        let floppy_manager = FloppyManager::new();
+        let disk_status = Some(floppy_manager.check_status());
+
         Self {
             current_screen: Screen::Splash,
             menu_index: 0,
@@ -110,7 +134,17 @@ impl AppState {
             child_registry: ChildRegistry::new(),
             status_message: None,
             error_message: None,
+            floppy_manager,
+            disk_status,
+            disk_action_index: 0,
+            format_type_index: 0,
+            format_confirmed: false,
         }
+    }
+
+    /// Refresh disk status
+    pub fn refresh_disk_status(&mut self) {
+        self.disk_status = Some(self.floppy_manager.check_status());
     }
 
     /// Get currently selected agent (if any)

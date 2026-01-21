@@ -7,7 +7,8 @@ use crate::app::AppState;
 use crate::ui::components::header;
 
 /// Menu items
-const MENU_ITEMS: [&str; 6] = [
+const MENU_ITEMS: [&str; 7] = [
+    "Disk         - Mount/unmount/format floppy",
     "Children     - Manage child disks",
     "Agents       - Manage signing agents",
     "Reconcile    - Reconcile returned disks",
@@ -65,9 +66,23 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
     let (active_agents, _, nullified_agents) = state.agent_registry.count_by_status();
     let (active_children, _, _) = state.child_registry.count_by_status();
 
+    let disk_status = match &state.disk_status {
+        Some(sigil_mother::DiskStatus::Mounted { is_sigil_disk, .. }) => {
+            if *is_sigil_disk {
+                "Sigil disk"
+            } else {
+                "Mounted"
+            }
+        }
+        Some(sigil_mother::DiskStatus::Unmounted { .. }) => "Unmounted",
+        Some(sigil_mother::DiskStatus::NoDisk) => "No disk",
+        Some(sigil_mother::DiskStatus::Error(_)) => "Error",
+        None => "Unknown",
+    };
+
     let status_text = format!(
-        " Agents: {} active, {} nullified | Children: {} active | Press ? for help ",
-        active_agents, nullified_agents, active_children
+        " Disk: {} | Agents: {} active | Children: {} active | [d] Disk | [?] Help ",
+        disk_status, active_agents, active_children
     );
 
     let status =

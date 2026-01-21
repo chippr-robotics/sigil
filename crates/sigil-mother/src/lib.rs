@@ -22,6 +22,7 @@ pub mod accumulator_publish;
 pub mod agent_registry;
 pub mod agent_shard_encryption;
 pub mod ceremony;
+pub mod disk_ops;
 pub mod error;
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub mod hardware;
@@ -42,6 +43,7 @@ pub use agent_shard_encryption::{
     Passcode, ENCRYPTED_SHARD_PREFIX,
 };
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
+pub use disk_ops::{DiskStatus, FloppyManager, FormatType};
 pub use error::{MotherError, Result};
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
 pub use hardware::HardwareSigner;

@@ -95,6 +95,8 @@ impl App {
             Screen::AgentNullify => self.handle_agent_nullify_key(key),
             Screen::ChildList => self.handle_child_list_key(key),
             Screen::ChildCreate => self.handle_child_create_key(key),
+            Screen::DiskManagement => self.handle_disk_management_key(key),
+            Screen::DiskFormat => self.handle_disk_format_key(key),
             Screen::QrDisplay => self.handle_qr_display_key(key),
             Screen::Help => self.handle_help_key(key),
         }
@@ -117,23 +119,33 @@ impl App {
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                if self.state.menu_index < 5 {
+                if self.state.menu_index < 6 {
                     self.state.menu_index += 1;
                 }
             }
             KeyCode::Enter => {
                 match self.state.menu_index {
-                    0 => self.state.current_screen = Screen::ChildList, // Children
-                    1 => self.state.current_screen = Screen::AgentList, // Agents
-                    2 => {} // Reconciliation (not implemented)
-                    3 => {} // Reports (not implemented)
-                    4 => self.state.current_screen = Screen::Help, // Help
-                    5 => self.should_quit = true, // Quit
+                    0 => {
+                        // Disk Management
+                        self.state.refresh_disk_status();
+                        self.state.current_screen = Screen::DiskManagement;
+                    }
+                    1 => self.state.current_screen = Screen::ChildList, // Children
+                    2 => self.state.current_screen = Screen::AgentList, // Agents
+                    3 => {} // Reconciliation (not implemented)
+                    4 => {} // Reports (not implemented)
+                    5 => self.state.current_screen = Screen::Help, // Help
+                    6 => self.should_quit = true, // Quit
                     _ => {}
                 }
             }
             KeyCode::Char('?') => {
                 self.state.current_screen = Screen::Help;
+            }
+            KeyCode::Char('d') => {
+                // Quick access to disk management
+                self.state.refresh_disk_status();
+                self.state.current_screen = Screen::DiskManagement;
             }
             _ => {}
         }
@@ -318,6 +330,146 @@ impl App {
                 self.state.current_screen = Screen::Dashboard;
             }
             _ => {}
+        }
+    }
+
+    fn handle_disk_management_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::Dashboard;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.disk_action_index > 0 {
+                    self.state.disk_action_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.state.disk_action_index < 4 {
+                    self.state.disk_action_index += 1;
+                }
+            }
+            KeyCode::Char('r') => {
+                // Refresh disk status
+                self.state.refresh_disk_status();
+            }
+            KeyCode::Char('m') => {
+                // Quick mount
+                self.mount_disk();
+            }
+            KeyCode::Char('u') => {
+                // Quick unmount
+                self.unmount_disk();
+            }
+            KeyCode::Enter => {
+                match self.state.disk_action_index {
+                    0 => self.mount_disk(),   // Mount
+                    1 => self.unmount_disk(), // Unmount
+                    2 => {
+                        // Format - go to confirmation screen
+                        self.state.format_confirmed = false;
+                        self.state.format_type_index = 0;
+                        self.state.current_screen = Screen::DiskFormat;
+                    }
+                    3 => self.eject_disk(), // Eject
+                    4 => self.state.current_screen = Screen::Dashboard, // Back
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_disk_format_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc => {
+                self.state.format_confirmed = false;
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if !self.state.format_confirmed && self.state.format_type_index > 0 {
+                    self.state.format_type_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if !self.state.format_confirmed && self.state.format_type_index < 1 {
+                    self.state.format_type_index += 1;
+                }
+            }
+            KeyCode::Char('y') if !self.state.format_confirmed => {
+                self.state.format_confirmed = true;
+            }
+            KeyCode::Enter if self.state.format_confirmed => {
+                self.format_disk();
+                self.state.format_confirmed = false;
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            _ => {}
+        }
+    }
+
+    /// Mount the floppy disk
+    fn mount_disk(&mut self) {
+        match self.state.floppy_manager.mount() {
+            Ok(path) => {
+                self.state.status_message = Some(format!("Disk mounted at {}", path.display()));
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Mount failed: {}", e));
+            }
+        }
+    }
+
+    /// Unmount the floppy disk
+    fn unmount_disk(&mut self) {
+        match self.state.floppy_manager.unmount() {
+            Ok(()) => {
+                self.state.status_message = Some("Disk unmounted successfully".to_string());
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Unmount failed: {}", e));
+            }
+        }
+    }
+
+    /// Eject the floppy disk
+    fn eject_disk(&mut self) {
+        match self.state.floppy_manager.eject() {
+            Ok(()) => {
+                self.state.status_message = Some("Disk ejected".to_string());
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Eject failed: {}", e));
+            }
+        }
+    }
+
+    /// Format the floppy disk
+    fn format_disk(&mut self) {
+        let result = if self.state.format_type_index == 0 {
+            // ext2
+            self.state.floppy_manager.format(Some("SIGIL"))
+        } else {
+            // FAT12
+            self.state.floppy_manager.format_fat(Some("SIGIL"))
+        };
+
+        match result {
+            Ok(()) => {
+                let format_type = if self.state.format_type_index == 0 {
+                    "ext2"
+                } else {
+                    "FAT12"
+                };
+                self.state.status_message =
+                    Some(format!("Disk formatted successfully ({})", format_type));
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Format failed: {}", e));
+            }
         }
     }
 

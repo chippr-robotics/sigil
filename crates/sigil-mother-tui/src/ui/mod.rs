@@ -18,6 +18,8 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
         Screen::AgentNullify => screens::agents::nullify::render(frame, state),
         Screen::ChildList => screens::children::list::render(frame, state),
         Screen::ChildCreate => screens::children::create::render(frame, state),
+        Screen::DiskManagement => screens::disk::status::render(frame, state),
+        Screen::DiskFormat => screens::disk::format::render(frame, state),
         Screen::QrDisplay => screens::qr::display::render(frame, state),
         Screen::Help => screens::help::render(frame, state),
     }
