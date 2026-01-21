@@ -14,7 +14,7 @@ use anyhow::Result;
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers};
 use ratatui::prelude::*;
 
-use crate::auth::{AuthState, PinManager, Session};
+use crate::auth::{AuthError, AuthState, PinManager, Session, SessionConfig};
 use crate::ui::{self, Theme};
 
 /// Tick rate for the event loop (60fps for smooth animations)
@@ -45,7 +45,8 @@ pub struct App {
 impl App {
     /// Create a new application instance
     pub fn new() -> Result<Self> {
-        let pin_manager = PinManager::load_or_create()?;
+        let pin_manager = PinManager::new()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize PIN manager: {}", e))?;
         let auth = if pin_manager.is_pin_set() {
             AuthState::RequiresPin
         } else {
@@ -220,19 +221,30 @@ impl App {
         let pin = std::mem::take(&mut self.state.pin_input);
 
         match self.pin_manager.verify_pin(&pin) {
-            Ok(true) => {
+            Ok(encryption_key) => {
+                // PIN verified - create session with encryption key
                 self.auth = AuthState::Authenticated;
-                self.session = Some(Session::new());
+                self.session = Some(Session::new(encryption_key, SessionConfig::default()));
                 self.state.current_screen = Screen::Dashboard;
                 self.state.status_message = Some("Welcome to Sigil Mother".to_string());
             }
-            Ok(false) => {
+            Err(AuthError::IncorrectPin(remaining)) => {
                 self.state.error_message = Some(format!(
                     "Incorrect PIN. {} attempts remaining.",
-                    self.pin_manager.attempts_remaining()
+                    remaining
                 ));
 
                 // Check if locked out
+                if let Some(until) = self.pin_manager.lockout_until() {
+                    self.auth = AuthState::LockedOut(until);
+                    self.state.current_screen = Screen::Lockout(until);
+                }
+            }
+            Err(AuthError::LockedOut(seconds)) => {
+                self.state.error_message = Some(format!(
+                    "Account locked for {} seconds.",
+                    seconds
+                ));
                 if let Some(until) = self.pin_manager.lockout_until() {
                     self.auth = AuthState::LockedOut(until);
                     self.state.current_screen = Screen::Lockout(until);
@@ -277,14 +289,31 @@ impl App {
                     }
                 } else {
                     if self.state.pin_input == self.state.pin_confirm {
-                        self.pin_manager.set_pin(&self.state.pin_input)?;
-                        self.state.pin_input.clear();
+                        // Set the PIN
+                        if let Err(e) = self.pin_manager.set_pin(&self.state.pin_input) {
+                            self.state.error_message = Some(format!("Failed to set PIN: {}", e));
+                            self.state.pin_input.clear();
+                            self.state.pin_confirm.clear();
+                            self.state.setup_step = 0;
+                            return Ok(());
+                        }
+
+                        // Verify PIN to get encryption key for session
+                        let pin = std::mem::take(&mut self.state.pin_input);
                         self.state.pin_confirm.clear();
-                        self.auth = AuthState::Authenticated;
-                        self.session = Some(Session::new());
-                        self.state.current_screen = Screen::Dashboard;
-                        self.state.status_message =
-                            Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
+
+                        match self.pin_manager.verify_pin(&pin) {
+                            Ok(encryption_key) => {
+                                self.auth = AuthState::Authenticated;
+                                self.session = Some(Session::new(encryption_key, SessionConfig::default()));
+                                self.state.current_screen = Screen::Dashboard;
+                                self.state.status_message = Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
+                            }
+                            Err(e) => {
+                                self.state.error_message = Some(format!("PIN verification failed: {}", e));
+                                self.state.setup_step = 0;
+                            }
+                        }
                     } else {
                         self.state.error_message =
                             Some("PINs do not match. Please try again.".to_string());
@@ -678,16 +707,14 @@ impl App {
 
         // Check session timeout
         if let Some(session) = &self.session {
-            if session.is_expired() {
+            if !session.is_valid() {
                 self.session = None;
                 self.auth = AuthState::RequiresPin;
                 self.state.current_screen = Screen::PinEntry;
-                self.state.status_message =
-                    Some("Session timed out. Please re-authenticate.".to_string());
-            } else if session.is_warning_period() {
-                let remaining = session.remaining_seconds();
-                self.state.session_warning =
-                    Some(format!("Session expires in {} seconds", remaining));
+                self.state.status_message = Some("Session timed out. Please re-authenticate.".to_string());
+            } else if session.should_warn() {
+                let remaining = session.idle_seconds_remaining();
+                self.state.session_warning = Some(format!("Session expires in {} seconds", remaining));
             } else {
                 self.state.session_warning = None;
             }

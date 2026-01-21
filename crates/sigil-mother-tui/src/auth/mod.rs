@@ -1,30 +1,12 @@
 //! Authentication module for PIN-based security
+//!
+//! This module re-exports authentication primitives from sigil-mother.
+//! ALL authentication logic lives in sigil-mother to ensure that the
+//! library itself is protected by PIN, not just the TUI.
 
-mod lockout;
-mod pin;
-mod session;
-
-pub use lockout::LockoutPolicy;
-pub use pin::PinManager;
-pub use session::Session;
-
-use std::time::Instant;
-
-/// Authentication state
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AuthState {
-    /// PIN needs to be set up (first run)
-    SetupRequired,
-    /// PIN required for authentication
-    RequiresPin,
-    /// Successfully authenticated
-    Authenticated,
-    /// Account is locked out until the specified time
-    LockedOut(Instant),
-}
-
-impl Default for AuthState {
-    fn default() -> Self {
-        AuthState::RequiresPin
-    }
-}
+// Re-export everything from sigil-mother's auth module
+pub use sigil_mother::auth::{
+    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy,
+    PinConfig, PinManager, Session, SessionConfig,
+    MIN_PIN_LENGTH, MAX_PIN_LENGTH,
+};

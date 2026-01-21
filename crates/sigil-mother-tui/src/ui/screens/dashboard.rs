@@ -263,9 +263,8 @@ fn render_system_panel(frame: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![
             Span::raw("Session: "),
             Span::styled(
-                app.session
-                    .as_ref()
-                    .map(|s| s.remaining_formatted())
+                app.session.as_ref()
+                    .map(|s| format_session_remaining(s.idle_seconds_remaining()))
                     .unwrap_or_else(|| "N/A".to_string()),
                 theme.text(),
             ),
@@ -296,4 +295,23 @@ fn render_activity_panel(frame: &mut Frame, area: Rect, app: &App) {
         .style(theme.text_muted())
         .alignment(Alignment::Center);
     frame.render_widget(activity_widget, inner);
+}
+
+/// Format session remaining time as human-readable string
+fn format_session_remaining(seconds: u64) -> String {
+    if seconds < 60 {
+        format!("{} seconds", seconds)
+    } else if seconds < 3600 {
+        let mins = seconds / 60;
+        let secs = seconds % 60;
+        if secs == 0 {
+            format!("{} min", mins)
+        } else {
+            format!("{}:{:02} min", mins, secs)
+        }
+    } else {
+        let hours = seconds / 3600;
+        let mins = (seconds % 3600) / 60;
+        format!("{}:{:02} hrs", hours, mins)
+    }
 }

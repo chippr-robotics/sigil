@@ -2,6 +2,8 @@
 
 use thiserror::Error;
 
+use crate::auth::AuthError;
+
 /// Result type alias for mother operations
 pub type Result<T> = std::result::Result<T, MotherError>;
 
@@ -15,6 +17,10 @@ pub enum MotherError {
     /// IO error
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    /// Authentication error
+    #[error("Authentication error: {0}")]
+    Auth(#[from] AuthError),
 
     /// Serialization error
     #[error("Serialization error: {0}")]

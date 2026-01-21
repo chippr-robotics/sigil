@@ -7,6 +7,14 @@
 //! - Reconciliation and refill
 //! - Nullification
 //!
+//! # Security Model
+//!
+//! **The mother device is protected by PIN-based authentication.**
+//!
+//! All access to the master shard MUST go through the `auth` module.
+//! The master shard is encrypted at rest using ChaCha20-Poly1305 with
+//! a key derived from the PIN via Argon2id.
+//!
 //! # Optional Features
 //!
 //! - `ledger` - Enable Ledger hardware wallet support
@@ -17,6 +25,7 @@
 //! - `zkvm-mock` - Use mock provers for testing
 //! - `zkvm-sp1` - Use real SP1 provers (requires SP1 toolchain)
 
+pub mod auth;
 pub mod ceremony;
 pub mod error;
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
@@ -30,6 +39,11 @@ pub mod storage;
 #[cfg(feature = "zkvm")]
 pub mod zkvm;
 
+pub use auth::{
+    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy,
+    PinConfig, PinManager, Session, SessionConfig,
+    MIN_PIN_LENGTH, MAX_PIN_LENGTH,
+};
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use error::{MotherError, Result};
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]
