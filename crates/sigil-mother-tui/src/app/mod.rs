@@ -229,10 +229,8 @@ impl App {
                 self.state.status_message = Some("Welcome to Sigil Mother".to_string());
             }
             Err(AuthError::IncorrectPin(remaining)) => {
-                self.state.error_message = Some(format!(
-                    "Incorrect PIN. {} attempts remaining.",
-                    remaining
-                ));
+                self.state.error_message =
+                    Some(format!("Incorrect PIN. {} attempts remaining.", remaining));
 
                 // Check if locked out
                 if let Some(until) = self.pin_manager.lockout_until() {
@@ -241,10 +239,7 @@ impl App {
                 }
             }
             Err(AuthError::LockedOut(seconds)) => {
-                self.state.error_message = Some(format!(
-                    "Account locked for {} seconds.",
-                    seconds
-                ));
+                self.state.error_message = Some(format!("Account locked for {} seconds.", seconds));
                 if let Some(until) = self.pin_manager.lockout_until() {
                     self.auth = AuthState::LockedOut(until);
                     self.state.current_screen = Screen::Lockout(until);
@@ -305,12 +300,16 @@ impl App {
                         match self.pin_manager.verify_pin(&pin) {
                             Ok(encryption_key) => {
                                 self.auth = AuthState::Authenticated;
-                                self.session = Some(Session::new(encryption_key, SessionConfig::default()));
+                                self.session =
+                                    Some(Session::new(encryption_key, SessionConfig::default()));
                                 self.state.current_screen = Screen::Dashboard;
-                                self.state.status_message = Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
+                                self.state.status_message = Some(
+                                    "PIN set successfully. Welcome to Sigil Mother!".to_string(),
+                                );
                             }
                             Err(e) => {
-                                self.state.error_message = Some(format!("PIN verification failed: {}", e));
+                                self.state.error_message =
+                                    Some(format!("PIN verification failed: {}", e));
                                 self.state.setup_step = 0;
                             }
                         }
@@ -711,10 +710,12 @@ impl App {
                 self.session = None;
                 self.auth = AuthState::RequiresPin;
                 self.state.current_screen = Screen::PinEntry;
-                self.state.status_message = Some("Session timed out. Please re-authenticate.".to_string());
+                self.state.status_message =
+                    Some("Session timed out. Please re-authenticate.".to_string());
             } else if session.should_warn() {
                 let remaining = session.idle_seconds_remaining();
-                self.state.session_warning = Some(format!("Session expires in {} seconds", remaining));
+                self.state.session_warning =
+                    Some(format!("Session expires in {} seconds", remaining));
             } else {
                 self.state.session_warning = None;
             }

@@ -25,10 +25,10 @@ impl Default for LockoutPolicy {
         Self {
             threshold: 3,
             lockout_durations: vec![
-                30,          // 3 failures: 30 seconds
-                300,         // 4 failures: 5 minutes
-                1800,        // 5 failures: 30 minutes
-                86400,       // 6+ failures: 24 hours
+                30,    // 3 failures: 30 seconds
+                300,   // 4 failures: 5 minutes
+                1800,  // 5 failures: 30 minutes
+                86400, // 6+ failures: 24 hours
             ],
         }
     }
@@ -40,10 +40,10 @@ impl LockoutPolicy {
         Self {
             threshold: 2,
             lockout_durations: vec![
-                60,          // 2 failures: 1 minute
-                600,         // 3 failures: 10 minutes
-                3600,        // 4 failures: 1 hour
-                86400,       // 5+ failures: 24 hours
+                60,    // 2 failures: 1 minute
+                600,   // 3 failures: 10 minutes
+                3600,  // 4 failures: 1 hour
+                86400, // 5+ failures: 24 hours
             ],
         }
     }
@@ -53,10 +53,10 @@ impl LockoutPolicy {
         Self {
             threshold: 5,
             lockout_durations: vec![
-                15,          // 5 failures: 15 seconds
-                60,          // 6 failures: 1 minute
-                300,         // 7 failures: 5 minutes
-                1800,        // 8+ failures: 30 minutes
+                15,   // 5 failures: 15 seconds
+                60,   // 6 failures: 1 minute
+                300,  // 7 failures: 5 minutes
+                1800, // 8+ failures: 30 minutes
             ],
         }
     }
@@ -99,7 +99,10 @@ impl LockoutPolicy {
                 format!("Locked for {} days", secs / 86400)
             }
         } else {
-            format!("{} attempts remaining", self.threshold.saturating_sub(failed_attempts))
+            format!(
+                "{} attempts remaining",
+                self.threshold.saturating_sub(failed_attempts)
+            )
         }
     }
 }

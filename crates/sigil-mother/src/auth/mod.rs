@@ -18,7 +18,7 @@ mod session;
 
 pub use encrypted_storage::EncryptedMotherStorage;
 pub use lockout::LockoutPolicy;
-pub use pin::{PinManager, PinConfig, MIN_PIN_LENGTH, MAX_PIN_LENGTH};
+pub use pin::{PinConfig, PinManager, MAX_PIN_LENGTH, MIN_PIN_LENGTH};
 pub use session::{Session, SessionConfig};
 
 use std::time::Instant;

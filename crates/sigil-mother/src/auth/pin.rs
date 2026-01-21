@@ -89,7 +89,9 @@ mod hex_salt {
     {
         let s = String::deserialize(deserializer)?;
         let bytes = hex::decode(&s).map_err(serde::de::Error::custom)?;
-        bytes.try_into().map_err(|_| serde::de::Error::custom("invalid salt length"))
+        bytes
+            .try_into()
+            .map_err(|_| serde::de::Error::custom("invalid salt length"))
     }
 }
 
@@ -119,8 +121,9 @@ impl PinManager {
         // Load existing storage if present
         let storage = if config.storage_path.exists() {
             let contents = fs::read_to_string(&config.storage_path)?;
-            Some(serde_json::from_str(&contents)
-                .map_err(|e| AuthError::StorageError(format!("Failed to parse PIN storage: {}", e)))?)
+            Some(serde_json::from_str(&contents).map_err(|e| {
+                AuthError::StorageError(format!("Failed to parse PIN storage: {}", e))
+            })?)
         } else {
             None
         };
@@ -195,8 +198,7 @@ impl PinManager {
         }
 
         // Get storage reference to check PIN
-        let storage = self.storage.as_ref()
-            .ok_or(AuthError::PinNotSetUp)?;
+        let storage = self.storage.as_ref().ok_or(AuthError::PinNotSetUp)?;
 
         // Parse the stored hash
         let parsed_hash = PasswordHash::new(&storage.hash)
@@ -229,7 +231,7 @@ impl PinManager {
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
-                        .as_secs()
+                        .as_secs(),
                 );
             }
             self.save_current_storage()?;
@@ -285,7 +287,11 @@ impl PinManager {
     /// Check and update lockout status
     fn check_lockout(&mut self) {
         if let Some(storage) = &self.storage {
-            if let Some(duration) = self.config.lockout_policy.lockout_duration(storage.failed_attempts) {
+            if let Some(duration) = self
+                .config
+                .lockout_policy
+                .lockout_duration(storage.failed_attempts)
+            {
                 self.lockout_until = Some(Instant::now() + duration);
             }
         }
@@ -334,9 +340,8 @@ impl PinManager {
 
     /// Get remaining lockout seconds
     pub fn lockout_remaining_seconds(&self) -> Option<u64> {
-        self.lockout_until().map(|until| {
-            until.duration_since(Instant::now()).as_secs()
-        })
+        self.lockout_until()
+            .map(|until| until.duration_since(Instant::now()).as_secs())
     }
 
     /// Change PIN (requires current PIN verification first)

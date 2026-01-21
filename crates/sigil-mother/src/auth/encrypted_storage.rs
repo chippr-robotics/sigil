@@ -123,14 +123,18 @@ impl EncryptedMotherStorage {
     ) -> Result<MasterShardData, AuthError> {
         let path = self.encrypted_shard_path();
         if !path.exists() {
-            return Err(AuthError::StorageError("Master shard not found".to_string()));
+            return Err(AuthError::StorageError(
+                "Master shard not found".to_string(),
+            ));
         }
 
         // Read encrypted data
         let encrypted_data = std::fs::read(&path)?;
 
         if encrypted_data.len() < NONCE_SIZE {
-            return Err(AuthError::StorageError("Encrypted file too short".to_string()));
+            return Err(AuthError::StorageError(
+                "Encrypted file too short".to_string(),
+            ));
         }
 
         // Extract nonce and ciphertext

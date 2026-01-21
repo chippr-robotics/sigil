@@ -263,7 +263,8 @@ fn render_system_panel(frame: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![
             Span::raw("Session: "),
             Span::styled(
-                app.session.as_ref()
+                app.session
+                    .as_ref()
                     .map(|s| format_session_remaining(s.idle_seconds_remaining()))
                     .unwrap_or_else(|| "N/A".to_string()),
                 theme.text(),

@@ -22,9 +22,9 @@ pub struct SessionConfig {
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
-            idle_timeout: Duration::from_secs(300),      // 5 minutes
-            max_duration: Duration::from_secs(3600),     // 1 hour
-            warning_period: Duration::from_secs(60),     // 1 minute warning
+            idle_timeout: Duration::from_secs(300),  // 5 minutes
+            max_duration: Duration::from_secs(3600), // 1 hour
+            warning_period: Duration::from_secs(60), // 1 minute warning
         }
     }
 }
@@ -33,18 +33,18 @@ impl SessionConfig {
     /// Create a stricter configuration for high-security environments
     pub fn strict() -> Self {
         Self {
-            idle_timeout: Duration::from_secs(120),      // 2 minutes
-            max_duration: Duration::from_secs(1800),     // 30 minutes
-            warning_period: Duration::from_secs(30),     // 30 second warning
+            idle_timeout: Duration::from_secs(120),  // 2 minutes
+            max_duration: Duration::from_secs(1800), // 30 minutes
+            warning_period: Duration::from_secs(30), // 30 second warning
         }
     }
 
     /// Create a more lenient configuration for development
     pub fn development() -> Self {
         Self {
-            idle_timeout: Duration::from_secs(1800),     // 30 minutes
-            max_duration: Duration::from_secs(14400),    // 4 hours
-            warning_period: Duration::from_secs(300),    // 5 minute warning
+            idle_timeout: Duration::from_secs(1800),  // 30 minutes
+            max_duration: Duration::from_secs(14400), // 4 hours
+            warning_period: Duration::from_secs(300), // 5 minute warning
         }
     }
 }
@@ -114,10 +114,14 @@ impl Session {
     pub fn time_until_expiry(&self) -> Duration {
         let now = Instant::now();
 
-        let absolute_remaining = self.config.max_duration
+        let absolute_remaining = self
+            .config
+            .max_duration
             .saturating_sub(now.duration_since(self.created_at));
 
-        let idle_remaining = self.config.idle_timeout
+        let idle_remaining = self
+            .config
+            .idle_timeout
             .saturating_sub(now.duration_since(self.last_activity));
 
         absolute_remaining.min(idle_remaining)
@@ -131,7 +135,8 @@ impl Session {
     /// Get seconds until idle timeout
     pub fn idle_seconds_remaining(&self) -> u64 {
         let now = Instant::now();
-        self.config.idle_timeout
+        self.config
+            .idle_timeout
             .saturating_sub(now.duration_since(self.last_activity))
             .as_secs()
     }

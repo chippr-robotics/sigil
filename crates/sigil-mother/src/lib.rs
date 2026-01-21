@@ -40,9 +40,8 @@ pub mod storage;
 pub mod zkvm;
 
 pub use auth::{
-    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy,
-    PinConfig, PinManager, Session, SessionConfig,
-    MIN_PIN_LENGTH, MAX_PIN_LENGTH,
+    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy, PinConfig, PinManager, Session,
+    SessionConfig, MAX_PIN_LENGTH, MIN_PIN_LENGTH,
 };
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use error::{MotherError, Result};

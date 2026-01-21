@@ -6,7 +6,6 @@
 
 // Re-export everything from sigil-mother's auth module
 pub use sigil_mother::auth::{
-    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy,
-    PinConfig, PinManager, Session, SessionConfig,
-    MIN_PIN_LENGTH, MAX_PIN_LENGTH,
+    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy, PinConfig, PinManager, Session,
+    SessionConfig, MAX_PIN_LENGTH, MIN_PIN_LENGTH,
 };
