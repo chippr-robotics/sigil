@@ -140,19 +140,14 @@ pub fn list_removable_devices() -> Result<Vec<BlockDevice>> {
         ])
         .output()
         .map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute lsblk: {}", e),
             ))
         })?;
 
     if !output.status.success() {
-        return Err(MotherError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "lsblk failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ),
+        return Err(MotherError::Io(std::io::Error::other(
+            format!("lsblk failed: {}", String::from_utf8_lossy(&output.stderr)),
         )));
     }
 
@@ -188,12 +183,10 @@ pub fn list_removable_devices() -> Result<Vec<BlockDevice>> {
         .collect();
 
     // Sort: floppy-sized devices first, then by device name
-    devices.sort_by(|a, b| {
-        match (a.is_floppy_size, b.is_floppy_size) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.path.cmp(&b.path),
-        }
+    devices.sort_by(|a, b| match (a.is_floppy_size, b.is_floppy_size) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.path.cmp(&b.path),
     });
 
     Ok(devices)
@@ -210,19 +203,14 @@ pub fn list_all_block_devices() -> Result<Vec<BlockDevice>> {
         ])
         .output()
         .map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute lsblk: {}", e),
             ))
         })?;
 
     if !output.status.success() {
-        return Err(MotherError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "lsblk failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ),
+        return Err(MotherError::Io(std::io::Error::other(
+            format!("lsblk failed: {}", String::from_utf8_lossy(&output.stderr)),
         )));
     }
 
@@ -513,8 +501,7 @@ impl FloppyManager {
                 return Ok(mount_point);
             }
             DiskStatus::Error(e) => {
-                return Err(MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(MotherError::Io(std::io::Error::other(
                     e,
                 )));
             }
@@ -558,8 +545,7 @@ impl FloppyManager {
             .args(["mount", "-b", device])
             .output()
             .map_err(|e| {
-                MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                MotherError::Io(std::io::Error::other(
                     format!("Failed to execute udisksctl: {}", e),
                 ))
             })?;
@@ -568,10 +554,7 @@ impl FloppyManager {
             // Parse output like: "Mounted /dev/sda at /media/user/SIGIL."
             let stdout = String::from_utf8_lossy(&output.stdout);
             if let Some(idx) = stdout.find(" at ") {
-                let mount_point = stdout[idx + 4..]
-                    .trim()
-                    .trim_end_matches('.')
-                    .trim();
+                let mount_point = stdout[idx + 4..].trim().trim_end_matches('.').trim();
                 return Ok(PathBuf::from(mount_point));
             }
             // If we can't parse, try to get mount point from lsblk
@@ -587,8 +570,7 @@ impl FloppyManager {
             // Last resort: return default mount point
             Ok(self.mount_point.clone())
         } else {
-            Err(MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(MotherError::Io(std::io::Error::other(
                 format!(
                     "udisksctl mount failed: {}",
                     String::from_utf8_lossy(&output.stderr)
@@ -612,8 +594,7 @@ impl FloppyManager {
             };
 
             let output = cmd.output().map_err(|e| {
-                MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                MotherError::Io(std::io::Error::other(
                     format!("Failed to create mount point: {}", e),
                 ))
             })?;
@@ -648,15 +629,13 @@ impl FloppyManager {
         };
 
         let output = cmd.output().map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute mount: {}", e),
             ))
         })?;
 
         if !output.status.success() {
-            return Err(MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(MotherError::Io(std::io::Error::other(
                 format!("Mount failed: {}", String::from_utf8_lossy(&output.stderr)),
             )));
         }
@@ -671,7 +650,11 @@ impl FloppyManager {
         let status = self.check_status();
 
         match status {
-            DiskStatus::Mounted { mount_point, device, .. } => {
+            DiskStatus::Mounted {
+                mount_point,
+                device,
+                ..
+            } => {
                 match self.mount_method {
                     MountMethod::Auto => {
                         // Try udisksctl first, fall back to traditional
@@ -700,8 +683,7 @@ impl FloppyManager {
                 return Ok(());
             }
             DiskStatus::Error(e) => {
-                return Err(MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(MotherError::Io(std::io::Error::other(
                     e,
                 )));
             }
@@ -719,8 +701,7 @@ impl FloppyManager {
             .args(["unmount", "-b", device])
             .output()
             .map_err(|e| {
-                MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                MotherError::Io(std::io::Error::other(
                     format!("Failed to execute udisksctl: {}", e),
                 ))
             })?;
@@ -728,8 +709,7 @@ impl FloppyManager {
         if output.status.success() {
             Ok(())
         } else {
-            Err(MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(MotherError::Io(std::io::Error::other(
                 format!(
                     "udisksctl unmount failed: {}",
                     String::from_utf8_lossy(&output.stderr)
@@ -754,15 +734,13 @@ impl FloppyManager {
         };
 
         let output = cmd.output().map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute umount: {}", e),
             ))
         })?;
 
         if !output.status.success() {
-            return Err(MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(MotherError::Io(std::io::Error::other(
                 format!(
                     "Unmount failed: {}",
                     String::from_utf8_lossy(&output.stderr)
@@ -793,8 +771,7 @@ impl FloppyManager {
                 )));
             }
             DiskStatus::Error(e) => {
-                return Err(MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(MotherError::Io(std::io::Error::other(
                     e.clone(),
                 )));
             }
@@ -825,15 +802,13 @@ impl FloppyManager {
         };
 
         let output = cmd.output().map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute mkfs.ext2: {}", e),
             ))
         })?;
 
         if !output.status.success() {
-            return Err(MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(MotherError::Io(std::io::Error::other(
                 format!("Format failed: {}", String::from_utf8_lossy(&output.stderr)),
             )));
         }
@@ -861,8 +836,7 @@ impl FloppyManager {
                 )));
             }
             DiskStatus::Error(e) => {
-                return Err(MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(MotherError::Io(std::io::Error::other(
                     e.clone(),
                 )));
             }
@@ -891,15 +865,13 @@ impl FloppyManager {
         };
 
         let output = cmd.output().map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute mkfs.vfat: {}", e),
             ))
         })?;
 
         if !output.status.success() {
-            return Err(MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(MotherError::Io(std::io::Error::other(
                 format!("Format failed: {}", String::from_utf8_lossy(&output.stderr)),
             )));
         }
@@ -925,8 +897,7 @@ impl FloppyManager {
         };
 
         let output = cmd.output().map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute eject: {}", e),
             ))
         })?;
@@ -935,8 +906,7 @@ impl FloppyManager {
             // Eject may not be available or supported - not a fatal error
             let stderr = String::from_utf8_lossy(&output.stderr);
             if !stderr.contains("not found") {
-                return Err(MotherError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(MotherError::Io(std::io::Error::other(
                     format!("Eject failed: {}", stderr),
                 )));
             }
@@ -986,8 +956,7 @@ pub fn get_mount_point(device_path: &str) -> Result<Option<PathBuf>> {
         .args(["-J", "-o", "NAME,MOUNTPOINT", device_path])
         .output()
         .map_err(|e| {
-            MotherError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            MotherError::Io(std::io::Error::other(
                 format!("Failed to execute lsblk: {}", e),
             ))
         })?;

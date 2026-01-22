@@ -207,7 +207,7 @@ impl AccumulatorPublisher {
 
         // Write to file
         let bytes = export.to_bytes();
-        std::fs::write(path, bytes).map_err(|e| MotherError::Io(e))?;
+        std::fs::write(path, bytes).map_err(MotherError::Io)?;
 
         Ok(())
     }
@@ -251,13 +251,13 @@ impl AccumulatorPublisher {
         // In production, use proper ECDSA signing
         let mut sig_bytes = [0u8; 64];
         let mut hasher = Sha256::new();
-        hasher.update(&self.signing_key);
-        hasher.update(&hash);
+        hasher.update(self.signing_key);
+        hasher.update(hash);
         sig_bytes[..32].copy_from_slice(&hasher.finalize());
 
         let mut hasher = Sha256::new();
         hasher.update(&sig_bytes[..32]);
-        hasher.update(&self.signing_key);
+        hasher.update(self.signing_key);
         sig_bytes[32..].copy_from_slice(&hasher.finalize());
 
         Signature::new(sig_bytes)
@@ -266,7 +266,7 @@ impl AccumulatorPublisher {
 
 /// Load an accumulator export from file
 pub fn load_from_file(path: &std::path::Path) -> Result<AccumulatorExport> {
-    let bytes = std::fs::read(path).map_err(|e| MotherError::Io(e))?;
+    let bytes = std::fs::read(path).map_err(MotherError::Io)?;
     AccumulatorExport::from_bytes(&bytes)
 }
 

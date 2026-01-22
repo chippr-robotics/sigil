@@ -7,7 +7,7 @@ use crate::app::AppState;
 use crate::ui::components::header;
 
 /// Render the child creation screen
-pub fn render(frame: &mut Frame, state: &mut AppState) {
+pub fn render(frame: &mut Frame, _state: &mut AppState) {
     let area = frame.area();
 
     let chunks = Layout::default()

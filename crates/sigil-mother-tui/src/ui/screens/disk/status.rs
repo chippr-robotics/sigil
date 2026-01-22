@@ -49,9 +49,10 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
 /// Render the disk status panel
 fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
     // Get selected device info if available
-    let selected_device_info = state.selected_device_path.as_ref().map(|path| {
-        state.available_devices.iter().find(|d| &d.path == path)
-    }).flatten();
+    let selected_device_info = state
+        .selected_device_path
+        .as_ref()
+        .and_then(|path| state.available_devices.iter().find(|d| &d.path == path));
 
     let (status_text, status_color, details) = match &state.disk_status {
         Some(status) => {
@@ -61,18 +62,26 @@ fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
                     "NO DISK DETECTED",
                     Color::Red,
                     vec![
-                        format!("Selected Device: {}", state.selected_device_path.as_deref().unwrap_or("None")),
+                        format!(
+                            "Selected Device: {}",
+                            state.selected_device_path.as_deref().unwrap_or("None")
+                        ),
                         "Insert a floppy disk into the drive.".to_string(),
                         "Press 's' to select a different device.".to_string(),
                     ],
                 ),
                 DiskStatus::Unmounted { device } => {
-                    let mut details = vec![
-                        format!("Device: {}", device),
-                    ];
+                    let mut details = vec![format!("Device: {}", device)];
                     if let Some(dev_info) = selected_device_info {
-                        details.push(format!("Size: {} {}", dev_info.size_human,
-                            if dev_info.is_floppy_size { "(floppy)" } else { "" }));
+                        details.push(format!(
+                            "Size: {} {}",
+                            dev_info.size_human,
+                            if dev_info.is_floppy_size {
+                                "(floppy)"
+                            } else {
+                                ""
+                            }
+                        ));
                         if let Some(label) = &dev_info.label {
                             details.push(format!("Label: {}", label));
                         }
@@ -81,11 +90,7 @@ fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
                         }
                     }
                     details.push("Press 'm' or select 'Mount Disk' to mount.".to_string());
-                    (
-                        "DISK DETECTED (UNMOUNTED)",
-                        Color::Yellow,
-                        details,
-                    )
+                    ("DISK DETECTED (UNMOUNTED)", Color::Yellow, details)
                 }
                 DiskStatus::Mounted {
                     device,
@@ -104,18 +109,21 @@ fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
                         format!("Filesystem: {}", filesystem),
                     ];
                     if let Some(dev_info) = selected_device_info {
-                        details.push(format!("Size: {} {}", dev_info.size_human,
-                            if dev_info.is_floppy_size { "(floppy)" } else { "" }));
+                        details.push(format!(
+                            "Size: {} {}",
+                            dev_info.size_human,
+                            if dev_info.is_floppy_size {
+                                "(floppy)"
+                            } else {
+                                ""
+                            }
+                        ));
                         if let Some(label) = &dev_info.label {
                             details.push(format!("Label: {}", label));
                         }
                     }
                     details.push(format!("Sigil Disk: {}", sigil_status));
-                    (
-                        "DISK MOUNTED",
-                        Color::Green,
-                        details,
-                    )
+                    ("DISK MOUNTED", Color::Green, details)
                 }
                 DiskStatus::Error(e) => ("ERROR", Color::Red, vec![format!("Error: {}", e)]),
             }

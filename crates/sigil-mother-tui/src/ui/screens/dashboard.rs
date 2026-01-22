@@ -63,7 +63,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
     frame.render_widget(menu, chunks[1]);
 
     // Status bar
-    let (active_agents, _, nullified_agents) = state.agent_registry.count_by_status();
+    let (active_agents, _, _nullified_agents) = state.agent_registry.count_by_status();
     let (active_children, _, _) = state.child_registry.count_by_status();
 
     let disk_status = match &state.disk_status {

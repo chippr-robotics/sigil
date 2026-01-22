@@ -114,12 +114,10 @@ impl TuiConfig {
         }
 
         match fs::read_to_string(&path) {
-            Ok(contents) => {
-                serde_json::from_str(&contents).unwrap_or_else(|e| {
-                    tracing::warn!("Failed to parse config file: {}", e);
-                    Self::default()
-                })
-            }
+            Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|e| {
+                tracing::warn!("Failed to parse config file: {}", e);
+                Self::default()
+            }),
             Err(e) => {
                 tracing::warn!("Failed to read config file: {}", e);
                 Self::default()
@@ -138,8 +136,8 @@ impl TuiConfig {
         }
 
         // Serialize and write
-        let contents =
-            serde_json::to_string_pretty(self).map_err(|e| ConfigError::Serialize(e.to_string()))?;
+        let contents = serde_json::to_string_pretty(self)
+            .map_err(|e| ConfigError::Serialize(e.to_string()))?;
 
         fs::write(&config_file, contents).map_err(|e| ConfigError::Io(e.to_string()))?;
 

@@ -13,10 +13,10 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Header
-            Constraint::Length(5),  // Info panel
-            Constraint::Min(10),    // Device list
-            Constraint::Length(3),  // Help bar
+            Constraint::Length(3), // Header
+            Constraint::Length(5), // Info panel
+            Constraint::Min(10),   // Device list
+            Constraint::Length(3), // Help bar
         ])
         .split(area);
 
@@ -30,9 +30,8 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
     render_device_list(frame, chunks[2], state);
 
     // Help bar
-    let help =
-        Paragraph::new(" [j/k] Navigate | [Enter] Select | [r] Refresh | [Esc] Cancel ")
-            .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    let help = Paragraph::new(" [j/k] Navigate | [Enter] Select | [r] Refresh | [Esc] Cancel ")
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
     frame.render_widget(help, chunks[3]);
 }
 
@@ -100,7 +99,10 @@ fn render_device_list(frame: &mut Frame, area: Rect, state: &AppState) {
         .map(|(i, device)| {
             // Format device information
             let mount_status = if device.is_mounted() {
-                format!(" [mounted: {}]", device.mountpoint.as_ref().unwrap().display())
+                format!(
+                    " [mounted: {}]",
+                    device.mountpoint.as_ref().unwrap().display()
+                )
             } else {
                 " [unmounted]".to_string()
             };

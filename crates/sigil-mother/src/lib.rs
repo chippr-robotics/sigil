@@ -44,9 +44,8 @@ pub use agent_shard_encryption::{
 };
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use disk_ops::{
-    list_all_block_devices, list_removable_devices, get_device_info, get_mount_point,
-    BlockDevice, DiskStatus, FloppyManager, FormatType, MountMethod,
-    FLOPPY_SIZE_144MB, FLOPPY_SIZE_TOLERANCE,
+    get_device_info, get_mount_point, list_all_block_devices, list_removable_devices, BlockDevice,
+    DiskStatus, FloppyManager, FormatType, MountMethod, FLOPPY_SIZE_144MB, FLOPPY_SIZE_TOLERANCE,
 };
 pub use error::{MotherError, Result};
 #[cfg(any(feature = "ledger", feature = "trezor", feature = "pkcs11"))]

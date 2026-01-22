@@ -59,7 +59,7 @@ impl AgentId {
             // Hash the candidate with a counter to get a new candidate
             let mut hasher = Sha256::new();
             hasher.update(&candidate);
-            hasher.update(&counter.to_le_bytes());
+            hasher.update(counter.to_le_bytes());
             let hash: [u8; 32] = hasher.finalize().into();
 
             // Extend to 256 bits and set the high bit (ensure it's odd and large enough)
