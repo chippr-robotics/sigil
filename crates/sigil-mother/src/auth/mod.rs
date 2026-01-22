@@ -25,10 +25,12 @@ use std::time::Instant;
 
 /// Authentication state for the mother device
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Default)]
 pub enum AuthState {
     /// PIN needs to be set up (first run)
     SetupRequired,
     /// PIN required for authentication
+    #[default]
     RequiresPin,
     /// Successfully authenticated with active session
     Authenticated,
@@ -36,11 +38,6 @@ pub enum AuthState {
     LockedOut(Instant),
 }
 
-impl Default for AuthState {
-    fn default() -> Self {
-        AuthState::RequiresPin
-    }
-}
 
 /// Authentication error types
 #[derive(Debug, thiserror::Error)]
