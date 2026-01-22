@@ -27,6 +27,11 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 zeroize = { workspace = true }
 
+# Authentication & encryption at rest
+argon2 = { workspace = true }
+chacha20poly1305 = "0.10"
+dirs = { workspace = true }
+
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
