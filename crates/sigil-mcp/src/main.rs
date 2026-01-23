@@ -7,7 +7,7 @@ use clap::{Parser, ValueEnum};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use sigil_mcp::{DiskState, McpServer};
+use sigil_mcp::McpServer;
 
 /// Sigil MCP Server - MPC signing for AI agents
 #[derive(Parser, Debug)]
@@ -79,15 +79,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("Sigil MCP Server v{} starting", env!("CARGO_PKG_VERSION"));
 
-    // Create server with appropriate disk state
+    // Create server with appropriate mode
     let server = if args.mock {
         info!("Using mock disk state");
-        McpServer::with_disk_state(DiskState::mock_detected())
+        McpServer::with_mock()
     } else {
-        // In production, this would connect to the actual daemon
-        // For now, we use mock state
-        info!("Using mock disk state (daemon integration coming soon)");
-        McpServer::with_disk_state(DiskState::mock_detected())
+        info!("Connecting to Sigil daemon");
+        match McpServer::with_daemon() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Failed to connect to daemon: {}", e);
+                eprintln!("Make sure the Sigil daemon is running: sigil-daemon start");
+                eprintln!("Or use --mock flag for testing without daemon");
+                std::process::exit(1);
+            }
+        }
     };
 
     // Run server with selected transport

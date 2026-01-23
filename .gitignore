@@ -27,3 +27,6 @@ target
 *agent_shares*.json
 *agent_shard*.json
 sigil_mother_data/
+
+# Claude Code local settings
+.claude/settings.local.json

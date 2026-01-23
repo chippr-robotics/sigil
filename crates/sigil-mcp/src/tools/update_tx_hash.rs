@@ -70,6 +70,8 @@ pub fn tool_definition() -> Tool {
 
 /// Execute the update tx hash tool
 pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCallResult {
+    use crate::client::ClientError;
+
     // Parse arguments
     let params: UpdateTxHashParams = match serde_json::from_value(arguments) {
         Ok(p) => p,
@@ -85,8 +87,18 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         );
     }
 
-    // Check disk status
-    let state = ctx.disk_state.read().await;
+    // Check disk status first
+    let state = match ctx.daemon_client.get_disk_status().await {
+        Ok(s) => s,
+        Err(ClientError::DaemonNotRunning) => {
+            return ToolsCallResult::error(
+                "Sigil daemon is not running. Start it with: sigil-daemon start",
+            );
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Failed to check disk: {}", e));
+        }
+    };
 
     if !state.detected {
         return ToolsCallResult::error(
@@ -94,10 +106,14 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         );
     }
 
-    // In a real implementation, this would update the disk's usage log
-    // For now, we just acknowledge the update
-    //
-    // TODO: Integrate with sigil-daemon IPC to actually write to disk
+    // Update the tx hash in the daemon
+    if let Err(e) = ctx
+        .daemon_client
+        .update_tx_hash(params.presig_index, &params.tx_hash)
+        .await
+    {
+        return ToolsCallResult::error(format!("Failed to update tx hash: {}", e));
+    }
 
     let result = serde_json::json!({
         "success": true,
@@ -123,14 +139,14 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::DaemonClient;
     use crate::tools::DiskState;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_update_tx_hash_success() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let args = serde_json::json!({
@@ -150,7 +166,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_tx_hash_invalid() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let args = serde_json::json!({
@@ -165,7 +181,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_tx_hash_no_disk() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::no_disk())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::default())),
         };
 
         let args = serde_json::json!({

@@ -3,17 +3,16 @@
 //! These tests verify the complete MCP protocol implementation including
 //! initialization, capability negotiation, and tool/resource/prompt operations.
 
+use sigil_mcp::client::DaemonClient;
 use sigil_mcp::handlers::{handle_notification, handle_request, McpServerState};
 use sigil_mcp::protocol::*;
 use sigil_mcp::tools::DiskState;
+use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Helper to create a test server state
 fn create_test_state() -> McpServerState {
-    let mut state = McpServerState::new();
-    state.disk_state = Arc::new(RwLock::new(DiskState::mock_detected()));
-    state
+    McpServerState::new_with_mock()
 }
 
 /// Helper to create an initialized server state
@@ -22,6 +21,18 @@ fn create_initialized_state() -> McpServerState {
     state.initialized = true;
     state.protocol_version = Some(MCP_PROTOCOL_VERSION.to_string());
     state
+}
+
+/// Helper to create an initialized state with no disk
+fn create_initialized_state_no_disk() -> McpServerState {
+    McpServerState {
+        protocol_version: Some(MCP_PROTOCOL_VERSION.to_string()),
+        initialized: true,
+        client_capabilities: None,
+        client_info: None,
+        daemon_client: Arc::new(DaemonClient::new_mock(DiskState::default())),
+        subscriptions: HashMap::new(),
+    }
 }
 
 // ============================================================================
@@ -523,13 +534,7 @@ async fn test_response_contains_jsonrpc_version() {
 
 #[tokio::test]
 async fn test_operations_with_no_disk() {
-    let mut state = create_initialized_state();
-
-    // Set disk state to no disk
-    {
-        let mut disk = state.disk_state.write().await;
-        *disk = DiskState::no_disk();
-    }
+    let mut state = create_initialized_state_no_disk();
 
     // Check disk should report no disk
     let request = JsonRpcRequest {
@@ -569,13 +574,7 @@ async fn test_operations_with_no_disk() {
 
 #[tokio::test]
 async fn test_resources_list_without_disk() {
-    let mut state = create_initialized_state();
-
-    // Set disk state to no disk
-    {
-        let mut disk = state.disk_state.write().await;
-        *disk = DiskState::no_disk();
-    }
+    let mut state = create_initialized_state_no_disk();
 
     let request = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),

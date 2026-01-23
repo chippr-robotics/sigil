@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zkVM Proofs | Sigil Documentation</title>
+    <meta name="description" content="Technical documentation on SP1 zkVM integration and proof verification.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/docs.css">
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="../" class="logo">
+                <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="logo-img">
+                <span class="logo-text">Sigil</span>
+            </a>
+            <div class="nav-links">
+                <a href="../#features">Features</a>
+                <a href="../#cryptography">Cryptography</a>
+                <a href="../#assets">Supported Assets</a>
+                <a href="../#documentation">Documentation</a>
+                <a href="https://chipprbots.com" class="btn btn-outline" target="_blank" rel="noopener">ChipprBots</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="docs-main">
+        <aside class="docs-sidebar">
+            <nav class="docs-nav">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="crypto-spec.html">Cryptographic Specification</a></li>
+                    <li><a href="frost.html">FROST Multi-Chain Guide</a></li>
+                    <li><a href="threat-model.html">Threat Model</a></li>
+                    <li><a href="recovery.html">Recovery Procedures</a></li>
+                    <li><a href="zkvm-proofs.html" class="active">zkVM Proofs</a></li>
+                    <li><a href="timing-safety.html">Timing Safety</a></li>
+                </ul>
+                <h4>On This Page</h4>
+                <ul class="toc">
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#sp1">SP1 Integration</a></li>
+                    <li><a href="#program">Signing Program</a></li>
+                    <li><a href="#verification">Proof Verification</a></li>
+                    <li><a href="#performance">Performance</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <article class="docs-content">
+            <div class="docs-header">
+                <div class="docs-breadcrumb">
+                    <a href="../">Home</a> / <a href="../#documentation">Documentation</a> / <span>zkVM Proofs</span>
+                </div>
+                <h1>zkVM Proofs</h1>
+                <div class="docs-meta">
+                    <span class="version">Version 0.1.0</span>
+                    <span class="updated">Last Updated: 2026-01-17</span>
+                </div>
+            </div>
+
+            <section class="docs-section" id="overview">
+                <h2>Overview</h2>
+                <p>Sigil uses zero-knowledge virtual machine (zkVM) technology to provide cryptographic proofs that signatures were computed correctly. Every signing operation executes inside the SP1 zkVM, producing a proof that can be independently verified.</p>
+
+                <h3>Why zkVM?</h3>
+                <ul>
+                    <li><strong>Auditability:</strong> Cryptographic proof that the signature was computed from valid presignatures</li>
+                    <li><strong>Correctness:</strong> Proof that both parties contributed to the signature</li>
+                    <li><strong>Non-repudiation:</strong> Proof can be verified by third parties without revealing secrets</li>
+                    <li><strong>Compliance:</strong> Verifiable audit trail for regulatory requirements</li>
+                </ul>
+            </section>
+
+            <section class="docs-section" id="sp1">
+                <h2>SP1 Integration</h2>
+                <p>Sigil uses <a href="https://github.com/succinctlabs/sp1" target="_blank" rel="noopener">SP1</a>, a high-performance zkVM built on the RISC-V instruction set.</p>
+
+                <h3>Architecture</h3>
+                <div class="code-block">
+                    <code>┌────────────────────────────────────────────────────────┐
+│                    Sigil Daemon                         │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────┐ │
+│  │  IPC Server  │───►│  SP1 Prover  │───►│  Proof   │ │
+│  └──────────────┘    └──────────────┘    └──────────┘ │
+│         │                   │                  │       │
+│         ▼                   ▼                  ▼       │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────┐ │
+│  │ Disk Watcher │    │ sigil-zkvm   │    │ Verifier │ │
+│  │              │    │  (no_std)    │    │          │ │
+│  └──────────────┘    └──────────────┘    └──────────┘ │
+└────────────────────────────────────────────────────────┘</code>
+                </div>
+
+                <h3>SP1 SDK Setup</h3>
+                <div class="code-block">
+                    <code># Install SP1 toolchain
+curl -L https://sp1.succinct.xyz | bash
+sp1up
+
+# Verify installation
+cargo prove --version</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="program">
+                <h2>Signing Program</h2>
+                <p>The zkVM program (sigil-zkvm crate) executes the signature computation and enforces constraints.</p>
+
+                <h3>Public Inputs</h3>
+                <div class="code-block">
+                    <code>/// Inputs visible to verifier
+struct PublicInputs {
+    /// The child public key (33 bytes, compressed)
+    child_pubkey: [u8; 33],
+
+    /// The message hash being signed (32 bytes)
+    message_hash: [u8; 32],
+
+    /// Index of the presignature being used
+    presig_index: u32,
+}</code>
+                </div>
+
+                <h3>Private Inputs</h3>
+                <div class="code-block">
+                    <code>/// Inputs hidden from verifier (witness)
+struct PrivateInputs {
+    /// Cold presignature share from disk
+    presig_cold: PresigColdShare,
+
+    /// Agent presignature share
+    presig_agent: PresigAgentShare,
+}</code>
+                </div>
+
+                <h3>Public Outputs</h3>
+                <div class="code-block">
+                    <code>/// Outputs committed to in the proof
+struct PublicOutputs {
+    /// The computed ECDSA signature (64 bytes)
+    signature: [u8; 64],
+
+    /// Presignature index (echoed for verification)
+    presig_index: u32,
+}</code>
+                </div>
+
+                <h3>Circuit Constraints</h3>
+                <p>The zkVM program enforces the following constraints:</p>
+
+                <div class="code-block">
+                    <code>// 1. R-point Agreement
+assert_eq!(
+    presig_cold.r_point,
+    presig_agent.r_point,
+    "R-point mismatch between shares"
+);
+
+// 2. Valid Nonce Reconstruction
+let k = (presig_cold.k_cold + presig_agent.k_agent) % n;
+assert!(k != Scalar::ZERO, "Invalid nonce");
+
+// 3. Valid Key Reconstruction
+let chi = (presig_cold.chi_cold + presig_agent.chi_agent) % n;
+
+// 4. Correct Public Key
+let computed_pubkey = chi * G;
+assert_eq!(
+    compress(computed_pubkey),
+    public_inputs.child_pubkey,
+    "Public key mismatch"
+);
+
+// 5. Valid Signature Computation
+let r = x_coord(decompress(presig_cold.r_point)) % n;
+let z = Scalar::from_bytes(public_inputs.message_hash);
+let s = k.invert() * (z + r * chi) % n;
+
+// 6. Low-S Normalization (BIP-62)
+let s = if s > n / 2 { n - s } else { s };
+
+// 7. Signature Verification
+assert!(verify_ecdsa(
+    public_inputs.child_pubkey,
+    public_inputs.message_hash,
+    (r, s)
+), "Signature verification failed");</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="verification">
+                <h2>Proof Verification</h2>
+
+                <h3>Verifier Setup</h3>
+                <div class="code-block">
+                    <code>use sp1_sdk::{SP1Verifier, SP1ProofWithPublicValues};
+
+// Load the verification key (generated during build)
+let vk = include_bytes!("../sigil-zkvm.vk");
+
+// Create verifier instance
+let verifier = SP1Verifier::new(vk)?;</code>
+                </div>
+
+                <h3>Verification Process</h3>
+                <div class="code-block">
+                    <code>/// Verify a signing proof
+fn verify_signing_proof(
+    proof: &SP1ProofWithPublicValues,
+    expected_pubkey: &[u8; 33],
+    expected_message: &[u8; 32],
+) -> Result&lt;VerifiedSignature, VerifyError&gt; {
+    // 1. Verify the proof
+    verifier.verify(proof)?;
+
+    // 2. Extract public values
+    let public_inputs: PublicInputs = proof.public_values.read();
+    let public_outputs: PublicOutputs = proof.public_values.read();
+
+    // 3. Verify public inputs match expectations
+    if public_inputs.child_pubkey != *expected_pubkey {
+        return Err(VerifyError::PubkeyMismatch);
+    }
+    if public_inputs.message_hash != *expected_message {
+        return Err(VerifyError::MessageMismatch);
+    }
+
+    // 4. Return verified signature
+    Ok(VerifiedSignature {
+        signature: public_outputs.signature,
+        presig_index: public_outputs.presig_index,
+        proof_verified: true,
+    })
+}</code>
+                </div>
+
+                <h3>On-Chain Verification</h3>
+                <p>SP1 proofs can be verified on-chain using Solidity verifiers:</p>
+
+                <div class="code-block">
+                    <code>// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {SP1Verifier} from "@sp1-contracts/SP1Verifier.sol";
+
+contract SigilVerifier {
+    SP1Verifier public verifier;
+    bytes32 public programVKey;
+
+    constructor(address _verifier, bytes32 _vkey) {
+        verifier = SP1Verifier(_verifier);
+        programVKey = _vkey;
+    }
+
+    function verifySigningProof(
+        bytes calldata proof,
+        bytes calldata publicValues
+    ) external view returns (bool) {
+        return verifier.verifyProof(programVKey, publicValues, proof);
+    }
+}</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="performance">
+                <h2>Performance</h2>
+
+                <h3>Proof Generation Benchmarks</h3>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Hardware</th>
+                            <th>Proof Time</th>
+                            <th>Proof Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>M2 MacBook Pro (CPU)</td>
+                            <td>~45 seconds</td>
+                            <td>~1.2 MB</td>
+                        </tr>
+                        <tr>
+                            <td>RTX 4090 (GPU)</td>
+                            <td>~8 seconds</td>
+                            <td>~1.2 MB</td>
+                        </tr>
+                        <tr>
+                            <td>SP1 Cloud Prover</td>
+                            <td>~3 seconds</td>
+                            <td>~1.2 MB</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Verification Benchmarks</h3>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Environment</th>
+                            <th>Verification Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Native (Rust)</td>
+                            <td>~50 ms</td>
+                        </tr>
+                        <tr>
+                            <td>Ethereum (on-chain)</td>
+                            <td>~300k gas</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Configuration Options</h3>
+                <div class="code-block">
+                    <code># Daemon config (/etc/sigil/daemon.json)
+{
+    "enable_zkvm_proving": true,      // Enable/disable proofs
+    "zkvm_prover": "local",           // "local", "gpu", or "cloud"
+    "proof_compression": true,        // Compress proofs for storage
+    "store_proofs": true,             // Save proofs to disk
+    "proof_storage_path": "/var/lib/sigil/proofs"
+}</code>
+                </div>
+
+                <div class="callout callout-info">
+                    <strong>Development Mode:</strong> Set <code>"enable_zkvm_proving": false</code> in development to skip proof generation and speed up testing. Never disable in production.
+                </div>
+            </section>
+
+            <section class="docs-section">
+                <h2>Proof Storage and Retrieval</h2>
+
+                <h3>Storage Format</h3>
+                <div class="code-block">
+                    <code>/// Stored proof record
+struct ProofRecord {
+    /// Unique proof identifier
+    proof_id: [u8; 32],
+
+    /// Child ID that generated this signature
+    child_id: [u8; 32],
+
+    /// Presignature index used
+    presig_index: u32,
+
+    /// Message hash that was signed
+    message_hash: [u8; 32],
+
+    /// The signature (64 bytes)
+    signature: [u8; 64],
+
+    /// Compressed SP1 proof
+    proof_bytes: Vec&lt;u8&gt;,
+
+    /// Timestamp of generation
+    timestamp: u64,
+}</code>
+                </div>
+
+                <h3>Querying Proofs</h3>
+                <div class="code-block">
+                    <code># List proofs for a child
+sigil proofs list --child-id &lt;child_id&gt;
+
+# Export a specific proof
+sigil proofs export --proof-id &lt;proof_id&gt; --output proof.json
+
+# Verify a stored proof
+sigil proofs verify --proof-id &lt;proof_id&gt;</code>
+                </div>
+            </section>
+
+            <div class="docs-footer">
+                <div class="docs-nav-footer">
+                    <a href="recovery.html" class="prev">&larr; Recovery Procedures</a>
+                    <a href="timing-safety.html" class="next">Timing Safety &rarr;</a>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ChipprBots. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>

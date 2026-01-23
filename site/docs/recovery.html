@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recovery Procedures | Sigil Documentation</title>
+    <meta name="description" content="Step-by-step guides for disaster recovery, key rotation, and emergency nullification.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/docs.css">
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="../" class="logo">
+                <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="logo-img">
+                <span class="logo-text">Sigil</span>
+            </a>
+            <div class="nav-links">
+                <a href="../#features">Features</a>
+                <a href="../#cryptography">Cryptography</a>
+                <a href="../#assets">Supported Assets</a>
+                <a href="../#documentation">Documentation</a>
+                <a href="https://chipprbots.com" class="btn btn-outline" target="_blank" rel="noopener">ChipprBots</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="docs-main">
+        <aside class="docs-sidebar">
+            <nav class="docs-nav">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="crypto-spec.html">Cryptographic Specification</a></li>
+                    <li><a href="frost.html">FROST Multi-Chain Guide</a></li>
+                    <li><a href="threat-model.html">Threat Model</a></li>
+                    <li><a href="recovery.html" class="active">Recovery Procedures</a></li>
+                    <li><a href="zkvm-proofs.html">zkVM Proofs</a></li>
+                    <li><a href="timing-safety.html">Timing Safety</a></li>
+                </ul>
+                <h4>On This Page</h4>
+                <ul class="toc">
+                    <li><a href="#disk-lost">Lost Disk Recovery</a></li>
+                    <li><a href="#agent-recovery">Agent Recovery</a></li>
+                    <li><a href="#mother-recovery">Mother Device Recovery</a></li>
+                    <li><a href="#key-rotation">Key Rotation</a></li>
+                    <li><a href="#emergency">Emergency Procedures</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <article class="docs-content">
+            <div class="docs-header">
+                <div class="docs-breadcrumb">
+                    <a href="../">Home</a> / <a href="../#documentation">Documentation</a> / <span>Recovery Procedures</span>
+                </div>
+                <h1>Recovery Procedures</h1>
+                <div class="docs-meta">
+                    <span class="version">Version 0.1.0</span>
+                    <span class="updated">Last Updated: 2026-01-17</span>
+                </div>
+            </div>
+
+            <section class="docs-section">
+                <h2>Overview</h2>
+                <p>This document provides step-by-step procedures for recovering from various failure scenarios. All recovery procedures should be tested periodically in a non-production environment.</p>
+
+                <div class="callout callout-warning">
+                    <strong>Important:</strong> Before performing any recovery procedure, ensure you have documented the current state of the system and have appropriate authorization.
+                </div>
+            </section>
+
+            <section class="docs-section" id="disk-lost">
+                <h2>Lost or Damaged Disk</h2>
+
+                <h3>Scenario</h3>
+                <p>A child floppy disk has been lost, damaged, or destroyed.</p>
+
+                <h3>Impact</h3>
+                <ul>
+                    <li>Remaining presignatures on the disk are inaccessible</li>
+                    <li>No new signatures can be created with that child key</li>
+                    <li>Funds at the child address remain secure but frozen</li>
+                </ul>
+
+                <h3>Recovery Steps</h3>
+                <ol>
+                    <li>
+                        <strong>Assess the situation</strong>
+                        <div class="code-block">
+                            <code># Check if disk was truly lost vs stolen
+# Document last known location and circumstances</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>If disk may be stolen, treat as security incident</strong>
+                        <p>See <a href="#emergency">Emergency Procedures</a> for nullification.</p>
+                    </li>
+                    <li>
+                        <strong>Create replacement child disk</strong>
+                        <div class="code-block">
+                            <code># On mother device (air-gapped)
+sigil-mother create-child \
+  --presig-count 1000 \
+  --output new_disk.img \
+  --agent-output new_agent_shares.json \
+  --label "replacement-001"</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Transfer funds to new child address</strong>
+                        <p>Use any remaining presignatures from other disks or coordinate with multi-sig holders.</p>
+                    </li>
+                    <li>
+                        <strong>Nullify the lost child</strong>
+                        <div class="code-block">
+                            <code>sigil-mother nullify-child --child-id &lt;lost_child_id&gt;</code>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="docs-section" id="agent-recovery">
+                <h2>Agent Server Recovery</h2>
+
+                <h3>Scenario</h3>
+                <p>The agent server has failed or been compromised and needs to be restored.</p>
+
+                <h3>Recovery Steps</h3>
+                <ol>
+                    <li>
+                        <strong>Provision new server</strong>
+                        <div class="code-block">
+                            <code># Install Sigil daemon
+curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Restore agent shares from backup</strong>
+                        <div class="code-block">
+                            <code># Restore encrypted agent store
+sudo cp /backup/agent_store /var/lib/sigil/agent_store
+
+# Restore configuration
+sudo cp /backup/daemon.json /etc/sigil/daemon.json</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>If no backup exists, re-import from mother device</strong>
+                        <div class="code-block">
+                            <code># On mother device, export agent shares
+sigil-mother export-agent-shares --child-id &lt;child_id&gt; --output agent_shares.json
+
+# Transfer agent_shares.json to new server (air-gap safe method)
+
+# On new server
+sigil import-agent-shares --input agent_shares.json</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Verify daemon operation</strong>
+                        <div class="code-block">
+                            <code>sudo systemctl start sigil-daemon
+sigil status
+sigil disk  # Verify disk detection</code>
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="callout callout-info">
+                    <strong>Note:</strong> If the agent server was compromised, consider creating new child disks and migrating funds to new addresses.
+                </div>
+            </section>
+
+            <section class="docs-section" id="mother-recovery">
+                <h2>Mother Device Recovery</h2>
+
+                <h3>Scenario</h3>
+                <p>The mother device has failed and needs to be restored.</p>
+
+                <h3>With Ledger Hardware Wallet</h3>
+                <p>If the mother device was initialized with Ledger integration:</p>
+                <ol>
+                    <li>
+                        <strong>Provision new air-gapped device</strong>
+                    </li>
+                    <li>
+                        <strong>Connect same Ledger device</strong>
+                        <p>Ensure the Ledger has the same seed phrase as during original initialization.</p>
+                    </li>
+                    <li>
+                        <strong>Re-derive cold master shard</strong>
+                        <div class="code-block">
+                            <code># Use the same derivation message saved during init
+sigil-mother recover --ledger --derivation-message "&lt;saved_message&gt;"</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Restore child registry from backup</strong>
+                        <div class="code-block">
+                            <code>sigil-mother restore-registry --input /backup/child_registry.json</code>
+                        </div>
+                    </li>
+                </ol>
+
+                <h3>Without Ledger (Software-Only)</h3>
+                <ol>
+                    <li>
+                        <strong>Restore from encrypted backup</strong>
+                        <div class="code-block">
+                            <code>sigil-mother restore --backup /backup/mother_backup.enc</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Verify master public key matches</strong>
+                        <div class="code-block">
+                            <code>sigil-mother verify-master-key</code>
+                        </div>
+                    </li>
+                </ol>
+
+                <div class="callout callout-danger">
+                    <strong>Critical:</strong> If the mother device cannot be recovered and no backup exists, existing child disks can continue operating until presignatures are exhausted, but cannot be refilled. Plan migration to a new master key pair.
+                </div>
+            </section>
+
+            <section class="docs-section" id="key-rotation">
+                <h2>Key Rotation</h2>
+
+                <h3>When to Rotate</h3>
+                <ul>
+                    <li>Scheduled rotation per security policy</li>
+                    <li>Suspected compromise of any component</li>
+                    <li>Personnel changes with key access</li>
+                    <li>Cryptographic algorithm updates</li>
+                </ul>
+
+                <h3>Full Master Key Rotation</h3>
+                <ol>
+                    <li>
+                        <strong>Initialize new mother device</strong>
+                        <div class="code-block">
+                            <code>sigil-mother init --ledger  # or without --ledger</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Create new child disks</strong>
+                        <div class="code-block">
+                            <code>sigil-mother create-child --presig-count 1000 --label "new-eth-001"</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Migrate funds from old addresses to new</strong>
+                        <p>Use remaining presignatures to transfer funds.</p>
+                    </li>
+                    <li>
+                        <strong>Decommission old mother device</strong>
+                        <p>Securely destroy the old device and any backups.</p>
+                    </li>
+                </ol>
+
+                <h3>Child Key Rotation (Without Master Rotation)</h3>
+                <ol>
+                    <li>
+                        <strong>Create new child with different derivation path</strong>
+                        <div class="code-block">
+                            <code>sigil-mother create-child \
+  --derivation-path "m/44'/60'/1'/0'" \
+  --presig-count 1000 \
+  --label "eth-rotated-001"</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Transfer funds and nullify old child</strong>
+                    </li>
+                </ol>
+            </section>
+
+            <section class="docs-section" id="emergency">
+                <h2>Emergency Procedures</h2>
+
+                <h3>Immediate Child Nullification</h3>
+                <p>Use when a child disk is confirmed stolen or compromised:</p>
+
+                <div class="code-block">
+                    <code># On mother device (IMMEDIATE)
+sigil-mother nullify-child --child-id &lt;compromised_child_id&gt; --emergency
+
+# This:
+# 1. Adds child to nullification list
+# 2. Refuses any future reconciliation/refill
+# 3. Generates alert for all agent instances</code>
+                </div>
+
+                <h3>Full System Lockdown</h3>
+                <p>Use when multiple components may be compromised:</p>
+
+                <ol>
+                    <li>
+                        <strong>Stop all agent daemons</strong>
+                        <div class="code-block">
+                            <code>sudo systemctl stop sigil-daemon</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Secure all physical disks</strong>
+                        <p>Collect and secure all child disks in tamper-evident storage.</p>
+                    </li>
+                    <li>
+                        <strong>Assess compromise scope</strong>
+                        <ul>
+                            <li>Which components were potentially accessed?</li>
+                            <li>What is the window of compromise?</li>
+                            <li>Which child keys may be affected?</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>Emergency fund migration</strong>
+                        <p>If funds are at risk, prioritize migration to secure addresses.</p>
+                    </li>
+                    <li>
+                        <strong>Forensic analysis</strong>
+                        <p>Preserve logs and system state for investigation.</p>
+                    </li>
+                </ol>
+
+                <h3>Contact Information</h3>
+                <p>Maintain an emergency contact list including:</p>
+                <ul>
+                    <li>Security team contacts</li>
+                    <li>Key holders for multi-party procedures</li>
+                    <li>Legal/compliance contacts</li>
+                    <li>Incident response partners</li>
+                </ul>
+            </section>
+
+            <section class="docs-section">
+                <h2>Recovery Testing</h2>
+                <p>Regularly test recovery procedures:</p>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Procedure</th>
+                            <th>Recommended Frequency</th>
+                            <th>Test Environment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Disk replacement</td>
+                            <td>Quarterly</td>
+                            <td>Testnet</td>
+                        </tr>
+                        <tr>
+                            <td>Agent recovery</td>
+                            <td>Monthly</td>
+                            <td>Staging</td>
+                        </tr>
+                        <tr>
+                            <td>Mother device recovery</td>
+                            <td>Semi-annually</td>
+                            <td>Isolated testnet</td>
+                        </tr>
+                        <tr>
+                            <td>Full key rotation</td>
+                            <td>Annually</td>
+                            <td>Testnet with simulated funds</td>
+                        </tr>
+                        <tr>
+                            <td>Emergency lockdown</td>
+                            <td>Semi-annually</td>
+                            <td>Tabletop exercise</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="docs-footer">
+                <div class="docs-nav-footer">
+                    <a href="threat-model.html" class="prev">&larr; Threat Model</a>
+                    <a href="zkvm-proofs.html" class="next">zkVM Proofs &rarr;</a>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ChipprBots. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>

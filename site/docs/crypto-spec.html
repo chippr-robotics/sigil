@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptographic Specification | Sigil Documentation</title>
+    <meta name="description" content="Detailed cryptographic protocol specification for the Sigil MPC signing system.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/docs.css">
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="../" class="logo">
+                <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="logo-img">
+                <span class="logo-text">Sigil</span>
+            </a>
+            <div class="nav-links">
+                <a href="../#features">Features</a>
+                <a href="../#cryptography">Cryptography</a>
+                <a href="../#assets">Supported Assets</a>
+                <a href="../#documentation">Documentation</a>
+                <a href="https://chipprbots.com" class="btn btn-outline" target="_blank" rel="noopener">ChipprBots</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Documentation Content -->
+    <main class="docs-main">
+        <aside class="docs-sidebar">
+            <nav class="docs-nav">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="crypto-spec.html" class="active">Cryptographic Specification</a></li>
+                    <li><a href="frost.html">FROST Multi-Chain Guide</a></li>
+                    <li><a href="threat-model.html">Threat Model</a></li>
+                    <li><a href="recovery.html">Recovery Procedures</a></li>
+                    <li><a href="zkvm-proofs.html">zkVM Proofs</a></li>
+                    <li><a href="timing-safety.html">Timing Safety</a></li>
+                </ul>
+                <h4>On This Page</h4>
+                <ul class="toc">
+                    <li><a href="#overview">System Overview</a></li>
+                    <li><a href="#key-generation">Key Generation</a></li>
+                    <li><a href="#presignatures">Presignature Generation</a></li>
+                    <li><a href="#signing">Signature Generation</a></li>
+                    <li><a href="#zkvm">zkVM Proving</a></li>
+                    <li><a href="#security">Security Properties</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <article class="docs-content">
+            <div class="docs-header">
+                <div class="docs-breadcrumb">
+                    <a href="../">Home</a> / <a href="../#documentation">Documentation</a> / <span>Cryptographic Specification</span>
+                </div>
+                <h1>Cryptographic Specification</h1>
+                <div class="docs-meta">
+                    <span class="version">Version 0.1.0</span>
+                    <span class="status">Draft for Review</span>
+                    <span class="updated">Last Updated: 2026-01-17</span>
+                </div>
+            </div>
+
+            <section class="docs-section">
+                <h2>Abstract</h2>
+                <p>This document specifies the cryptographic protocols used in the Sigil MPC-secured floppy disk signing system. Sigil implements a 2-of-2 threshold ECDSA signing scheme using presignatures, designed to provide physical containment for agentic signing operations.</p>
+            </section>
+
+            <section class="docs-section">
+                <h2>Notation</h2>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>G</code></td><td>Generator point of secp256k1</td></tr>
+                        <tr><td><code>n</code></td><td>Order of secp256k1 (~2<sup>256</sup>)</td></tr>
+                        <tr><td><code>F<sub>n</sub></code></td><td>Scalar field modulo n</td></tr>
+                        <tr><td><code>H(&middot;)</code></td><td>SHA-256 hash function</td></tr>
+                        <tr><td><code>||</code></td><td>Concatenation</td></tr>
+                        <tr><td><code>[x]</code></td><td>Elliptic curve scalar multiplication: x &middot; G</td></tr>
+                        <tr><td><code>P<sub>1</sub>, P<sub>2</sub></code></td><td>Cold party (disk), Agent party</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="docs-section" id="overview">
+                <h2>System Overview</h2>
+
+                <h3>Parties</h3>
+                <ol>
+                    <li><strong>Mother Device</strong> (air-gapped): Holds master cold shard, generates child shards and presignatures</li>
+                    <li><strong>Cold Party</strong> (P<sub>1</sub>): Represented by the floppy disk containing presignature shares</li>
+                    <li><strong>Agent Party</strong> (P<sub>2</sub>): Server/daemon holding agent presignature shares</li>
+                </ol>
+
+                <h3>Key Hierarchy</h3>
+                <div class="code-block">
+                    <code>Master Level:
+  cold_master_shard (sk&#8321;) &larr; Mother Device
+  agent_master_shard (sk&#8322;) &larr; Agent Device
+  master_pubkey = [sk&#8321; + sk&#8322;]
+
+Child Level (derived):
+  child_cold_shard[i] = HD(sk&#8321;, path_i)
+  child_agent_shard[i] = HD(sk&#8322;, path_i)
+  child_pubkey[i] = [child_cold_shard[i] + child_agent_shard[i]]</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="key-generation">
+                <h2>Key Generation</h2>
+
+                <h3>Master Key Generation</h3>
+                <p>Performed once during mother device initialization.</p>
+
+                <div class="code-block">
+                    <code>MASTER_KEYGEN():
+  1. Sample sk&#8321; &larr;$&larr; F<sub>n</sub>  (cold master shard)
+  2. Sample sk&#8322; &larr;$&larr; F<sub>n</sub>  (agent master shard)
+  3. Compute PK = [sk&#8321;] + [sk&#8322;] = [sk&#8321; + sk&#8322;]
+  4. Return (sk&#8321;, sk&#8322;, PK)</code>
+                </div>
+
+                <div class="callout callout-warning">
+                    <strong>Security Requirement:</strong> sk&#8321; and sk&#8322; must be generated with cryptographically secure randomness (256 bits of entropy minimum).
+                </div>
+
+                <h3>Child Key Derivation</h3>
+                <p>Uses SLIP-10 (BIP32 for secp256k1) for hierarchical deterministic derivation.</p>
+
+                <div class="code-block">
+                    <code>CHILD_DERIVE(master_shard, path):
+  1. Parse path as [purpose'/coin'/account'/index']
+  2. Apply SLIP-10 derivation: child_shard = SLIP10(master_shard, path)
+  3. Return child_shard</code>
+                </div>
+
+                <p><strong>Path Format:</strong> <code>m/44'/60'/0'/i'</code> for Ethereum-compatible chains.</p>
+            </section>
+
+            <section class="docs-section" id="presignatures">
+                <h2>Presignature Generation</h2>
+
+                <h3>Overview</h3>
+                <p>Presignatures enable non-interactive signing by pre-computing the nonce commitment. Each presignature can only be used once.</p>
+
+                <h3>Presig Generation Protocol</h3>
+                <p>Executed by the mother device for each presignature:</p>
+
+                <div class="code-block">
+                    <code>PRESIG_GEN(cold_child_shard, agent_child_shard):
+  1. Sample k&#8321; &larr;$&larr; F<sub>n</sub>  (cold nonce share)
+  2. Sample k&#8322; &larr;$&larr; F<sub>n</sub>  (agent nonce share)
+  3. Compute R = [k&#8321; + k&#8322;]
+  4. Compute r = x_coord(R) mod n
+  5. If r = 0, restart from step 1
+
+  6. Cold share:
+     - R_point = compress(R)
+     - k_cold = k&#8321;
+     - &chi;_cold = cold_child_shard
+
+  7. Agent share:
+     - R_point = compress(R)  (must match)
+     - k_agent = k&#8322;
+     - &chi;_agent = agent_child_shard
+
+  8. Return (ColdShare, AgentShare)</code>
+                </div>
+
+                <h3>Presignature Structure</h3>
+
+                <h4>Cold Share (256 bytes on disk)</h4>
+                <div class="code-block">
+                    <code>struct PresigColdShare {
+    r_point: [u8; 33],    // Compressed R point
+    k_cold: [u8; 32],     // Cold nonce share
+    chi_cold: [u8; 32],   // = cold_child_shard
+    status: u8,           // 0=fresh, 1=used, 2=void
+    reserved: [u8; 158],
+}</code>
+                </div>
+
+                <h4>Agent Share</h4>
+                <div class="code-block">
+                    <code>struct PresigAgentShare {
+    r_point: [u8; 33],    // Must match cold share
+    k_agent: [u8; 32],    // Agent nonce share
+    chi_agent: [u8; 32],  // = agent_child_shard
+}</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="signing">
+                <h2>Signature Generation</h2>
+
+                <h3>Signing Protocol</h3>
+                <p>Given message hash m &isin; {0,1}<sup>256</sup>:</p>
+
+                <div class="code-block">
+                    <code>SIGN(m, cold_share, agent_share):
+  1. Verify cold_share.R_point = agent_share.R_point
+  2. Decompress R = decompress(R_point)
+  3. r = x_coord(R) mod n
+  4. If r = 0, abort (invalid presig)
+
+  5. Reconstruct nonce: k = k_cold + k_agent mod n
+  6. If k = 0, abort (invalid presig)
+
+  7. Reconstruct private key contribution:
+     &chi; = &chi;_cold + &chi;_agent mod n
+
+  8. Compute z = m mod n (message as scalar)
+
+  9. Compute s = k<sup>-1</sup> &middot; (z + r &middot; &chi;) mod n
+
+  10. Normalize to low-S (BIP-62):
+      If s > n/2: s = n - s
+
+  11. Return &sigma; = (r, s)</code>
+                </div>
+
+                <h3>Signature Verification</h3>
+                <p>Standard ECDSA verification against child_pubkey:</p>
+
+                <div class="code-block">
+                    <code>VERIFY(m, &sigma;, PK):
+  1. Parse &sigma; = (r, s)
+  2. Verify 1 &le; r, s < n
+  3. Compute z = m mod n
+  4. Compute u&#8321; = z &middot; s<sup>-1</sup> mod n
+  5. Compute u&#8322; = r &middot; s<sup>-1</sup> mod n
+  6. Compute R' = [u&#8321;] + u&#8322; &middot; PK
+  7. Verify r = x_coord(R') mod n</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="zkvm">
+                <h2>zkVM Proving</h2>
+
+                <h3>Purpose</h3>
+                <p>All signing operations execute inside SP1 zkVM to produce proofs that:</p>
+                <ol>
+                    <li>The signature was computed correctly from valid presig shares</li>
+                    <li>Both parties contributed to the signature</li>
+                    <li>The signature verifies against the claimed public key</li>
+                </ol>
+
+                <h3>Public Inputs</h3>
+                <div class="code-block">
+                    <code>struct PublicInputs {
+    child_pubkey: [u8; 33],
+    message_hash: [u8; 32],
+    presig_index: u32,
+}</code>
+                </div>
+
+                <h3>Private Inputs</h3>
+                <div class="code-block">
+                    <code>struct PrivateInputs {
+    presig_cold: PresigColdShare,
+    presig_agent: PresigAgentShare,
+}</code>
+                </div>
+
+                <h3>Circuit Constraints</h3>
+                <p>The zkVM program enforces:</p>
+                <ol>
+                    <li><strong>R-point Agreement:</strong> <code>presig_cold.r_point == presig_agent.r_point</code></li>
+                    <li><strong>Valid Signature:</strong> <code>VERIFY(message_hash, signature, child_pubkey) == true</code></li>
+                    <li><strong>Correct Computation:</strong> Signature computed per Section 5.1</li>
+                </ol>
+            </section>
+
+            <section class="docs-section" id="security">
+                <h2>Security Properties</h2>
+
+                <div class="security-property">
+                    <h3>Unforgeability</h3>
+                    <p><strong>Claim:</strong> An adversary controlling only one party (cold or agent) cannot forge signatures.</p>
+                    <p><strong>Argument:</strong></p>
+                    <ul>
+                        <li>Without both nonce shares (k<sub>1</sub>, k<sub>2</sub>), the adversary cannot compute k = k<sub>1</sub> + k<sub>2</sub></li>
+                        <li>Without k, computing a valid s = k<sup>-1</sup>(z + rx) requires solving ECDLP</li>
+                        <li>The security reduces to the unforgeability of ECDSA under the hardness of ECDLP</li>
+                    </ul>
+                </div>
+
+                <div class="security-property">
+                    <h3>Bounded Exposure</h3>
+                    <p><strong>Claim:</strong> Compromise of a floppy disk exposes at most N signing capabilities.</p>
+                    <p><strong>Argument:</strong></p>
+                    <ul>
+                        <li>Each presignature can only produce one valid signature</li>
+                        <li>Once used, the nonce is consumed and the (r, s) pair is fixed</li>
+                        <li>The disk contains exactly N presignatures</li>
+                        <li>An attacker with the disk but without agent shares gets nothing useful</li>
+                    </ul>
+                </div>
+
+                <div class="security-property">
+                    <h3>Forward Secrecy</h3>
+                    <p><strong>Claim:</strong> Past signatures remain unforgeable even if the disk is later compromised.</p>
+                    <p><strong>Argument:</strong></p>
+                    <ul>
+                        <li>Signatures already produced used presignatures that are now marked "used"</li>
+                        <li>The attacker cannot reuse those presignatures (R-point reuse is detectable)</li>
+                        <li>The attacker cannot correlate used presignatures to past signatures without additional information</li>
+                    </ul>
+                </div>
+
+                <div class="security-property">
+                    <h3>Auditability</h3>
+                    <p><strong>Claim:</strong> All signing operations are auditable via zkVM proofs.</p>
+                    <p><strong>Argument:</strong></p>
+                    <ul>
+                        <li>Every signature is accompanied by a zkVM proof</li>
+                        <li>The proof attests to correct computation</li>
+                        <li>Proofs can be verified independently</li>
+                        <li>The usage log on the disk records all operations</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="docs-section">
+                <h2>Cryptographic Assumptions</h2>
+                <p>The security of Sigil relies on:</p>
+                <ol>
+                    <li><strong>ECDLP Hardness:</strong> Discrete logarithm problem is hard on secp256k1</li>
+                    <li><strong>Random Oracle Model:</strong> SHA-256 behaves as a random oracle</li>
+                    <li><strong>Secure Randomness:</strong> System RNG provides 256 bits of entropy</li>
+                    <li><strong>zkVM Soundness:</strong> SP1 prover is computationally sound</li>
+                </ol>
+            </section>
+
+            <section class="docs-section">
+                <h2>References</h2>
+                <ol>
+                    <li>Gennaro, R., & Goldfeder, S. (2020). One Round Threshold ECDSA with Identifiable Abort. IACR ePrint 2020/540.</li>
+                    <li>Lindell, Y. (2017). Fast Secure Two-Party ECDSA Signing. CRYPTO 2017.</li>
+                    <li>BIP-32: Hierarchical Deterministic Wallets</li>
+                    <li>SLIP-10: Universal private key derivation from master private key</li>
+                    <li>BIP-62: Dealing with malleability</li>
+                    <li>EIP-155: Simple replay attack protection</li>
+                </ol>
+            </section>
+
+            <div class="docs-footer">
+                <div class="docs-nav-footer">
+                    <span></span>
+                    <a href="frost.html" class="next">FROST Multi-Chain Guide &rarr;</a>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ChipprBots. All rights reserved.</p>
+                <p class="footer-warning">This software involves bleeding-edge cryptography and is unaudited. Read security documentation before use.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>

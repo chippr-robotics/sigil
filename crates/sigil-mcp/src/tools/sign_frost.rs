@@ -117,6 +117,8 @@ pub fn tool_definition() -> Tool {
 
 /// Execute the sign FROST tool
 pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCallResult {
+    use crate::client::ClientError;
+
     // Parse arguments
     let params: SignFrostParams = match serde_json::from_value(arguments) {
         Ok(p) => p,
@@ -131,7 +133,17 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
     }
 
     // Check disk status
-    let state = ctx.disk_state.read().await;
+    let state = match ctx.daemon_client.get_disk_status().await {
+        Ok(s) => s,
+        Err(ClientError::DaemonNotRunning) => {
+            return ToolsCallResult::error(
+                "Sigil daemon is not running. Start it with: sigil-daemon start",
+            );
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Failed to check disk: {}", e));
+        }
+    };
 
     if !state.detected {
         return ToolsCallResult::error(
@@ -152,31 +164,48 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         );
     }
 
-    // Check scheme compatibility
-    let disk_scheme = state.scheme.as_deref().unwrap_or("unknown");
-    if disk_scheme != params.scheme.as_str() {
-        return ToolsCallResult::error(format!(
-            "Disk scheme mismatch: requested '{}', but disk has '{}'. \
-             Create a new disk with the correct scheme.",
-            params.scheme.as_str(),
-            disk_scheme
-        ));
+    // Check scheme compatibility (if available)
+    if let Some(disk_scheme) = &state.scheme {
+        if disk_scheme != params.scheme.as_str() {
+            return ToolsCallResult::error(format!(
+                "Disk scheme mismatch: requested '{}', but disk has '{}'. \
+                 Create a new disk with the correct scheme.",
+                params.scheme.as_str(),
+                disk_scheme
+            ));
+        }
     }
 
-    // In a real implementation, this would call the FROST signing API
-    // For now, we return a mock signature to demonstrate the flow
-    //
-    // TODO: Integrate with sigil-frost
+    // Call daemon to sign (chain_id = 0 for non-EVM chains)
+    let sign_result = match ctx
+        .daemon_client
+        .sign(&params.message_hash, 0, &params.description)
+        .await
+    {
+        Ok(r) => r,
+        Err(ClientError::NoDiskDetected) => {
+            return ToolsCallResult::error("No disk detected");
+        }
+        Err(ClientError::SigningFailed(msg)) => {
+            return ToolsCallResult::error(format!("Signing failed: {}", msg));
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Signing error: {}", e));
+        }
+    };
 
-    let mock_presig_index = 1000 - remaining;
     let sig_len = params.scheme.signature_length();
-    let mock_signature = format!("0x{:0>width$}", "cafe", width = sig_len * 2);
+    let signature = if sign_result.signature.starts_with("0x") {
+        sign_result.signature.clone()
+    } else {
+        format!("0x{}", sign_result.signature)
+    };
 
     let result = serde_json::json!({
         "scheme": params.scheme.as_str(),
-        "signature": mock_signature,
+        "signature": signature,
         "signature_length": sig_len,
-        "presig_index": mock_presig_index,
+        "presig_index": sign_result.presig_index,
         "message_hash": params.message_hash
     });
 
@@ -201,9 +230,9 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         params.scheme.as_str(),
         chains,
         hash_preview,
-        &mock_signature[..14],
-        &mock_signature[mock_signature.len() - 8..],
-        mock_presig_index,
+        &signature[..14],
+        &signature[signature.len() - 8..],
+        sign_result.presig_index,
         remaining - 1,
         params.description
     );
@@ -214,9 +243,9 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::DaemonClient;
     use crate::tools::DiskState;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     fn create_frost_disk(scheme: &str) -> DiskState {
         DiskState {
@@ -234,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn test_sign_frost_taproot() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(create_frost_disk("taproot"))),
+            daemon_client: Arc::new(DaemonClient::new_mock(create_frost_disk("taproot"))),
         };
 
         let args = serde_json::json!({
@@ -250,7 +279,7 @@ mod tests {
     #[tokio::test]
     async fn test_sign_frost_ed25519() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(create_frost_disk("ed25519"))),
+            daemon_client: Arc::new(DaemonClient::new_mock(create_frost_disk("ed25519"))),
         };
 
         let args = serde_json::json!({
@@ -266,7 +295,7 @@ mod tests {
     #[tokio::test]
     async fn test_sign_frost_scheme_mismatch() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(create_frost_disk("taproot"))),
+            daemon_client: Arc::new(DaemonClient::new_mock(create_frost_disk("taproot"))),
         };
 
         let args = serde_json::json!({
