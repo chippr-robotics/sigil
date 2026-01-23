@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threat Model | Sigil Documentation</title>
+    <meta name="description" content="Security analysis covering disk theft, agent compromise, and mother device attack scenarios.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/docs.css">
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="../" class="logo">
+                <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="logo-img">
+                <span class="logo-text">Sigil</span>
+            </a>
+            <div class="nav-links">
+                <a href="../#features">Features</a>
+                <a href="../#cryptography">Cryptography</a>
+                <a href="../#assets">Supported Assets</a>
+                <a href="../#documentation">Documentation</a>
+                <a href="https://chipprbots.com" class="btn btn-outline" target="_blank" rel="noopener">ChipprBots</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="docs-main">
+        <aside class="docs-sidebar">
+            <nav class="docs-nav">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="crypto-spec.html">Cryptographic Specification</a></li>
+                    <li><a href="frost.html">FROST Multi-Chain Guide</a></li>
+                    <li><a href="threat-model.html" class="active">Threat Model</a></li>
+                    <li><a href="recovery.html">Recovery Procedures</a></li>
+                    <li><a href="zkvm-proofs.html">zkVM Proofs</a></li>
+                    <li><a href="timing-safety.html">Timing Safety</a></li>
+                </ul>
+                <h4>On This Page</h4>
+                <ul class="toc">
+                    <li><a href="#disk-theft">Disk Theft</a></li>
+                    <li><a href="#agent-compromise">Agent Compromise</a></li>
+                    <li><a href="#mother-compromise">Mother Compromise</a></li>
+                    <li><a href="#nonce-reuse">Nonce Reuse</a></li>
+                    <li><a href="#side-channel">Side-Channel Attacks</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <article class="docs-content">
+            <div class="docs-header">
+                <div class="docs-breadcrumb">
+                    <a href="../">Home</a> / <a href="../#documentation">Documentation</a> / <span>Threat Model</span>
+                </div>
+                <h1>Threat Model</h1>
+                <div class="docs-meta">
+                    <span class="version">Version 0.1.0</span>
+                    <span class="updated">Last Updated: 2026-01-17</span>
+                </div>
+            </div>
+
+            <section class="docs-section">
+                <h2>Overview</h2>
+                <p>This document analyzes the security threats facing the Sigil system and the mitigations implemented to address them. The threat model assumes a sophisticated adversary with the following capabilities:</p>
+                <ul>
+                    <li>Physical access to deployed hardware (potentially)</li>
+                    <li>Network-level adversary capabilities</li>
+                    <li>Access to public blockchain data</li>
+                    <li>Computational resources up to but not exceeding quantum capabilities</li>
+                </ul>
+            </section>
+
+            <section class="docs-section" id="disk-theft">
+                <h2>Threat: Disk Theft</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>An attacker physically obtains a child floppy disk containing presignature cold shares.</p>
+
+                    <h3>Attacker Gains</h3>
+                    <ul>
+                        <li>Access to up to N presignature cold shares</li>
+                        <li>Child public key and derivation path</li>
+                        <li>Usage log history</li>
+                    </ul>
+
+                    <h3>Attacker Cannot</h3>
+                    <ul>
+                        <li>Sign any transactions (requires agent shares)</li>
+                        <li>Generate new presignatures</li>
+                        <li>Access the master cold shard</li>
+                        <li>Compromise other child disks</li>
+                    </ul>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Bounded exposure:</strong> At most N presignatures are at risk</li>
+                        <li><strong>Detection:</strong> Usage log anomalies detected during reconciliation</li>
+                        <li><strong>Revocation:</strong> Mother device can nullify the child</li>
+                        <li><strong>Physical controls:</strong> Disk should be stored in secure location</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section" id="agent-compromise">
+                <h2>Threat: Agent Compromise</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>An attacker gains full control of the agent server/daemon, including access to encrypted agent shares.</p>
+
+                    <h3>Attacker Gains</h3>
+                    <ul>
+                        <li>Agent master shard (if encryption key compromised)</li>
+                        <li>Agent presignature shares</li>
+                        <li>Knowledge of which transactions were requested</li>
+                    </ul>
+
+                    <h3>Attacker Cannot</h3>
+                    <ul>
+                        <li>Sign without physical disk insertion</li>
+                        <li>Generate new presignatures</li>
+                        <li>Access mother device or cold shards</li>
+                    </ul>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Physical consent:</strong> Signing requires disk insertion</li>
+                        <li><strong>Encryption at rest:</strong> Agent shares encrypted with hardware-backed keys</li>
+                        <li><strong>Monitoring:</strong> Anomalous signing requests can trigger alerts</li>
+                        <li><strong>Recovery:</strong> Nullify all children and rotate master shards</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section" id="mother-compromise">
+                <h2>Threat: Mother Device Compromise</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>An attacker gains access to the air-gapped mother device.</p>
+
+                    <h3>Attacker Gains</h3>
+                    <ul>
+                        <li>Cold master shard</li>
+                        <li>Child registry and derivation paths</li>
+                        <li>Ability to generate new presignatures for existing children</li>
+                    </ul>
+
+                    <h3>Attacker Cannot</h3>
+                    <ul>
+                        <li>Sign without corresponding agent shares</li>
+                        <li>Access funds without also compromising agent</li>
+                    </ul>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Air-gap:</strong> Mother device has no network connectivity</li>
+                        <li><strong>Physical security:</strong> Stored in secure facility</li>
+                        <li><strong>Tamper detection:</strong> Physical tamper-evident seals</li>
+                        <li><strong>Recovery:</strong> All children become unrefillable; migrate to new master</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section" id="nonce-reuse">
+                <h2>Threat: Nonce Reuse</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>The same nonce (k value) is used to sign two different messages, which would reveal the private key.</p>
+
+                    <div class="callout callout-danger">
+                        <strong>Critical:</strong> If s<sub>1</sub> = k + e<sub>1</sub>&middot;x and s<sub>2</sub> = k + e<sub>2</sub>&middot;x for the same k, then x = (s<sub>1</sub> - s<sub>2</sub>) / (e<sub>1</sub> - e<sub>2</sub>)
+                    </div>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Single-use presignatures:</strong> Each presig has unique index, used exactly once</li>
+                        <li><strong>Status tracking:</strong> Status byte transitions Fresh &rarr; Used &rarr; Void (irreversible)</li>
+                        <li><strong>Agent index set:</strong> Agent maintains authoritative set of used indices</li>
+                        <li><strong>Reconciliation checks:</strong> Mother detects gaps or duplicates in usage</li>
+                        <li><strong>Fresh nonce generation:</strong> Mother generates new k values for each presig</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section" id="side-channel">
+                <h2>Threat: Side-Channel Attacks</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>Attacker measures timing, power consumption, or electromagnetic emissions during signing operations.</p>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Constant-time operations:</strong> k256 crate with <code>arithmetic</code> feature uses constant-time scalar operations</li>
+                        <li><strong>No secret-dependent branching:</strong> Code paths don't depend on secret values</li>
+                        <li><strong>zkVM execution:</strong> Signature computation happens inside SP1, abstracting physical execution</li>
+                        <li><strong>Memory isolation:</strong> Secrets zeroed after use</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section">
+                <h2>Threat: Disk Cloning</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>Attacker makes a bit-for-bit copy of a floppy disk and attempts to use both copies.</p>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Usage log:</strong> Both copies would have divergent usage logs</li>
+                        <li><strong>Reconciliation:</strong> Mother detects anomalies (presig gaps, timestamp inconsistencies)</li>
+                        <li><strong>Index tracking:</strong> Agent refuses to reuse presig indices</li>
+                        <li><strong>Nullification:</strong> Suspected cloned child is immediately nullified</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section">
+                <h2>Threat: Replay Attacks</h2>
+                <div class="security-property">
+                    <h3>Scenario</h3>
+                    <p>Attacker captures a valid signed transaction and attempts to replay it.</p>
+
+                    <h3>Mitigations</h3>
+                    <ol>
+                        <li><strong>Transaction uniqueness:</strong> Signatures are over unique transaction hashes</li>
+                        <li><strong>Chain replay protection:</strong> EIP-155 chain ID prevents cross-chain replay (Ethereum)</li>
+                        <li><strong>Nonce fields:</strong> Account nonces prevent same-chain replay</li>
+                        <li><strong>Usage logging:</strong> Intended transaction purpose recorded on disk</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section class="docs-section">
+                <h2>Reconciliation Anomaly Detection</h2>
+                <p>During reconciliation, the mother device performs the following checks:</p>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Check</th>
+                            <th>Detects</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Presig count mismatch</td>
+                            <td>Unauthorized usage, cloning</td>
+                            <td>Flag for investigation</td>
+                        </tr>
+                        <tr>
+                            <td>Index gaps</td>
+                            <td>Selective presig extraction</td>
+                            <td>Nullify child</td>
+                        </tr>
+                        <tr>
+                            <td>Timestamp anomalies</td>
+                            <td>Clock manipulation, cloning</td>
+                            <td>Flag for investigation</td>
+                        </tr>
+                        <tr>
+                            <td>Missing log entries</td>
+                            <td>Log tampering</td>
+                            <td>Nullify child</td>
+                        </tr>
+                        <tr>
+                            <td>Invalid signatures</td>
+                            <td>Data corruption, tampering</td>
+                            <td>Reject reconciliation</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="docs-footer">
+                <div class="docs-nav-footer">
+                    <a href="frost.html" class="prev">&larr; FROST Multi-Chain Guide</a>
+                    <a href="recovery.html" class="next">Recovery Procedures &rarr;</a>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ChipprBots. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>

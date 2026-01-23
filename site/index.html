@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sigil | Secure MPC Signing for Digital Assets</title>
+    <meta name="description" content="Enterprise-grade threshold signature infrastructure for capital markets. Physical containment meets cutting-edge cryptography.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="/" class="logo">
+                <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="logo-img">
+                <span class="logo-text">Sigil</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#cryptography">Cryptography</a>
+                <a href="#assets">Supported Assets</a>
+                <a href="#documentation">Documentation</a>
+                <a href="https://chipprbots.com" class="btn btn-outline" target="_blank" rel="noopener">ChipprBots</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="hero-bg"></div>
+        <div class="container hero-content">
+            <div class="hero-badge">Enterprise MPC Infrastructure</div>
+            <h1>Secure Threshold Signatures<br>for Digital Assets</h1>
+            <p class="hero-subtitle">
+                Physical containment meets cutting-edge cryptography. Sigil enables institutional-grade
+                transaction signing using 2-of-2 MPC threshold signatures with zkVM verification.
+            </p>
+            <div class="hero-actions">
+                <a href="#documentation" class="btn btn-primary btn-lg">Explore Documentation</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-outline btn-lg" target="_blank" rel="noopener">View on GitHub</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">2-of-2</span>
+                    <span class="stat-label">Threshold Signing</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">zkVM</span>
+                    <span class="stat-label">Verified Proofs</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">4+</span>
+                    <span class="stat-label">Blockchain Networks</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Institutional-Grade Security</h2>
+                <p>Built for capital markets with uncompromising security standards</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </div>
+                    <h3>Physical Containment</h3>
+                    <p>Key material stored on air-gapped floppy disks. No private key ever touches a networked device.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                    </div>
+                    <h3>Bounded Damage</h3>
+                    <p>If a disk is compromised, exposure is limited to N presignatures. Attacker cannot generate new ones.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                    </div>
+                    <h3>Full Auditability</h3>
+                    <p>Every signature executes inside zkVM, producing cryptographic proofs of correct computation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <h3>Expiration Controls</h3>
+                    <p>Presignatures expire after configurable periods, forcing periodic reconciliation and review.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <h3>Dual Authorization</h3>
+                    <p>Neither party can sign alone. Requires both cold shard (disk) and agent shard for any transaction.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16 18 22 12 16 6"/>
+                            <polyline points="8 6 2 12 8 18"/>
+                        </svg>
+                    </div>
+                    <h3>Agent Integration</h3>
+                    <p>Native CLI tools for AI agents. Claude can request signatures with human-in-the-loop disk insertion.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="section section-dark">
+        <div class="container">
+            <div class="section-header">
+                <h2>Architecture Overview</h2>
+                <p>A multi-layered approach to secure key management</p>
+            </div>
+            <div class="architecture-diagram">
+                <div class="arch-layer">
+                    <div class="arch-card arch-mother">
+                        <div class="arch-label">Air-Gapped</div>
+                        <h4>Mother Device</h4>
+                        <ul>
+                            <li>Cold master shard</li>
+                            <li>Child registry</li>
+                            <li>Reconciliation logs</li>
+                        </ul>
+                    </div>
+                    <div class="arch-arrow">HD Derivation</div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-card arch-disk">
+                        <div class="arch-label">Physical Media</div>
+                        <h4>Child Floppy Disk</h4>
+                        <ul>
+                            <li>Child pubkey & path</li>
+                            <li>Presig cold shares</li>
+                            <li>Usage log</li>
+                        </ul>
+                    </div>
+                    <div class="arch-arrow">USB Attached</div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-card arch-agent">
+                        <div class="arch-label">Network Connected</div>
+                        <h4>Agent Daemon</h4>
+                        <ul>
+                            <li>Agent master shard</li>
+                            <li>Presig agent shares</li>
+                            <li>zkVM executor (SP1)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cryptography Section -->
+    <section id="cryptography" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Cryptographic Foundation</h2>
+                <p>Built on proven cryptographic primitives and cutting-edge threshold signature schemes</p>
+            </div>
+            <div class="crypto-content">
+                <div class="crypto-main">
+                    <div class="crypto-card">
+                        <h3>2-of-2 Threshold ECDSA</h3>
+                        <p>Sigil implements secure two-party ECDSA using presignatures. The private key is split between two parties, and signatures require both shares to compute.</p>
+                        <div class="code-block">
+                            <code>
+<span class="comment">// Signature computation</span>
+<span class="keyword">s</span> = k<sup>-1</sup> &middot; (z + r &middot; x) <span class="keyword">mod</span> n
+
+<span class="comment">// Where:</span>
+<span class="comment">// k = k_cold + k_agent (reconstructed nonce)</span>
+<span class="comment">// x = x_cold + x_agent (reconstructed key)</span>
+                            </code>
+                        </div>
+                    </div>
+                    <div class="crypto-card">
+                        <h3>FROST Threshold Signatures</h3>
+                        <p>For modern blockchain networks, Sigil implements FROST (Flexible Round-Optimized Schnorr Threshold) signatures with support for multiple curve types.</p>
+                        <div class="code-block">
+                            <code>
+<span class="comment">// Schnorr signature (simpler than ECDSA)</span>
+<span class="keyword">s</span> = k + e &middot; x <span class="keyword">mod</span> n
+
+<span class="comment">// Enables:</span>
+<span class="comment">// - Batch verification (3x faster)</span>
+<span class="comment">// - Native adaptor signatures</span>
+<span class="comment">// - True threshold signing</span>
+                            </code>
+                        </div>
+                    </div>
+                    <div class="crypto-card">
+                        <h3>Zero-Knowledge Proofs</h3>
+                        <p>All signing operations execute inside the SP1 zkVM, producing verifiable proofs that the signature was computed correctly from valid presignature shares.</p>
+                        <div class="proof-constraints">
+                            <div class="constraint">
+                                <span class="constraint-check">&#10003;</span>
+                                <span>R-point agreement verified</span>
+                            </div>
+                            <div class="constraint">
+                                <span class="constraint-check">&#10003;</span>
+                                <span>Signature computation validated</span>
+                            </div>
+                            <div class="constraint">
+                                <span class="constraint-check">&#10003;</span>
+                                <span>Public key binding enforced</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="crypto-sidebar">
+                    <h4>Security Properties</h4>
+                    <ul class="security-list">
+                        <li>
+                            <strong>Unforgeability</strong>
+                            <span>Single-party compromise cannot produce signatures</span>
+                        </li>
+                        <li>
+                            <strong>Bounded Exposure</strong>
+                            <span>Disk theft limits attacker to N presignatures</span>
+                        </li>
+                        <li>
+                            <strong>Forward Secrecy</strong>
+                            <span>Past signatures remain secure after compromise</span>
+                        </li>
+                        <li>
+                            <strong>Auditability</strong>
+                            <span>zkVM proofs verify every operation</span>
+                        </li>
+                    </ul>
+                    <h4>Cryptographic Assumptions</h4>
+                    <ul class="assumptions-list">
+                        <li>ECDLP hardness on secp256k1</li>
+                        <li>Random oracle model (SHA-256)</li>
+                        <li>SP1 zkVM soundness</li>
+                        <li>256-bit entropy from system RNG</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Supported Assets Section -->
+    <section id="assets" class="section section-dark">
+        <div class="container">
+            <div class="section-header">
+                <h2>Supported Asset Classes</h2>
+                <p>Multi-chain support for diverse digital asset portfolios</p>
+            </div>
+            <div class="assets-grid">
+                <div class="asset-category">
+                    <h3>ECDSA (secp256k1)</h3>
+                    <p class="asset-desc">Default signature scheme for EVM-compatible chains</p>
+                    <div class="asset-list">
+                        <div class="asset-item">
+                            <div class="asset-icon eth"></div>
+                            <div class="asset-info">
+                                <strong>Ethereum</strong>
+                                <span>ETH, ERC-20, ERC-721</span>
+                            </div>
+                        </div>
+                        <div class="asset-item">
+                            <div class="asset-icon btc"></div>
+                            <div class="asset-info">
+                                <strong>Bitcoin (Legacy)</strong>
+                                <span>P2PKH, P2SH addresses</span>
+                            </div>
+                        </div>
+                        <div class="asset-item">
+                            <div class="asset-icon bnb"></div>
+                            <div class="asset-info">
+                                <strong>BNB Smart Chain</strong>
+                                <span>BEP-20 tokens</span>
+                            </div>
+                        </div>
+                        <div class="asset-item">
+                            <div class="asset-icon polygon"></div>
+                            <div class="asset-info">
+                                <strong>Polygon</strong>
+                                <span>MATIC, ERC-20</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="asset-category">
+                    <h3>Taproot/Schnorr (BIP-340)</h3>
+                    <p class="asset-desc">Native SegWit v1 with 32-byte x-only public keys</p>
+                    <div class="asset-list">
+                        <div class="asset-item">
+                            <div class="asset-icon btc-taproot"></div>
+                            <div class="asset-info">
+                                <strong>Bitcoin Taproot</strong>
+                                <span>bc1p... addresses, 64-byte signatures</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="feature-tag">FROST Enabled</div>
+                </div>
+                <div class="asset-category">
+                    <h3>Ed25519 (Curve25519)</h3>
+                    <p class="asset-desc">High-performance signatures for modern chains</p>
+                    <div class="asset-list">
+                        <div class="asset-item">
+                            <div class="asset-icon sol"></div>
+                            <div class="asset-info">
+                                <strong>Solana</strong>
+                                <span>SOL, SPL tokens</span>
+                            </div>
+                        </div>
+                        <div class="asset-item">
+                            <div class="asset-icon cosmos"></div>
+                            <div class="asset-info">
+                                <strong>Cosmos Ecosystem</strong>
+                                <span>ATOM, OSMO, and IBC chains</span>
+                            </div>
+                        </div>
+                        <div class="asset-item">
+                            <div class="asset-icon near"></div>
+                            <div class="asset-info">
+                                <strong>Near Protocol</strong>
+                                <span>NEAR, NEP tokens</span>
+                            </div>
+                        </div>
+                        <div class="asset-item">
+                            <div class="asset-icon dot"></div>
+                            <div class="asset-info">
+                                <strong>Polkadot</strong>
+                                <span>DOT, parachains</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="feature-tag">FROST Enabled</div>
+                </div>
+                <div class="asset-category">
+                    <h3>Ristretto255</h3>
+                    <p class="asset-desc">Privacy-preserving transactions with shielded pools</p>
+                    <div class="asset-list">
+                        <div class="asset-item">
+                            <div class="asset-icon zec"></div>
+                            <div class="asset-info">
+                                <strong>Zcash Shielded</strong>
+                                <span>Sapling/Orchard transactions via PCZT</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="feature-tag">FROST Enabled</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentation Section -->
+    <section id="documentation" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Documentation</h2>
+                <p>Comprehensive guides and technical specifications</p>
+            </div>
+            <div class="docs-grid">
+                <a href="docs/crypto-spec.html" class="doc-card">
+                    <div class="doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </div>
+                    <h3>Cryptographic Specification</h3>
+                    <p>Detailed protocol specification including key generation, presignature creation, and signature computation.</p>
+                    <span class="doc-link">Read specification &rarr;</span>
+                </a>
+                <a href="docs/frost.html" class="doc-card">
+                    <div class="doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v6m0 6v10M1 12h6m6 0h10"/>
+                            <path d="M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/>
+                        </svg>
+                    </div>
+                    <h3>FROST Multi-Chain Guide</h3>
+                    <p>Quick start guides for Bitcoin Taproot, Solana, Cosmos, and Zcash with code examples.</p>
+                    <span class="doc-link">View guide &rarr;</span>
+                </a>
+                <a href="docs/threat-model.html" class="doc-card">
+                    <div class="doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <h3>Threat Model</h3>
+                    <p>Security analysis covering disk theft, agent compromise, and mother device scenarios.</p>
+                    <span class="doc-link">Review threats &rarr;</span>
+                </a>
+                <a href="docs/recovery.html" class="doc-card">
+                    <div class="doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="1 4 1 10 7 10"/>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                        </svg>
+                    </div>
+                    <h3>Recovery Procedures</h3>
+                    <p>Step-by-step guides for disaster recovery, key rotation, and emergency nullification.</p>
+                    <span class="doc-link">View procedures &rarr;</span>
+                </a>
+                <a href="docs/zkvm-proofs.html" class="doc-card">
+                    <div class="doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 11 12 14 22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                    </div>
+                    <h3>zkVM Proofs</h3>
+                    <p>Technical documentation on SP1 integration and proof verification.</p>
+                    <span class="doc-link">Learn more &rarr;</span>
+                </a>
+                <a href="docs/timing-safety.html" class="doc-card">
+                    <div class="doc-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <h3>Timing Safety</h3>
+                    <p>Side-channel resistance documentation and constant-time operation guarantees.</p>
+                    <span class="doc-link">Read analysis &rarr;</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section cta-section">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to secure your digital assets?</h2>
+                <p>Sigil is open source and available for evaluation. Contact us for enterprise support and custom deployments.</p>
+                <div class="cta-actions">
+                    <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary btn-lg" target="_blank" rel="noopener">Get Started on GitHub</a>
+                    <a href="https://chipprbots.com" class="btn btn-outline btn-lg" target="_blank" rel="noopener">Contact ChipprBots</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="footer-logo">
+                    <p>Secure MPC signing infrastructure for digital assets.</p>
+                    <p class="footer-legal">Apache-2.0 License</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-col">
+                        <h4>Product</h4>
+                        <a href="#features">Features</a>
+                        <a href="#cryptography">Cryptography</a>
+                        <a href="#assets">Supported Assets</a>
+                    </div>
+                    <div class="footer-col">
+                        <h4>Documentation</h4>
+                        <a href="docs/crypto-spec.html">Crypto Spec</a>
+                        <a href="docs/frost.html">FROST Guide</a>
+                        <a href="docs/threat-model.html">Threat Model</a>
+                    </div>
+                    <div class="footer-col">
+                        <h4>Resources</h4>
+                        <a href="https://github.com/chippr-robotics/sigil" target="_blank" rel="noopener">GitHub</a>
+                        <a href="https://github.com/chippr-robotics/sigil/issues" target="_blank" rel="noopener">Issues</a>
+                        <a href="https://chipprbots.com" target="_blank" rel="noopener">ChipprBots</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 ChipprBots. All rights reserved.</p>
+                <p class="footer-warning">This software involves bleeding-edge cryptography and is unaudited. Read security documentation before use.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

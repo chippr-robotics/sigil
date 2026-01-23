@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timing Safety | Sigil Documentation</title>
+    <meta name="description" content="Side-channel resistance documentation and constant-time operation guarantees.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/docs.css">
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="../" class="logo">
+                <img src="https://github.com/user-attachments/assets/be1db973-ef19-4942-9bab-23c30307ce70" alt="Sigil" class="logo-img">
+                <span class="logo-text">Sigil</span>
+            </a>
+            <div class="nav-links">
+                <a href="../#features">Features</a>
+                <a href="../#cryptography">Cryptography</a>
+                <a href="../#assets">Supported Assets</a>
+                <a href="../#documentation">Documentation</a>
+                <a href="https://chipprbots.com" class="btn btn-outline" target="_blank" rel="noopener">ChipprBots</a>
+                <a href="https://github.com/chippr-robotics/sigil" class="btn btn-primary" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="docs-main">
+        <aside class="docs-sidebar">
+            <nav class="docs-nav">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="crypto-spec.html">Cryptographic Specification</a></li>
+                    <li><a href="frost.html">FROST Multi-Chain Guide</a></li>
+                    <li><a href="threat-model.html">Threat Model</a></li>
+                    <li><a href="recovery.html">Recovery Procedures</a></li>
+                    <li><a href="zkvm-proofs.html">zkVM Proofs</a></li>
+                    <li><a href="timing-safety.html" class="active">Timing Safety</a></li>
+                </ul>
+                <h4>On This Page</h4>
+                <ul class="toc">
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#constant-time">Constant-Time Operations</a></li>
+                    <li><a href="#library">Library Choices</a></li>
+                    <li><a href="#memory">Memory Safety</a></li>
+                    <li><a href="#zkvm">zkVM Isolation</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <article class="docs-content">
+            <div class="docs-header">
+                <div class="docs-breadcrumb">
+                    <a href="../">Home</a> / <a href="../#documentation">Documentation</a> / <span>Timing Safety</span>
+                </div>
+                <h1>Timing Safety</h1>
+                <div class="docs-meta">
+                    <span class="version">Version 0.1.0</span>
+                    <span class="updated">Last Updated: 2026-01-17</span>
+                </div>
+            </div>
+
+            <section class="docs-section" id="overview">
+                <h2>Overview</h2>
+                <p>Timing attacks exploit variations in execution time to extract secret information. Sigil implements multiple layers of defense against timing-based side-channel attacks.</p>
+
+                <h3>Attack Surface</h3>
+                <ul>
+                    <li><strong>Local timing:</strong> Attacker measures execution time of cryptographic operations</li>
+                    <li><strong>Remote timing:</strong> Attacker measures network response times</li>
+                    <li><strong>Cache timing:</strong> Attacker observes CPU cache behavior</li>
+                    <li><strong>Power analysis:</strong> Attacker measures power consumption patterns</li>
+                </ul>
+
+                <div class="callout callout-info">
+                    <strong>Sigil's Approach:</strong> Cryptographic operations are designed to execute in constant time regardless of secret values, and the zkVM provides an additional layer of abstraction from physical execution.
+                </div>
+            </section>
+
+            <section class="docs-section" id="constant-time">
+                <h2>Constant-Time Operations</h2>
+
+                <h3>Critical Operations</h3>
+                <p>The following operations handle secret data and must be constant-time:</p>
+
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Operation</th>
+                            <th>Secret Data</th>
+                            <th>Implementation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Scalar multiplication</td>
+                            <td>Private key shares, nonces</td>
+                            <td>k256 with constant-time feature</td>
+                        </tr>
+                        <tr>
+                            <td>Modular inversion</td>
+                            <td>Nonce k</td>
+                            <td>Fermat's little theorem</td>
+                        </tr>
+                        <tr>
+                            <td>Point comparison</td>
+                            <td>R-point</td>
+                            <td>Constant-time equality</td>
+                        </tr>
+                        <tr>
+                            <td>Scalar comparison</td>
+                            <td>Low-S check</td>
+                            <td>Constant-time comparison</td>
+                        </tr>
+                        <tr>
+                            <td>Memory access</td>
+                            <td>Presignature lookup</td>
+                            <td>Linear scan (no index-based)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Non-Constant-Time Operations</h3>
+                <p>These operations are safe because they don't depend on secrets:</p>
+                <ul>
+                    <li>Public key derivation (from public parent)</li>
+                    <li>Address generation</li>
+                    <li>Signature encoding</li>
+                    <li>Proof serialization</li>
+                </ul>
+            </section>
+
+            <section class="docs-section" id="library">
+                <h2>Library Choices</h2>
+
+                <h3>k256 Crate</h3>
+                <p>Sigil uses the <code>k256</code> crate for secp256k1 operations, configured for constant-time execution:</p>
+
+                <div class="code-block">
+                    <code># Cargo.toml
+[dependencies]
+k256 = { version = "0.13", features = ["arithmetic", "ecdsa"] }
+
+# The "arithmetic" feature enables:
+# - Constant-time scalar multiplication
+# - Constant-time field operations
+# - Side-channel resistant point operations</code>
+                </div>
+
+                <h3>Ed25519 Operations</h3>
+                <p>For Ed25519 (Solana, Cosmos), we use the <code>ed25519-dalek</code> crate:</p>
+
+                <div class="code-block">
+                    <code>[dependencies]
+ed25519-dalek = { version = "2", features = ["hazmat"] }
+curve25519-dalek = { version = "4", features = ["digest"] }
+
+# Both crates implement constant-time operations by default</code>
+                </div>
+
+                <h3>Subtle Crate</h3>
+                <p>For custom constant-time operations, we use the <code>subtle</code> crate:</p>
+
+                <div class="code-block">
+                    <code>use subtle::{Choice, ConstantTimeEq, ConditionallySelectable};
+
+// Constant-time equality check
+fn ct_eq(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    a.ct_eq(b).into()
+}
+
+// Constant-time conditional selection
+fn ct_select(a: Scalar, b: Scalar, choice: Choice) -> Scalar {
+    Scalar::conditional_select(&a, &b, choice)
+}</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="memory">
+                <h2>Memory Safety</h2>
+
+                <h3>Zeroization</h3>
+                <p>Secret values are zeroized immediately after use:</p>
+
+                <div class="code-block">
+                    <code>use zeroize::{Zeroize, ZeroizeOnDrop};
+
+#[derive(Zeroize, ZeroizeOnDrop)]
+struct SecretKey {
+    scalar: [u8; 32],
+}
+
+impl SecretKey {
+    fn sign(&amp;self, message: &amp;[u8]) -> Signature {
+        // ... signing logic ...
+        // scalar is automatically zeroized when SecretKey is dropped
+    }
+}</code>
+                </div>
+
+                <h3>Memory Protection</h3>
+                <ul>
+                    <li><strong>No heap allocation for secrets:</strong> Secret values stored on stack where possible</li>
+                    <li><strong>mlock:</strong> Critical memory pages locked to prevent swapping</li>
+                    <li><strong>Guard pages:</strong> Memory regions protected against buffer overflows</li>
+                </ul>
+
+                <div class="code-block">
+                    <code>use memsec::{mlock, munlock};
+
+// Lock memory containing secrets
+let secret = Box::new([0u8; 32]);
+unsafe { mlock(secret.as_ptr(), 32); }
+
+// ... use secret ...
+
+// Unlock before dropping
+unsafe { munlock(secret.as_ptr(), 32); }</code>
+                </div>
+            </section>
+
+            <section class="docs-section" id="zkvm">
+                <h2>zkVM Isolation</h2>
+
+                <h3>Execution Abstraction</h3>
+                <p>The zkVM provides an additional layer of protection by abstracting the physical execution:</p>
+
+                <ul>
+                    <li><strong>Deterministic execution:</strong> Same inputs always produce same execution trace</li>
+                    <li><strong>No side channels:</strong> Proof reveals nothing about execution timing</li>
+                    <li><strong>Memory isolation:</strong> zkVM memory is separate from host memory</li>
+                </ul>
+
+                <h3>What the Proof Reveals</h3>
+                <table class="docs-table">
+                    <thead>
+                        <tr>
+                            <th>Information</th>
+                            <th>Revealed?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Computation was correct</td>
+                            <td>Yes (that's the point)</td>
+                        </tr>
+                        <tr>
+                            <td>Public inputs (pubkey, message)</td>
+                            <td>Yes (explicitly included)</td>
+                        </tr>
+                        <tr>
+                            <td>Signature output</td>
+                            <td>Yes (explicitly included)</td>
+                        </tr>
+                        <tr>
+                            <td>Private key shares</td>
+                            <td>No (zero-knowledge)</td>
+                        </tr>
+                        <tr>
+                            <td>Nonce values</td>
+                            <td>No (zero-knowledge)</td>
+                        </tr>
+                        <tr>
+                            <td>Execution time</td>
+                            <td>No (proof is size-based, not time-based)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout callout-info">
+                    <strong>Defense in Depth:</strong> Even if the zkVM execution leaks timing information, the proof itself reveals nothing about execution characteristics. Verifiers only see the proof, not the execution.
+                </div>
+            </section>
+
+            <section class="docs-section">
+                <h2>Best Practices</h2>
+
+                <h3>For Developers</h3>
+                <ol>
+                    <li>
+                        <strong>Never branch on secrets</strong>
+                        <div class="code-block">
+                            <code>// BAD: Branches on secret value
+if secret_scalar > threshold {
+    return early_exit();
+}
+
+// GOOD: Use constant-time selection
+let result = Scalar::conditional_select(
+    &amp;value_a,
+    &amp;value_b,
+    secret_scalar.ct_gt(&amp;threshold)
+);</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Never index arrays with secrets</strong>
+                        <div class="code-block">
+                            <code>// BAD: Array index depends on secret
+let presig = presigs[secret_index];
+
+// GOOD: Linear scan with constant-time selection
+let mut result = PresigShare::default();
+for (i, presig) in presigs.iter().enumerate() {
+    let is_match = (i as u32).ct_eq(&amp;secret_index);
+    result = PresigShare::conditional_select(&amp;result, presig, is_match);
+}</code>
+                        </div>
+                    </li>
+                    <li>
+                        <strong>Use audited cryptographic libraries</strong>
+                        <p>Prefer well-audited crates from the RustCrypto project.</p>
+                    </li>
+                </ol>
+
+                <h3>For Operators</h3>
+                <ul>
+                    <li>Run signing operations on dedicated hardware</li>
+                    <li>Monitor for unusual timing patterns in logs</li>
+                    <li>Keep systems patched against microarchitectural attacks</li>
+                    <li>Use hardware security modules where available</li>
+                </ul>
+            </section>
+
+            <section class="docs-section">
+                <h2>Audit Status</h2>
+
+                <div class="callout callout-warning">
+                    <strong>Unaudited:</strong> This codebase has not undergone a formal security audit. The timing-safety measures described here are based on best practices but have not been independently verified.
+                </div>
+
+                <p>Planned audit scope includes:</p>
+                <ul>
+                    <li>Constant-time analysis of all cryptographic operations</li>
+                    <li>Memory safety review</li>
+                    <li>zkVM constraint verification</li>
+                    <li>Integration security assessment</li>
+                </ul>
+            </section>
+
+            <div class="docs-footer">
+                <div class="docs-nav-footer">
+                    <a href="zkvm-proofs.html" class="prev">&larr; zkVM Proofs</a>
+                    <span></span>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2026 ChipprBots. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/main.js"></script>
+</body>
+</html>
