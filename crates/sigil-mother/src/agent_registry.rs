@@ -80,8 +80,8 @@ impl AgentRegistry {
         // Fill with hash-derived values and ensure it's odd (not divisible by 2)
         for (i, chunk) in modulus.chunks_mut(32).enumerate() {
             let mut hasher = Sha256::new();
-            hasher.update(&seed);
-            hasher.update(&(i as u64).to_le_bytes());
+            hasher.update(seed);
+            hasher.update((i as u64).to_le_bytes());
             let hash = hasher.finalize();
             chunk.copy_from_slice(&hash[..chunk.len()]);
         }
@@ -366,7 +366,7 @@ impl AgentRegistry {
             let mut hasher = Sha256::new();
             hasher.update(b"bezout_a:");
             hasher.update(agent_id.as_bytes());
-            hasher.update(&(i as u64).to_le_bytes());
+            hasher.update((i as u64).to_le_bytes());
             let hash = hasher.finalize();
             chunk.copy_from_slice(&hash[..chunk.len()]);
         }
@@ -386,8 +386,8 @@ impl AgentRegistry {
         for (i, chunk) in result.chunks_mut(32).enumerate() {
             let mut hasher = Sha256::new();
             hasher.update(b"cofactor_d:");
-            hasher.update(&accumulator.accumulator);
-            hasher.update(&(i as u64).to_le_bytes());
+            hasher.update(accumulator.accumulator);
+            hasher.update((i as u64).to_le_bytes());
             let hash = hasher.finalize();
             chunk.copy_from_slice(&hash[..chunk.len()]);
         }

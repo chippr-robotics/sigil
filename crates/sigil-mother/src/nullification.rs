@@ -126,7 +126,7 @@ impl NullificationManager {
     pub fn update_witness(
         &self,
         witness: &NonMembershipWitness,
-        nullified_id: &AgentId,
+        _nullified_id: &AgentId,
     ) -> Result<NonMembershipWitness> {
         // Check that the witness agent is still active
         if self.nullified_agents.contains(&witness.agent_id) {
@@ -186,8 +186,8 @@ impl NullificationManager {
             hasher.update(b"bezout_a_v1:");
             hasher.update(agent_id.as_bytes());
             hasher.update(&self.accumulator.accumulator[..32]);
-            hasher.update(&(i as u64).to_le_bytes());
-            hasher.update(&self.accumulator.version().to_le_bytes());
+            hasher.update((i as u64).to_le_bytes());
+            hasher.update(self.accumulator.version().to_le_bytes());
             let hash = hasher.finalize();
             chunk.copy_from_slice(&hash[..chunk.len()]);
         }
@@ -208,7 +208,7 @@ impl NullificationManager {
             hasher.update(b"cofactor_d_v1:");
             hasher.update(&self.accumulator.generator[..32]);
             hasher.update(&self.accumulator.accumulator[..32]);
-            hasher.update(&(i as u64).to_le_bytes());
+            hasher.update((i as u64).to_le_bytes());
             let hash = hasher.finalize();
             chunk.copy_from_slice(&hash[..chunk.len()]);
         }

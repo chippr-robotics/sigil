@@ -1,6 +1,8 @@
 //! Application state
 
-use sigil_mother::{AgentRegistry, BlockDevice, ChildRegistry, DiskStatus, FloppyManager, MountMethod};
+use sigil_mother::{
+    AgentRegistry, BlockDevice, ChildRegistry, DiskStatus, FloppyManager, MountMethod,
+};
 
 use super::config::TuiConfig;
 
@@ -136,8 +138,8 @@ impl AppState {
         let config = TuiConfig::load();
 
         // Create floppy manager with config settings
-        let mut floppy_manager = FloppyManager::new()
-            .with_mount_method(MountMethod::from(config.mount_method));
+        let mut floppy_manager =
+            FloppyManager::new().with_mount_method(MountMethod::from(config.mount_method));
 
         // Apply selected device from config if set
         if let Some(ref device) = config.selected_device {
@@ -222,9 +224,9 @@ impl AppState {
 
     /// Get the currently selected device info
     pub fn selected_device(&self) -> Option<&BlockDevice> {
-        self.selected_device_path.as_ref().and_then(|path| {
-            self.available_devices.iter().find(|d| &d.path == path)
-        })
+        self.selected_device_path
+            .as_ref()
+            .and_then(|path| self.available_devices.iter().find(|d| &d.path == path))
     }
 
     /// Get currently selected agent (if any)

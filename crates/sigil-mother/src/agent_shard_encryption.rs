@@ -133,7 +133,7 @@ pub fn encrypt_agent_shard(shard_data: &AgentShardData) -> Result<(EncryptedAgen
     // Generate nonce for ChaCha20-Poly1305
     let mut nonce_bytes = [0u8; 12];
     rng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = &Nonce::from(nonce_bytes);
 
     // Serialize shard data
     let plaintext =
@@ -170,7 +170,7 @@ pub fn decrypt_agent_shard(
     // Create cipher and nonce
     let cipher = ChaCha20Poly1305::new_from_slice(&key)
         .map_err(|e| MotherError::Crypto(format!("Failed to create cipher: {}", e)))?;
-    let nonce = Nonce::from_slice(&encrypted.nonce);
+    let nonce = &Nonce::from(encrypted.nonce);
 
     // Decrypt
     let plaintext = cipher
@@ -247,8 +247,7 @@ pub fn estimate_qr_size(presig_count: u32) -> usize {
     // Each presig share is ~100 bytes, encryption adds ~16 bytes overhead
     // Base64 encoding adds ~33% overhead
     // Prefix adds ~15 bytes
-    let data_size = (presig_count as usize * 110 + 100) * 4 / 3 + 50;
-    data_size
+    (presig_count as usize * 110 + 100) * 4 / 3 + 50
 }
 
 // =============================================================================

@@ -300,11 +300,8 @@ impl App {
     }
 
     fn handle_child_create_key(&mut self, key: KeyCode) {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::ChildList;
-            }
-            _ => {}
+        if key == KeyCode::Esc {
+            self.state.current_screen = Screen::ChildList;
         }
     }
 
