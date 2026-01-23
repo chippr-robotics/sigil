@@ -14,7 +14,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/chippr-robotics/sigil"
@@ -28,18 +28,20 @@ sigil-zkvm = { path = "crates/sigil-zkvm" }
 sigil-daemon = { path = "crates/sigil-daemon" }
 sigil-cli = { path = "crates/sigil-cli" }
 sigil-mother = { path = "crates/sigil-mother" }
+sigil-mother-tui = { path = "crates/sigil-mother-tui" }
 sigil-mother-zkvm = { path = "crates/sigil-mother-zkvm" }
 sigil-mcp = { path = "crates/sigil-mcp" }
-sigil-mother-tui = { path = "crates/sigil-mother-tui" }
 
 # TUI
-ratatui = "0.28"
+ratatui = "0.29"
 crossterm = { version = "0.28", features = ["event-stream"] }
 tui-textarea = "0.6"
 
 # Cryptography
 k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
 sha3 = "0.10"
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
 
 # FROST threshold signatures (Zcash Foundation)
 frost-core = "2.1"
@@ -60,10 +62,7 @@ hex = "0.4"
 csv = "1.3"
 toml = "0.8"
 
-# Security
-argon2 = "0.5"
 dirs = "5.0"
-chacha20poly1305 = "0.10"
 
 # Hardware wallet/HSM support (optional)
 ledger-transport = "0.11"

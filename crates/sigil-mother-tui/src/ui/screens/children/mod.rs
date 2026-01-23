@@ -1,5 +1,4 @@
-//! Child management screens
+//! Child disk management screens
 
 pub mod create;
-pub mod detail;
 pub mod list;

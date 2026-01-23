@@ -21,6 +21,7 @@ pub struct DetectedDisk {
 /// Disk detector for finding floppy drives
 pub struct DiskDetector {
     /// Mount path pattern to search
+    #[allow(dead_code)] // Reserved for future use with custom patterns
     pattern: String,
 }
 

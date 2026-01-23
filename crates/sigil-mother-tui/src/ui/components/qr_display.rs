@@ -9,6 +9,7 @@ use crate::ui::Theme;
 /// QR code display component
 pub struct QrCode {
     /// The data to encode
+    #[allow(dead_code)] // Stored for debugging/reference
     data: String,
     /// Generated QR code matrix
     matrix: Option<Vec<Vec<bool>>>,
@@ -169,6 +170,7 @@ impl QrCode {
 /// Chunk data for large QR codes
 pub struct QrChunker {
     /// Maximum bytes per QR code (Version 40 limit)
+    #[allow(dead_code)] // Reserved for future configuration
     max_bytes: usize,
     /// Chunks of data
     chunks: Vec<String>,

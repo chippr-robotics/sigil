@@ -1,13 +1,14 @@
-//! Sigil Mother TUI Library
+//! Sigil Mother TUI - Terminal User Interface
 //!
-//! This library provides the terminal user interface components for the
-//! Sigil Mother air-gapped MPC guardian system.
+//! A secure terminal interface for the air-gapped Sigil Mother device.
+//! Provides functionality for:
+//! - Master key management
+//! - Child disk creation and management
+//! - Agent registration and nullification
+//! - Reconciliation workflows
+//! - QR code display for data transfer
 
 pub mod app;
-pub mod auth;
-pub mod operations;
-pub mod reports;
 pub mod ui;
-pub mod utils;
 
-pub use app::App;
+pub use app::{App, AppResult};

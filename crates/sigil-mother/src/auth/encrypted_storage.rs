@@ -78,14 +78,14 @@ impl EncryptedMotherStorage {
         // Generate random nonce
         let mut nonce_bytes = [0u8; NONCE_SIZE];
         rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
+        let nonce: Nonce = nonce_bytes.into();
 
         // Encrypt
         let cipher = ChaCha20Poly1305::new_from_slice(encryption_key)
             .map_err(|e| AuthError::CryptoError(format!("Invalid key: {}", e)))?;
 
         let ciphertext = cipher
-            .encrypt(nonce, plaintext.as_bytes())
+            .encrypt(&nonce, plaintext.as_bytes())
             .map_err(|e| AuthError::CryptoError(format!("Encryption failed: {}", e)))?;
 
         // Combine nonce + ciphertext
@@ -138,7 +138,10 @@ impl EncryptedMotherStorage {
         }
 
         // Extract nonce and ciphertext
-        let nonce = Nonce::from_slice(&encrypted_data[..NONCE_SIZE]);
+        let nonce_bytes: [u8; NONCE_SIZE] = encrypted_data[..NONCE_SIZE]
+            .try_into()
+            .map_err(|_| AuthError::StorageError("Invalid nonce length".to_string()))?;
+        let nonce: Nonce = nonce_bytes.into();
         let ciphertext = &encrypted_data[NONCE_SIZE..];
 
         // Decrypt
@@ -146,7 +149,7 @@ impl EncryptedMotherStorage {
             .map_err(|e| AuthError::CryptoError(format!("Invalid key: {}", e)))?;
 
         let plaintext = cipher
-            .decrypt(nonce, ciphertext)
+            .decrypt(&nonce, ciphertext)
             .map_err(|_| AuthError::DecryptionFailed)?;
 
         // Deserialize

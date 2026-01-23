@@ -87,8 +87,8 @@ install_deps() {
 
 # Get source code
 get_source() {
-    # Check if we're in the sigil repo already
-    if [[ -f "Cargo.toml" ]] && grep -q 'name = "sigil"' Cargo.toml 2>/dev/null; then
+    # Check if we're in the sigil repo already (workspace or crate)
+    if [[ -f "Cargo.toml" ]] && (grep -q 'sigil-core' Cargo.toml 2>/dev/null || grep -q 'name = "sigil"' Cargo.toml 2>/dev/null); then
         BUILD_DIR="$(pwd)"
         info "Building from current directory"
         return

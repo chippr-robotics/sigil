@@ -46,6 +46,22 @@ pub enum MotherError {
     #[error("Derivation path already used: {0}")]
     DerivationPathUsed(String),
 
+    /// Agent not found in registry
+    #[error("Agent not found: {0}")]
+    AgentNotFound(String),
+
+    /// Agent already exists
+    #[error("Agent already exists with ID: {0}")]
+    AgentAlreadyExists(String),
+
+    /// Agent is nullified
+    #[error("Agent is nullified: {0}")]
+    AgentNullified(String),
+
+    /// Accumulator error
+    #[error("Accumulator error: {0}")]
+    AccumulatorError(String),
+
     /// Invalid disk format
     #[error("Invalid disk format: {0}")]
     InvalidDiskFormat(String),

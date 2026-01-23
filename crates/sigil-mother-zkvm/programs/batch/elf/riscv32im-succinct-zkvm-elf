@@ -1,0 +1,1 @@
+PLACEHOLDER: Build actual ELF with 'cd crates/sigil-mother-zkvm/programs/batch && cargo prove build'

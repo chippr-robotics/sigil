@@ -12,6 +12,8 @@ use k256::{
 };
 use sha2::{Digest, Sha256};
 
+#[cfg(feature = "sp1-prover")]
+use super::HardwareProverTrait;
 use crate::error::{Result, ZkvmError};
 use crate::types::{HardwareInput, HardwareOutput};
 

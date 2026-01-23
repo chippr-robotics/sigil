@@ -1,6 +1,8 @@
 //! Batch presig proof verifier
 
 use crate::error::Result;
+#[cfg(feature = "sp1-prover")]
+use crate::error::ZkvmError;
 use crate::merkle::MerkleTree;
 use crate::types::BatchPresigOutput;
 
