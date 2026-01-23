@@ -4,7 +4,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 
 use crate::app::App;
-use crate::ui::components::floppy::{render_disk_indicator, DiskStatus, FloppyDisk};
+use crate::ui::components::floppy::{DiskStatus, FloppyDisk};
 use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Menu items on the dashboard
@@ -117,7 +117,7 @@ fn render_menu(frame: &mut Frame, area: Rect, app: &App) {
 
 /// Render status panels on the right side
 fn render_status_panels(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+    let _theme = &app.theme;
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -175,7 +175,7 @@ fn render_disk_panel(frame: &mut Frame, area: Rect, app: &App) {
             Line::from(vec![
                 Span::raw("Child: "),
                 Span::styled(
-                    app.state.disk_child_id.as_deref().unwrap_or("----")[..8.min(8)].to_string(),
+                    app.state.disk_child_id.as_deref().unwrap_or("----")[..8].to_string(),
                     theme.text_highlight(),
                 ),
             ]),
@@ -290,7 +290,7 @@ fn render_activity_panel(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(block, area);
 
     // Placeholder activity
-    let activity = vec!["No recent activity"];
+    let activity = ["No recent activity"];
 
     let activity_widget = Paragraph::new(activity.join("\n"))
         .style(theme.text_muted())

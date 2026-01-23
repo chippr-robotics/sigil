@@ -107,7 +107,7 @@ fn render_qr(frame: &mut Frame, area: Rect, app: &App, qr_type: &QrDisplayType) 
 
     // Calculate centered position
     let qr_size = qr.size().unwrap_or(21);
-    let display_height = (qr_size + 1) / 2;
+    let _display_height = qr_size.div_ceil(2);
 
     // Render QR code
     qr.render(frame, inner, theme);

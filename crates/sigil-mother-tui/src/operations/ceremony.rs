@@ -70,9 +70,9 @@ impl CeremonyExecutor {
     /// Execute child creation ceremony
     pub async fn create_child(
         &self,
-        scheme: &str,
+        _scheme: &str,
         presig_count: u32,
-        validity_days: u32,
+        _validity_days: u32,
     ) -> Result<CeremonyResult> {
         self.report(1, 5, "Loading master shard...");
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -156,7 +156,7 @@ impl CeremonyExecutor {
     }
 
     /// Execute nullification
-    pub async fn nullify(&self, child_id: &str, reason: &str) -> Result<CeremonyResult> {
+    pub async fn nullify(&self, child_id: &str, _reason: &str) -> Result<CeremonyResult> {
         self.report(1, 3, "Loading child record...");
         tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
 

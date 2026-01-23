@@ -23,7 +23,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let prompt_x = area.x + (area.width.saturating_sub(prompt.len() as u16)) / 2;
 
     // Blinking effect
-    let visible = (app.tick / 30) % 2 == 0;
+    let visible = (app.tick / 30).is_multiple_of(2);
     if visible {
         let prompt_widget = Paragraph::new(prompt).style(app.theme.text_muted());
         frame.render_widget(

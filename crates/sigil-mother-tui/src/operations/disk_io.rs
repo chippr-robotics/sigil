@@ -47,7 +47,7 @@ impl DiskDetector {
     }
 
     /// Check if a specific path is a valid Sigil disk
-    pub fn validate_disk(&self, path: &PathBuf) -> Result<bool> {
+    pub fn validate_disk(&self, _path: &PathBuf) -> Result<bool> {
         // Would read first bytes and check for SIGILDSK magic
         Ok(false)
     }
@@ -71,7 +71,7 @@ impl UsbDetector {
 }
 
 /// Safe disk ejection
-pub fn eject_disk(path: &PathBuf) -> Result<()> {
+pub fn eject_disk(_path: &PathBuf) -> Result<()> {
     // Would use udisksctl or similar
     Ok(())
 }

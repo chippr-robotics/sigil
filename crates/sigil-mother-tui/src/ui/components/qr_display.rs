@@ -80,7 +80,7 @@ impl QrCode {
         let qr_width = matrix.first().map(|r| r.len()).unwrap_or(0);
 
         // Each terminal row represents 2 QR rows using half blocks
-        let display_height = (qr_height + 1) / 2;
+        let display_height = qr_height.div_ceil(2);
         let display_width = qr_width;
 
         // Center the QR code
@@ -187,7 +187,7 @@ impl QrChunker {
             .chunks(max_bytes)
             .enumerate()
             .map(|(i, chunk)| {
-                let total = (data.len() + max_bytes - 1) / max_bytes;
+                let total = data.len().div_ceil(max_bytes);
                 format!(
                     "SIGIL:{}:{}:{}",
                     i + 1,
@@ -212,7 +212,7 @@ impl QrChunker {
 
     /// Create QR codes for all chunks
     pub fn qr_codes(&self) -> Vec<QrCode> {
-        self.chunks.iter().map(|c| QrCode::new(c)).collect()
+        self.chunks.iter().map(QrCode::new).collect()
     }
 }
 

@@ -4,8 +4,7 @@ mod events;
 mod router;
 mod state;
 
-pub use events::Event;
-pub use router::{Route, Router};
+pub use router::Router;
 pub use state::{AppState, Screen};
 
 use std::time::{Duration, Instant};
@@ -261,10 +260,8 @@ impl App {
                     if self.state.pin_input.len() < 12 {
                         self.state.pin_input.push(c);
                     }
-                } else {
-                    if self.state.pin_confirm.len() < 12 {
-                        self.state.pin_confirm.push(c);
-                    }
+                } else if self.state.pin_confirm.len() < 12 {
+                    self.state.pin_confirm.push(c);
                 }
             }
             KeyCode::Backspace => {
@@ -282,44 +279,41 @@ impl App {
                         self.state.error_message =
                             Some("PIN must be at least 6 digits".to_string());
                     }
-                } else {
-                    if self.state.pin_input == self.state.pin_confirm {
-                        // Set the PIN
-                        if let Err(e) = self.pin_manager.set_pin(&self.state.pin_input) {
-                            self.state.error_message = Some(format!("Failed to set PIN: {}", e));
-                            self.state.pin_input.clear();
-                            self.state.pin_confirm.clear();
-                            self.state.setup_step = 0;
-                            return Ok(());
-                        }
-
-                        // Verify PIN to get encryption key for session
-                        let pin = std::mem::take(&mut self.state.pin_input);
-                        self.state.pin_confirm.clear();
-
-                        match self.pin_manager.verify_pin(&pin) {
-                            Ok(encryption_key) => {
-                                self.auth = AuthState::Authenticated;
-                                self.session =
-                                    Some(Session::new(encryption_key, SessionConfig::default()));
-                                self.state.current_screen = Screen::Dashboard;
-                                self.state.status_message = Some(
-                                    "PIN set successfully. Welcome to Sigil Mother!".to_string(),
-                                );
-                            }
-                            Err(e) => {
-                                self.state.error_message =
-                                    Some(format!("PIN verification failed: {}", e));
-                                self.state.setup_step = 0;
-                            }
-                        }
-                    } else {
-                        self.state.error_message =
-                            Some("PINs do not match. Please try again.".to_string());
+                } else if self.state.pin_input == self.state.pin_confirm {
+                    // Set the PIN
+                    if let Err(e) = self.pin_manager.set_pin(&self.state.pin_input) {
+                        self.state.error_message = Some(format!("Failed to set PIN: {}", e));
                         self.state.pin_input.clear();
                         self.state.pin_confirm.clear();
                         self.state.setup_step = 0;
+                        return Ok(());
                     }
+
+                    // Verify PIN to get encryption key for session
+                    let pin = std::mem::take(&mut self.state.pin_input);
+                    self.state.pin_confirm.clear();
+
+                    match self.pin_manager.verify_pin(&pin) {
+                        Ok(encryption_key) => {
+                            self.auth = AuthState::Authenticated;
+                            self.session =
+                                Some(Session::new(encryption_key, SessionConfig::default()));
+                            self.state.current_screen = Screen::Dashboard;
+                            self.state.status_message =
+                                Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
+                        }
+                        Err(e) => {
+                            self.state.error_message =
+                                Some(format!("PIN verification failed: {}", e));
+                            self.state.setup_step = 0;
+                        }
+                    }
+                } else {
+                    self.state.error_message =
+                        Some("PINs do not match. Please try again.".to_string());
+                    self.state.pin_input.clear();
+                    self.state.pin_confirm.clear();
+                    self.state.setup_step = 0;
                 }
             }
             KeyCode::Esc => {
@@ -728,7 +722,7 @@ impl App {
         }
 
         // Clear transient messages after a few seconds
-        if self.tick % 180 == 0 {
+        if self.tick.is_multiple_of(180) {
             self.state.status_message = None;
             self.state.error_message = None;
         }
