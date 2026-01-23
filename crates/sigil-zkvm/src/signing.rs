@@ -297,7 +297,7 @@ fn verify_non_membership_zkvm(
     hasher.update(&witness.bezout_a);
     hasher.update(&witness.cofactor_d);
     hasher.update(&accumulator.accumulator_value);
-    hasher.update(&witness.witness_version.to_le_bytes());
+    hasher.update(witness.witness_version.to_le_bytes());
 
     let check_hash = hasher.finalize();
 

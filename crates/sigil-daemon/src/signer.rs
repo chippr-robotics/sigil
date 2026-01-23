@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 use sigil_core::{
-    accumulator::{NonMembershipWitness, RsaAccumulator, StoredAccumulator},
+    accumulator::{NonMembershipWitness, StoredAccumulator},
     agent::AgentId,
     presig::PresigAgentShare,
     types::{ChainId, MessageHash, Signature, TxHash, ZkProofHash},
@@ -150,6 +150,11 @@ impl Signer {
     /// Get the current accumulator version
     pub async fn accumulator_version(&self) -> Option<u64> {
         self.accumulator.read().await.as_ref().map(|a| a.version())
+    }
+
+    /// Get the agent ID configured for this signer
+    pub fn agent_id(&self) -> Option<&AgentId> {
+        self.agent_id.as_ref()
     }
 
     /// Check if an agent is verified as non-nullified
