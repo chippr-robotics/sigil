@@ -541,7 +541,7 @@ impl FloppyManager {
 
     /// Mount using udisksctl (doesn't require root)
     ///
-    /// udisksctl mounts to a system-determined location (usually /media/<user>/<label>)
+    /// udisksctl mounts to a system-determined location (usually `/media/<user>/<label>`)
     pub fn mount_with_udisksctl(&self, device: &str) -> Result<PathBuf> {
         let output = Command::new("udisksctl")
             .args(["mount", "-b", device])
