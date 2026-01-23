@@ -1,0 +1,227 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  auto-version:
+    name: Automatically Bump Version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Check if version bump commit
+        id: check_version_commit
+        run: |
+          # Get the commit message of the latest commit
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          
+          # Check if this is already a version bump commit to avoid loops
+          if [[ "$COMMIT_MSG" =~ ^chore:\ bump\ version\ to ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "This is a version bump commit, skipping auto-version"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine version bump type
+        id: bump_type
+        if: steps.check_version_commit.outputs.skip == 'false'
+        run: |
+          # Get all commits since last tag (or recent commits if no tags)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -n "$LAST_TAG" ]; then
+            echo "Last tag: $LAST_TAG"
+            # Get full commit messages (subject + body) since last tag
+            COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=%B)
+          else
+            echo "No previous tags found, analyzing recent commits"
+            # If no tags, only analyze commits from the current push (to avoid analyzing entire history)
+            # GitHub Actions provides GITHUB_SHA for the current commit
+            # We'll analyze just the pushed commits (using the before..after range)
+            COMMITS=$(git log --pretty=%B --max-count=20)
+          fi
+          
+          echo "Analyzing commits for version bump type..."
+          
+          # Determine bump type based on conventional commit messages
+          # Only include types that should trigger version bumps
+          MAJOR_PATTERN="^(feat|fix|perf|refactor)(\(.+\))?!:|BREAKING CHANGE:"
+          MINOR_PATTERN="^feat(\(.+\))?:"
+          PATCH_PATTERN="^(fix|perf|refactor)(\(.+\))?:"
+          
+          BUMP_TYPE="none"  # Default to no bump
+          
+          # Check for breaking changes (major version bump)
+          if echo "$COMMITS" | grep -qE "$MAJOR_PATTERN"; then
+            BUMP_TYPE="major"
+            echo "Found breaking changes, will perform MAJOR version bump"
+          # Check for new features (minor version bump)
+          elif echo "$COMMITS" | grep -qE "$MINOR_PATTERN"; then
+            BUMP_TYPE="minor"
+            echo "Found new features, will perform MINOR version bump"
+          # Check for patches (patch version bump)
+          elif echo "$COMMITS" | grep -qE "$PATCH_PATTERN"; then
+            BUMP_TYPE="patch"
+            echo "Found fixes/improvements, will perform PATCH version bump"
+          else
+            # If no version-bumping conventional commits found, skip version bump
+            echo "No version-bumping commits found (only docs, chore, ci, style, test, or build)"
+            BUMP_TYPE="none"
+          fi
+          
+          # Special handling for 0.x.y versions (pre-1.0 development)
+          CURRENT_MAJOR=$(echo "${{ steps.current_version.outputs.version }}" | cut -d. -f1)
+          if [ "$CURRENT_MAJOR" = "0" ] && [ "$BUMP_TYPE" = "major" ]; then
+            echo "Project is pre-1.0, converting MAJOR bump to MINOR bump"
+            BUMP_TYPE="minor"
+          fi
+          
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Final bump type: $BUMP_TYPE"
+
+      - name: Check if version bump needed
+        id: should_bump
+        if: steps.check_version_commit.outputs.skip == 'false'
+        run: |
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          if [ "$BUMP_TYPE" = "none" ]; then
+            echo "skip_bump=true" >> $GITHUB_OUTPUT
+            echo "No version bump needed - only non-versioning commits present"
+          else
+            echo "skip_bump=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version
+        id: bump
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
+        run: |
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          
+          # Run the version bump script non-interactively
+          echo "y" | ./scripts/bump-version.sh $BUMP_TYPE
+          
+          # Get the new version
+          NEW_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Version bumped from ${{ steps.current_version.outputs.version }} to $NEW_VERSION"
+
+      - name: Update CHANGELOG
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          TODAY=$(date +%Y-%m-%d)
+          
+          # Create a temporary file
+          TEMP_FILE=$(mktemp)
+          
+          # Add new version section after the [Unreleased] section
+          awk -v version="$NEW_VERSION" -v date="$TODAY" '
+          /^## \[Unreleased\]/ {
+            print $0
+            print ""
+            print "## [" version "] - " date
+            print ""
+            print "See commit history for changes in this release."
+            print ""
+            next
+          }
+          {print}
+          ' CHANGELOG.md > "$TEMP_FILE"
+          
+          # Update the comparison links at the bottom
+          # Add new version link
+          if grep -q "\[Unreleased\]:" "$TEMP_FILE"; then
+            # Update unreleased link and add new version link
+            sed -i "s|\[Unreleased\]:.*|\[Unreleased\]: https://github.com/chippr-robotics/sigil/compare/v${NEW_VERSION}...HEAD\n[${NEW_VERSION}]: https://github.com/chippr-robotics/sigil/compare/v${{ steps.current_version.outputs.version }}...v${NEW_VERSION}|" "$TEMP_FILE"
+          else
+            # Add links section if it doesn't exist
+            echo "" >> "$TEMP_FILE"
+            echo "[Unreleased]: https://github.com/chippr-robotics/sigil/compare/v${NEW_VERSION}...HEAD" >> "$TEMP_FILE"
+            echo "[${NEW_VERSION}]: https://github.com/chippr-robotics/sigil/releases/tag/v${NEW_VERSION}" >> "$TEMP_FILE"
+          fi
+          
+          mv "$TEMP_FILE" CHANGELOG.md
+          
+          echo "Updated CHANGELOG.md with version $NEW_VERSION"
+
+      - name: Commit version bump
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          
+          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git commit -m "chore: bump version to $NEW_VERSION"
+          git push origin main
+          
+          echo "Committed and pushed version bump to main"
+
+      - name: Create and push tag
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          
+          git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+          
+          echo "Created and pushed tag v$NEW_VERSION"
+          echo "This will trigger the release workflow"
+
+      - name: Summary
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'false'
+        run: |
+          echo "## 🎉 Version Bump Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Version**: ${{ steps.current_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version**: ${{ steps.bump.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: ${{ steps.bump_type.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: v${{ steps.bump.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The release workflow will now build and publish the release." >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip summary
+        if: steps.check_version_commit.outputs.skip == 'true'
+        run: |
+          echo "## ⏭️ Version Bump Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This commit is already a version bump commit. No action taken." >> $GITHUB_STEP_SUMMARY
+
+      - name: No bump needed summary
+        if: steps.check_version_commit.outputs.skip == 'false' && steps.should_bump.outputs.skip_bump == 'true'
+        run: |
+          echo "## ℹ️ No Version Bump Needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No version-bumping commits found. Only documentation, maintenance, or style changes detected." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Commit types that trigger version bumps:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat:\` - New features (MINOR bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`fix:\` - Bug fixes (PATCH bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`perf:\` - Performance improvements (PATCH bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`refactor:\` - Code refactoring (PATCH bump)" >> $GITHUB_STEP_SUMMARY
+          echo "- Any type with \`!\` - Breaking changes (MAJOR bump)" >> $GITHUB_STEP_SUMMARY
