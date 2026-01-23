@@ -16,6 +16,8 @@ frost-core = { workspace = true }
 frost-secp256k1-tr = { workspace = true, optional = true }
 frost-ed25519 = { workspace = true, optional = true }
 frost-ristretto255 = { workspace = true, optional = true }
+frost-rerandomized = { workspace = true, optional = true }
+reddsa = { workspace = true, optional = true }
 
 # Cryptography
 rand = { workspace = true }
@@ -27,6 +29,7 @@ zeroize = { workspace = true }
 serde = { workspace = true }
 bitcode = { workspace = true }
 hex = { workspace = true }
+postcard = { workspace = true, optional = true }
 
 # Error handling
 thiserror = { workspace = true }
@@ -48,5 +51,6 @@ default = ["taproot", "ed25519", "ristretto255"]
 taproot = ["frost-secp256k1-tr"]
 ed25519 = ["frost-ed25519"]
 ristretto255 = ["frost-ristretto255"]
+pallas = ["frost-rerandomized", "reddsa", "postcard"]
 dkg = ["qrcode", "image", "base64"]
-full = ["taproot", "ed25519", "ristretto255", "dkg"]
+full = ["taproot", "ed25519", "ristretto255", "pallas", "dkg"]

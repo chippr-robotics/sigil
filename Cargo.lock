@@ -1598,6 +1598,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bls12_381"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7bc6d6292be3a19e6379786dac800f551e5865a5bb51ebbe3064ab80433f403"
+dependencies = [
+ "ff 0.13.1",
+ "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
 name = "blst"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2434,6 +2445,17 @@ dependencies = [
 
 [[package]]
 name = "derive-getters"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a2c35ab6e03642397cdda1dd58abbc05d418aef8e36297f336d5aba060fe8df"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "derive-getters"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74ef43543e701c01ad77d3a5922755c6a1d71b22d942cb8042be4994b380caff"
@@ -2877,6 +2899,23 @@ dependencies = [
 
 [[package]]
 name = "frost-core"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16b73d2895e352c7942537e47c9ec5899b89704228b837d4375c5071cf721152"
+dependencies = [
+ "byteorder",
+ "debugless-unwrap",
+ "derive-getters 0.3.0",
+ "hex",
+ "itertools 0.11.0",
+ "rand_core 0.6.4",
+ "thiserror 1.0.69",
+ "visibility 0.0.1",
+ "zeroize",
+]
+
+[[package]]
+name = "frost-core"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2619366c227233c0f817ae01156bd21b8cf74d2bd96cbe0889f4c2e266724e44"
@@ -2884,7 +2923,7 @@ dependencies = [
  "byteorder",
  "const-crc32-nostd",
  "debugless-unwrap",
- "derive-getters",
+ "derive-getters 0.5.0",
  "document-features",
  "hex",
  "itertools 0.14.0",
@@ -2893,7 +2932,7 @@ dependencies = [
  "serde",
  "serdect",
  "thiserror 2.0.18",
- "visibility",
+ "visibility 0.1.1",
  "zeroize",
 ]
 
@@ -2905,10 +2944,20 @@ checksum = "f73eb5fa9311d33450c2320199ad1663b5af7a50061d9627d2e0dc776f0acb27"
 dependencies = [
  "curve25519-dalek",
  "document-features",
- "frost-core",
- "frost-rerandomized",
+ "frost-core 2.2.0",
+ "frost-rerandomized 2.2.0",
  "rand_core 0.6.4",
  "sha2",
+]
+
+[[package]]
+name = "frost-rerandomized"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c47b3c1c902d8c30630c652a1839f0414eef07d63551730f627ad716febc136a"
+dependencies = [
+ "frost-core 0.6.0",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -2917,9 +2966,9 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c5eb1ea58c0250b7ce834337f7b19e0417686d14ffc7f626137dea9149762d4"
 dependencies = [
- "derive-getters",
+ "derive-getters 0.5.0",
  "document-features",
- "frost-core",
+ "frost-core 2.2.0",
  "hex",
  "rand_core 0.6.4",
 ]
@@ -2932,8 +2981,8 @@ checksum = "6dc30519460bac68ea55671f9096b3fdc2f938d054a96baf559c6322b6de146f"
 dependencies = [
  "curve25519-dalek",
  "document-features",
- "frost-core",
- "frost-rerandomized",
+ "frost-core 2.2.0",
+ "frost-rerandomized 2.2.0",
  "rand_core 0.6.4",
  "sha2",
 ]
@@ -2945,8 +2994,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff8a25b14bfd5d25deba5edce61ec99c3afb752a1d26630a196bba4cb1c4ca5e"
 dependencies = [
  "document-features",
- "frost-core",
- "frost-rerandomized",
+ "frost-core 2.2.0",
+ "frost-rerandomized 2.2.0",
  "k256",
  "rand_core 0.6.4",
  "sha2",
@@ -3312,6 +3361,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hex-conservative"
@@ -3835,6 +3887,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
@@ -3893,9 +3954,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a575df5f985fe1cd5b2b05664ff6accfc46559032b954529fd225a2168d27b0f"
 dependencies = [
  "bitvec",
- "bls12_381",
+ "bls12_381 0.7.1",
  "ff 0.12.1",
  "group 0.12.1",
+ "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
+name = "jubjub"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8499f7a74008aafbecb2a2e608a3e13e4dd3e84df198b604451efe93f2de6e61"
+dependencies = [
+ "bitvec",
+ "bls12_381 0.8.0",
+ "ff 0.13.1",
+ "group 0.13.0",
  "rand_core 0.6.4",
  "subtle",
 ]
@@ -5370,6 +5445,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "reddsa"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78a5191930e84973293aa5f532b513404460cd2216c1cfb76d08748c15b40b02"
+dependencies = [
+ "blake2b_simd",
+ "byteorder",
+ "frost-rerandomized 0.6.0",
+ "group 0.13.0",
+ "hex",
+ "jubjub 0.10.0",
+ "pasta_curves 0.5.1",
+ "rand_core 0.6.4",
+ "serde",
+ "thiserror 1.0.69",
+ "zeroize",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6250,16 +6344,19 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "bitcode",
- "frost-core",
+ "frost-core 2.2.0",
  "frost-ed25519",
+ "frost-rerandomized 2.2.0",
  "frost-ristretto255",
  "frost-secp256k1-tr",
  "hex",
  "image",
+ "postcard",
  "proptest",
  "qrcode",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "reddsa",
  "serde",
  "sha2",
  "sigil-core",
@@ -7946,6 +8043,17 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "visibility"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8881d5cc0ae34e3db2f1de5af81e5117a420d2f937506c2dc20d6f4cfb069051"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "visibility"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d674d135b4a8c1d7e813e2f8d1c9a58308aee4a680323066025e53132218bd91"
@@ -8662,14 +8770,14 @@ dependencies = [
  "ark-std 0.4.0",
  "bitvec",
  "blake2",
- "bls12_381",
+ "bls12_381 0.7.1",
  "byteorder",
  "cfg-if",
  "group 0.12.1",
  "group 0.13.0",
  "halo2",
  "hex",
- "jubjub",
+ "jubjub 0.9.0",
  "lazy_static",
  "pasta_curves 0.5.1",
  "rand 0.8.5",

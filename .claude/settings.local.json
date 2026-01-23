@@ -5,7 +5,11 @@
       "Bash(ls:*)",
       "Bash(cargo clippy:*)",
       "Bash(timeout:*)",
-      "Bash(target/release/sigil.exe:*)"
+      "Bash(target/release/sigil.exe:*)",
+      "Bash(~/.cargo/bin/cargo build -p sigil-frost --features pallas)",
+      "Bash(cargo test:*)",
+      "Bash(~/.cargo/bin/cargo test:*)",
+      "Bash(~/.cargo/bin/cargo build:*)"
     ]
   }
 }

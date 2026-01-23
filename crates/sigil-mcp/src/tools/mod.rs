@@ -156,6 +156,11 @@ pub async fn execute_list_schemes() -> ToolsCallResult {
                 "name": "ristretto255",
                 "description": "Ristretto255 signatures - Zcash shielded transactions",
                 "chains": ["Zcash (shielded)"]
+            },
+            {
+                "name": "pallas",
+                "description": "Pallas Schnorr signatures - DarkFi and Zcash Orchard",
+                "chains": ["DarkFi", "Zcash (Orchard)"]
             }
         ]
     });

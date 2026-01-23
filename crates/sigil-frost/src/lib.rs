@@ -47,6 +47,9 @@ pub mod ed25519;
 #[cfg(feature = "ristretto255")]
 pub mod ristretto255;
 
+#[cfg(feature = "pallas")]
+pub mod pallas;
+
 pub mod dkg;
 
 pub use dkg::{
@@ -78,6 +81,8 @@ pub enum SignatureScheme {
     Ed25519 = 2,
     /// Ristretto255 (Zcash foundation)
     Ristretto255 = 3,
+    /// Pallas (DarkFi, Zcash Orchard)
+    Pallas = 4,
 }
 
 impl SignatureScheme {
@@ -88,6 +93,7 @@ impl SignatureScheme {
             1 => Some(Self::Taproot),
             2 => Some(Self::Ed25519),
             3 => Some(Self::Ristretto255),
+            4 => Some(Self::Pallas),
             _ => None,
         }
     }
@@ -99,6 +105,7 @@ impl SignatureScheme {
             Self::Taproot => "Schnorr/Taproot (secp256k1)",
             Self::Ed25519 => "EdDSA (Ed25519)",
             Self::Ristretto255 => "Schnorr (Ristretto255)",
+            Self::Pallas => "Schnorr (Pallas)",
         }
     }
 
@@ -115,6 +122,7 @@ impl SignatureScheme {
             Self::Taproot => &["Bitcoin (Taproot)"],
             Self::Ed25519 => &["Solana", "Cosmos", "Near", "Polkadot", "Cardano"],
             Self::Ristretto255 => &["Zcash (shielded)"],
+            Self::Pallas => &["DarkFi", "Zcash (Orchard)"],
         }
     }
 }

@@ -12,6 +12,7 @@ pub enum FrostScheme {
     Taproot,
     Ed25519,
     Ristretto255,
+    Pallas,
 }
 
 impl FrostScheme {
@@ -20,6 +21,7 @@ impl FrostScheme {
             FrostScheme::Taproot => "taproot",
             FrostScheme::Ed25519 => "ed25519",
             FrostScheme::Ristretto255 => "ristretto255",
+            FrostScheme::Pallas => "pallas",
         }
     }
 
@@ -28,6 +30,7 @@ impl FrostScheme {
             FrostScheme::Taproot => 64,      // BIP-340 Schnorr
             FrostScheme::Ed25519 => 64,      // Ed25519
             FrostScheme::Ristretto255 => 64, // Ristretto255
+            FrostScheme::Pallas => 64,       // Pallas Schnorr
         }
     }
 
@@ -36,6 +39,7 @@ impl FrostScheme {
             FrostScheme::Taproot => &["Bitcoin (Taproot)"],
             FrostScheme::Ed25519 => &["Solana", "Cosmos", "Near", "Polkadot"],
             FrostScheme::Ristretto255 => &["Zcash (shielded)"],
+            FrostScheme::Pallas => &["DarkFi", "Zcash (Orchard)"],
         }
     }
 }
@@ -60,16 +64,16 @@ pub fn tool_definition() -> Tool {
         title: Some("Sign with FROST".to_string()),
         description:
             "Sign a message using FROST threshold signatures. Supports multiple signature schemes: \
-             Taproot (Bitcoin BIP-340), Ed25519 (Solana, Cosmos), and Ristretto255 (Zcash shielded). \
-             Each call consumes one presignature from the disk."
+             Taproot (Bitcoin BIP-340), Ed25519 (Solana, Cosmos), Ristretto255 (Zcash shielded), \
+             and Pallas (DarkFi, Zcash Orchard). Each call consumes one presignature from the disk."
                 .to_string(),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
                 "scheme": {
                     "type": "string",
-                    "enum": ["taproot", "ed25519", "ristretto255"],
-                    "description": "FROST signature scheme: 'taproot' for Bitcoin, 'ed25519' for Solana/Cosmos, 'ristretto255' for Zcash"
+                    "enum": ["taproot", "ed25519", "ristretto255", "pallas"],
+                    "description": "FROST signature scheme: 'taproot' for Bitcoin, 'ed25519' for Solana/Cosmos, 'ristretto255' for Zcash, 'pallas' for DarkFi"
                 },
                 "message_hash": {
                     "type": "string",
