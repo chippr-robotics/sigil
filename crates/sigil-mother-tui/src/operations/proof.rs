@@ -33,8 +33,8 @@ impl ProofGenerator {
     /// Generate proof for a signing operation
     pub async fn generate_signing_proof(
         &self,
-        message_hash: &[u8],
-        signature: &[u8],
+        _message_hash: &[u8],
+        _signature: &[u8],
     ) -> Result<ProofResult> {
         if !self.enabled {
             return Ok(ProofResult {

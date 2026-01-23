@@ -78,7 +78,7 @@ fn render_disk_visual(frame: &mut Frame, area: Rect, app: &App) {
 
 /// Render detailed disk information
 fn render_disk_details(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+    let _theme = &app.theme;
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)

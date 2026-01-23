@@ -11,6 +11,8 @@ use k256::{
 };
 use sha2::{Digest, Sha256};
 
+#[cfg(feature = "sp1-prover")]
+use super::DeriveProverTrait;
 use crate::error::{Result, ZkvmError};
 use crate::types::{DeriveInput, DeriveOutput};
 

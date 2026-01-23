@@ -11,6 +11,7 @@ use super::connection::{IpcClientTransport, IpcTransport};
 /// Unix domain socket server transport
 pub struct UnixIpcTransport {
     listener: UnixListener,
+    #[allow(dead_code)] // Used in cleanup(), which may not be called yet
     socket_path: PathBuf,
 }
 

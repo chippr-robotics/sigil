@@ -7,6 +7,8 @@ use k256::{
     ProjectivePoint, Scalar,
 };
 
+#[cfg(feature = "sp1-prover")]
+use super::KeygenProverTrait;
 use crate::error::{Result, ZkvmError};
 use crate::types::{KeygenInput, KeygenOutput};
 

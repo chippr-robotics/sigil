@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 use sigil_core::{DiskFormat, DiskHeader, DISK_MAGIC};
 
@@ -124,7 +124,7 @@ impl DiskWatcher {
                     Some(Err(e)) => {
                         error!("Udev error: {}", e);
                     }
-                    None => break,
+                    None => break Ok(()),
                 }
             }
         }

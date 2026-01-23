@@ -7,6 +7,9 @@
 //! This interface protects cryptocurrency assets. All operations are designed
 //! with security as the primary concern.
 
+// Many utility functions and components are prepared for future use
+#![allow(dead_code)]
+
 use std::io;
 use std::panic;
 

@@ -3,7 +3,7 @@
 use ratatui::prelude::*;
 
 use crate::app::{App, ConfirmAction};
-use crate::ui::components::confirm::{dialog_for_action, ConfirmDialog};
+use crate::ui::components::confirm::dialog_for_action;
 
 /// Draw the confirmation dialog
 pub fn draw(frame: &mut Frame, area: Rect, app: &App, action: &ConfirmAction) {

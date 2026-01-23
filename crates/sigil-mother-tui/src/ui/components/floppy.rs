@@ -136,7 +136,7 @@ impl FloppyDisk {
     }
 
     /// Render full floppy disk
-    fn render_full(&self, frame: &mut Frame, area: Rect, theme: &Theme, style: Style) {
+    fn render_full(&self, frame: &mut Frame, area: Rect, _theme: &Theme, style: Style) {
         let start_x = area.x + (area.width.saturating_sub(35)) / 2;
         let start_y = area.y;
 

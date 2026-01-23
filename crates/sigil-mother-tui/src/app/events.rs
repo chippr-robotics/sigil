@@ -1,4 +1,8 @@
 //! Event handling for the TUI
+//!
+//! This module is prepared for async event handling but not yet integrated.
+
+#![allow(dead_code)]
 
 use std::time::Duration;
 
