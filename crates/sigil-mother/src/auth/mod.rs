@@ -24,8 +24,7 @@ pub use session::{Session, SessionConfig};
 use std::time::Instant;
 
 /// Authentication state for the mother device
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum AuthState {
     /// PIN needs to be set up (first run)
     SetupRequired,
@@ -37,7 +36,6 @@ pub enum AuthState {
     /// Account is locked out until the specified time
     LockedOut(Instant),
 }
-
 
 /// Authentication error types
 #[derive(Debug, thiserror::Error)]
