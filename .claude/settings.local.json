@@ -5,7 +5,17 @@
       "Bash(ls:*)",
       "Bash(cargo clippy:*)",
       "Bash(timeout:*)",
-      "Bash(target/release/sigil.exe:*)"
+      "Bash(target/release/sigil.exe:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(source ~/.cargo/env)",
+      "Bash(cargo --version:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nMerge main into feat/agent-nullification-system\n\nResolves conflicts between agent nullification branch and main:\n- Keep agent registry and nullification TUI implementation\n- Integrate PIN authentication from main \\(security feature\\)\n- Remove duplicate dependencies in Cargo.toml files\n- Update ratatui to 0.29\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(cargo test:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

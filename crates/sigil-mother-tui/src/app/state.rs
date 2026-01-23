@@ -1,136 +1,249 @@
-//! Application state structures
+//! Application state
 
-use std::time::Instant;
+use sigil_mother::{
+    AgentRegistry, BlockDevice, ChildRegistry, DiskStatus, FloppyManager, MountMethod,
+};
 
-use super::{ConfirmAction, QrDisplayType};
+use super::config::TuiConfig;
 
-/// Current screen/view in the application
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+/// Current screen/view
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Screen {
-    /// Initial splash screen with animated logo
+    /// Splash/welcome screen
     #[default]
     Splash,
-    /// PIN entry for authentication
-    PinEntry,
-    /// First-time PIN setup
-    PinSetup,
-    /// Account lockout screen
-    Lockout(Instant),
-    /// Main dashboard
+
+    /// Main dashboard with menu
     Dashboard,
-    /// Disk status view
-    DiskStatus,
-    /// Disk format wizard (step number)
-    DiskFormat(u8),
-    /// List of all children
+
+    /// List of registered agents
+    AgentList,
+
+    /// Agent detail view
+    AgentDetail,
+
+    /// Create new agent
+    AgentCreate,
+
+    /// Nullify agent confirmation
+    AgentNullify,
+
+    /// List of child disks
     ChildList,
-    /// Create child wizard (step number)
-    ChildCreate(u8),
-    /// Child detail view (index)
-    ChildDetail(usize),
-    /// Reconciliation workflow
-    Reconciliation,
-    /// Reports screen
-    Reports,
+
+    /// Create new child disk
+    ChildCreate,
+
+    /// Disk management screen
+    DiskManagement,
+
+    /// Disk device selection screen
+    DiskSelect,
+
+    /// Disk format confirmation
+    DiskFormat,
+
     /// QR code display
-    QrDisplay(QrDisplayType),
-    /// Settings screen
-    Settings,
+    QrDisplay,
+
     /// Help screen
     Help,
-    /// Confirmation dialog
-    Confirm(ConfirmAction),
 }
 
-/// Main application state
-#[derive(Default)]
+/// Application state
 pub struct AppState {
-    /// Current screen being displayed
+    /// Current screen
     pub current_screen: Screen,
 
-    // --- PIN Entry State ---
-    /// Current PIN input (masked)
-    pub pin_input: String,
-    /// PIN confirmation for setup
-    pub pin_confirm: String,
-    /// Setup step (0 = enter, 1 = confirm)
-    pub setup_step: u8,
-
-    // --- Navigation State ---
-    /// Selected menu item on dashboard
+    /// Dashboard menu selection index
     pub menu_index: usize,
-    /// Selected child in list
-    pub child_list_index: usize,
-    /// Selected report type
-    pub report_type_index: usize,
-    /// Selected settings item
-    pub settings_index: usize,
-    /// Current wizard option selection
-    pub wizard_option_index: usize,
 
-    // --- QR Display State ---
-    /// Current QR chunk index (for multi-chunk QRs)
+    /// Agent list selection index
+    pub agent_list_index: usize,
+
+    /// Agent detail action index
+    pub agent_action_index: usize,
+
+    /// Child list selection index
+    pub child_list_index: usize,
+
+    /// Agent creation step
+    pub agent_create_step: u8,
+
+    /// Agent name input buffer
+    pub agent_name_input: String,
+
+    /// Whether nullification is confirmed
+    pub nullify_confirmed: bool,
+
+    /// QR display: current chunk index
     pub qr_chunk_index: usize,
-    /// Total QR chunks
+
+    /// QR display: total chunks
     pub qr_total_chunks: usize,
 
-    // --- Disk State ---
-    /// Whether a disk is currently detected
-    pub disk_detected: bool,
-    /// Current disk child ID (if detected)
-    pub disk_child_id: Option<String>,
-    /// Presignatures remaining
-    pub disk_presigs_remaining: Option<u32>,
-    /// Total presignatures
-    pub disk_presigs_total: Option<u32>,
-    /// Days until expiry
-    pub disk_days_until_expiry: Option<i64>,
+    /// QR display: data to show
+    pub qr_data: Option<String>,
 
-    // --- Confirmation State ---
-    /// Input for typed confirmation
-    pub confirm_input: String,
+    /// Agent registry
+    pub agent_registry: AgentRegistry,
 
-    // --- Status Messages ---
-    /// Current status message to display
+    /// Child registry
+    pub child_registry: ChildRegistry,
+
+    /// Status message to display
     pub status_message: Option<String>,
-    /// Current error message to display
-    pub error_message: Option<String>,
-    /// Session timeout warning
-    pub session_warning: Option<String>,
 
-    // --- Child Creation Wizard ---
-    /// Selected signature scheme (0=ECDSA, 1=Taproot, 2=Ed25519)
-    pub selected_scheme: usize,
-    /// Number of presignatures to generate
-    pub presig_count: u32,
-    /// Validity period in days
-    pub validity_days: u32,
+    /// Error message to display
+    pub error_message: Option<String>,
+
+    /// Floppy disk manager
+    pub floppy_manager: FloppyManager,
+
+    /// Current disk status
+    pub disk_status: Option<DiskStatus>,
+
+    /// Disk action menu index
+    pub disk_action_index: usize,
+
+    /// Format type selection index (0 = ext2, 1 = FAT12)
+    pub format_type_index: usize,
+
+    /// Whether format is confirmed
+    pub format_confirmed: bool,
+
+    /// Available removable block devices
+    pub available_devices: Vec<BlockDevice>,
+
+    /// Device selection index in the device list
+    pub device_select_index: usize,
+
+    /// Currently selected device path (persisted)
+    pub selected_device_path: Option<String>,
+
+    /// TUI configuration (persisted)
+    pub config: TuiConfig,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AppState {
-    /// Create a new state with defaults
+    /// Create new application state
     pub fn new() -> Self {
+        // Load persisted configuration
+        let config = TuiConfig::load();
+
+        // Create floppy manager with config settings
+        let mut floppy_manager =
+            FloppyManager::new().with_mount_method(MountMethod::from(config.mount_method));
+
+        // Apply selected device from config if set
+        if let Some(ref device) = config.selected_device {
+            floppy_manager.set_device(device);
+        }
+
+        // Set mount point from config
+        floppy_manager.set_mount_point(&config.mount_point);
+
+        let disk_status = Some(floppy_manager.check_status());
+
+        // Try to load available devices at startup
+        let available_devices = sigil_mother::list_removable_devices().unwrap_or_default();
+
+        // Restore selected device path from config
+        let selected_device_path = config.selected_device.clone();
+
         Self {
-            presig_count: 1000,
-            validity_days: 30,
-            ..Default::default()
+            current_screen: Screen::Splash,
+            menu_index: 0,
+            agent_list_index: 0,
+            agent_action_index: 0,
+            child_list_index: 0,
+            agent_create_step: 0,
+            agent_name_input: String::new(),
+            nullify_confirmed: false,
+            qr_chunk_index: 0,
+            qr_total_chunks: 1,
+            qr_data: None,
+            agent_registry: AgentRegistry::new(),
+            child_registry: ChildRegistry::new(),
+            status_message: None,
+            error_message: None,
+            floppy_manager,
+            disk_status,
+            disk_action_index: 0,
+            format_type_index: 0,
+            format_confirmed: false,
+            available_devices,
+            device_select_index: 0,
+            selected_device_path,
+            config,
         }
     }
 
-    /// Get masked PIN display (dots)
-    pub fn masked_pin(&self) -> String {
-        "●".repeat(self.pin_input.len())
+    /// Refresh disk status
+    pub fn refresh_disk_status(&mut self) {
+        self.disk_status = Some(self.floppy_manager.check_status());
     }
 
-    /// Get masked confirm PIN display
-    pub fn masked_confirm(&self) -> String {
-        "●".repeat(self.pin_confirm.len())
+    /// Refresh available devices list
+    pub fn refresh_available_devices(&mut self) {
+        match sigil_mother::list_removable_devices() {
+            Ok(devices) => {
+                self.available_devices = devices;
+                // Reset index if it's out of bounds
+                if self.device_select_index >= self.available_devices.len() {
+                    self.device_select_index = 0;
+                }
+            }
+            Err(e) => {
+                self.error_message = Some(format!("Failed to list devices: {}", e));
+            }
+        }
     }
 
-    /// Clear all PIN-related input
-    pub fn clear_pin_input(&mut self) {
-        self.pin_input.clear();
-        self.pin_confirm.clear();
-        self.setup_step = 0;
+    /// Select a device by index and update the floppy manager
+    pub fn select_device(&mut self, index: usize) {
+        if let Some(device) = self.available_devices.get(index) {
+            self.selected_device_path = Some(device.path.clone());
+            self.floppy_manager.set_device(&device.path);
+            self.status_message = Some(format!("Selected device: {}", device.display_name()));
+
+            // Persist the selection
+            if let Err(e) = self.config.set_selected_device(Some(device.path.clone())) {
+                tracing::warn!("Failed to save config: {}", e);
+            }
+
+            self.refresh_disk_status();
+        }
+    }
+
+    /// Get the currently selected device info
+    pub fn selected_device(&self) -> Option<&BlockDevice> {
+        self.selected_device_path
+            .as_ref()
+            .and_then(|path| self.available_devices.iter().find(|d| &d.path == path))
+    }
+
+    /// Get currently selected agent (if any)
+    pub fn selected_agent(&self) -> Option<&sigil_core::agent::AgentRegistryEntry> {
+        let agents = self.agent_registry.list_all();
+        agents.get(self.agent_list_index).copied()
+    }
+
+    /// Get currently selected child (if any)
+    pub fn selected_child(&self) -> Option<&sigil_core::child::ChildRegistryEntry> {
+        let children = self.child_registry.list_all();
+        children.get(self.child_list_index).copied()
+    }
+
+    /// Clear status messages
+    pub fn clear_messages(&mut self) {
+        self.status_message = None;
+        self.error_message = None;
     }
 }

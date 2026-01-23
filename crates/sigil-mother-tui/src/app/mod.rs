@@ -1,762 +1,551 @@
-//! Application state machine and core logic
+//! Application state and event handling
 
-mod events;
-mod router;
+mod config;
 mod state;
 
-pub use router::Router;
+pub use config::{ConfigError, MountMethodConfig, TuiConfig};
 pub use state::{AppState, Screen};
 
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
-use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::prelude::*;
 
-use crate::auth::{AuthError, AuthState, PinManager, Session, SessionConfig};
-use crate::ui::{self, Theme};
+use crate::ui;
 
-/// Tick rate for the event loop (60fps for smooth animations)
-const TICK_RATE: Duration = Duration::from_millis(16);
+/// Application result type
+pub type AppResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 /// Main application struct
 pub struct App {
-    /// Current application state
+    /// Application state
     pub state: AppState,
-    /// Authentication state
-    pub auth: AuthState,
-    /// PIN manager for authentication
-    pub pin_manager: PinManager,
-    /// Current session (if authenticated)
-    pub session: Option<Session>,
-    /// Navigation router
-    pub router: Router,
-    /// Visual theme
-    pub theme: Theme,
+
     /// Whether the app should quit
     pub should_quit: bool,
-    /// Animation tick counter
+
+    /// Tick counter for animations
     pub tick: u64,
-    /// Last disk check time
-    pub last_disk_check: Instant,
+
+    /// Last tick time
+    last_tick: Instant,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl App {
     /// Create a new application instance
-    pub fn new() -> Result<Self> {
-        let pin_manager = PinManager::new()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize PIN manager: {}", e))?;
-        let auth = if pin_manager.is_pin_set() {
-            AuthState::RequiresPin
-        } else {
-            AuthState::SetupRequired
-        };
-
-        Ok(Self {
-            state: AppState::default(),
-            auth,
-            pin_manager,
-            session: None,
-            router: Router::new(),
-            theme: Theme::default(),
+    pub fn new() -> Self {
+        Self {
+            state: AppState::new(),
             should_quit: false,
             tick: 0,
-            last_disk_check: Instant::now(),
-        })
+            last_tick: Instant::now(),
+        }
     }
 
-    /// Main event loop
-    pub fn run(
-        &mut self,
-        terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
-    ) -> Result<()> {
-        let mut last_tick = Instant::now();
+    /// Run the application main loop
+    pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> AppResult<()> {
+        let tick_rate = Duration::from_millis(100);
 
-        // Show splash screen briefly
-        self.state.current_screen = Screen::Splash;
+        while !self.should_quit {
+            // Draw UI
+            terminal.draw(|frame| ui::render(frame, &mut self.state))?;
 
-        loop {
-            // Draw the current frame
-            terminal.draw(|frame| self.draw(frame))?;
-
-            // Check if we should quit
-            if self.should_quit {
-                break;
-            }
-
-            // Calculate time until next tick
-            let timeout = TICK_RATE
-                .checked_sub(last_tick.elapsed())
+            // Handle events
+            let timeout = tick_rate
+                .checked_sub(self.last_tick.elapsed())
                 .unwrap_or(Duration::ZERO);
 
-            // Poll for events with timeout
             if event::poll(timeout)? {
-                if let CrosstermEvent::Key(key) = event::read()? {
-                    self.handle_key_event(key.code, key.modifiers)?;
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        self.handle_key(key.code);
+                    }
                 }
             }
 
-            // Handle tick
-            if last_tick.elapsed() >= TICK_RATE {
-                self.on_tick()?;
-                last_tick = Instant::now();
+            // Update tick
+            if self.last_tick.elapsed() >= tick_rate {
+                self.tick = self.tick.wrapping_add(1);
+                self.last_tick = Instant::now();
             }
         }
 
         Ok(())
     }
 
-    /// Handle key events
-    fn handle_key_event(&mut self, key: KeyCode, modifiers: KeyModifiers) -> Result<()> {
-        // Global quit handling
-        if key == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
+    /// Handle key press events
+    fn handle_key(&mut self, key: KeyCode) {
+        // Global quit handler
+        if key == KeyCode::Char('q') && self.state.current_screen == Screen::Dashboard {
             self.should_quit = true;
-            return Ok(());
+            return;
         }
 
-        // Handle based on current screen
-        match &self.state.current_screen {
-            Screen::Splash => {
-                // Any key advances from splash
-                self.advance_from_splash();
-            }
-            Screen::PinEntry => {
-                self.handle_pin_entry(key)?;
-            }
-            Screen::PinSetup => {
-                self.handle_pin_setup(key)?;
-            }
-            Screen::Dashboard => {
-                self.handle_dashboard(key)?;
-            }
-            Screen::DiskStatus => {
-                self.handle_disk_status(key)?;
-            }
-            Screen::DiskFormat(_) => {
-                self.handle_disk_format(key)?;
-            }
-            Screen::ChildList => {
-                self.handle_child_list(key)?;
-            }
-            Screen::ChildCreate(_) => {
-                self.handle_child_create(key)?;
-            }
-            Screen::ChildDetail(_) => {
-                self.handle_child_detail(key)?;
-            }
-            Screen::Reconciliation => {
-                self.handle_reconciliation(key)?;
-            }
-            Screen::Reports => {
-                self.handle_reports(key)?;
-            }
-            Screen::QrDisplay(_) => {
-                self.handle_qr_display(key)?;
-            }
-            Screen::Settings => {
-                self.handle_settings(key)?;
-            }
-            Screen::Help => {
-                self.handle_help(key)?;
-            }
-            Screen::Confirm(_) => {
-                self.handle_confirm(key)?;
-            }
-            Screen::Lockout(_) => {
-                // During lockout, only allow viewing time remaining
-                if key == KeyCode::Esc {
-                    self.should_quit = true;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Advance from splash screen to appropriate next screen
-    fn advance_from_splash(&mut self) {
-        match self.auth {
-            AuthState::SetupRequired => {
-                self.state.current_screen = Screen::PinSetup;
-            }
-            AuthState::RequiresPin => {
-                self.state.current_screen = Screen::PinEntry;
-            }
-            AuthState::Authenticated => {
-                self.state.current_screen = Screen::Dashboard;
-            }
-            AuthState::LockedOut(until) => {
-                self.state.current_screen = Screen::Lockout(until);
-            }
+        // Delegate to screen-specific handlers
+        match self.state.current_screen {
+            Screen::Splash => self.handle_splash_key(key),
+            Screen::Dashboard => self.handle_dashboard_key(key),
+            Screen::AgentList => self.handle_agent_list_key(key),
+            Screen::AgentDetail => self.handle_agent_detail_key(key),
+            Screen::AgentCreate => self.handle_agent_create_key(key),
+            Screen::AgentNullify => self.handle_agent_nullify_key(key),
+            Screen::ChildList => self.handle_child_list_key(key),
+            Screen::ChildCreate => self.handle_child_create_key(key),
+            Screen::DiskManagement => self.handle_disk_management_key(key),
+            Screen::DiskSelect => self.handle_disk_select_key(key),
+            Screen::DiskFormat => self.handle_disk_format_key(key),
+            Screen::QrDisplay => self.handle_qr_display_key(key),
+            Screen::Help => self.handle_help_key(key),
         }
     }
 
-    /// Handle PIN entry screen
-    fn handle_pin_entry(&mut self, key: KeyCode) -> Result<()> {
+    fn handle_splash_key(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Char(c) if c.is_ascii_digit() => {
-                if self.state.pin_input.len() < 12 {
-                    self.state.pin_input.push(c);
-                }
-            }
-            KeyCode::Backspace => {
-                self.state.pin_input.pop();
-            }
-            KeyCode::Enter => {
-                if self.state.pin_input.len() >= 6 {
-                    self.verify_pin()?;
-                }
-            }
-            KeyCode::Esc => {
-                self.should_quit = true;
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                self.state.current_screen = Screen::Dashboard;
             }
             _ => {}
         }
-        Ok(())
     }
 
-    /// Verify entered PIN
-    fn verify_pin(&mut self) -> Result<()> {
-        let pin = std::mem::take(&mut self.state.pin_input);
-
-        match self.pin_manager.verify_pin(&pin) {
-            Ok(encryption_key) => {
-                // PIN verified - create session with encryption key
-                self.auth = AuthState::Authenticated;
-                self.session = Some(Session::new(encryption_key, SessionConfig::default()));
-                self.state.current_screen = Screen::Dashboard;
-                self.state.status_message = Some("Welcome to Sigil Mother".to_string());
-            }
-            Err(AuthError::IncorrectPin(remaining)) => {
-                self.state.error_message =
-                    Some(format!("Incorrect PIN. {} attempts remaining.", remaining));
-
-                // Check if locked out
-                if let Some(until) = self.pin_manager.lockout_until() {
-                    self.auth = AuthState::LockedOut(until);
-                    self.state.current_screen = Screen::Lockout(until);
-                }
-            }
-            Err(AuthError::LockedOut(seconds)) => {
-                self.state.error_message = Some(format!("Account locked for {} seconds.", seconds));
-                if let Some(until) = self.pin_manager.lockout_until() {
-                    self.auth = AuthState::LockedOut(until);
-                    self.state.current_screen = Screen::Lockout(until);
-                }
-            }
-            Err(e) => {
-                self.state.error_message = Some(format!("Authentication error: {}", e));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Handle PIN setup screen
-    fn handle_pin_setup(&mut self, key: KeyCode) -> Result<()> {
+    fn handle_dashboard_key(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Char(c) if c.is_ascii_digit() => {
-                if self.state.setup_step == 0 {
-                    if self.state.pin_input.len() < 12 {
-                        self.state.pin_input.push(c);
-                    }
-                } else if self.state.pin_confirm.len() < 12 {
-                    self.state.pin_confirm.push(c);
-                }
-            }
-            KeyCode::Backspace => {
-                if self.state.setup_step == 0 {
-                    self.state.pin_input.pop();
-                } else {
-                    self.state.pin_confirm.pop();
-                }
-            }
-            KeyCode::Enter => {
-                if self.state.setup_step == 0 {
-                    if self.state.pin_input.len() >= 6 {
-                        self.state.setup_step = 1;
-                    } else {
-                        self.state.error_message =
-                            Some("PIN must be at least 6 digits".to_string());
-                    }
-                } else if self.state.pin_input == self.state.pin_confirm {
-                    // Set the PIN
-                    if let Err(e) = self.pin_manager.set_pin(&self.state.pin_input) {
-                        self.state.error_message = Some(format!("Failed to set PIN: {}", e));
-                        self.state.pin_input.clear();
-                        self.state.pin_confirm.clear();
-                        self.state.setup_step = 0;
-                        return Ok(());
-                    }
-
-                    // Verify PIN to get encryption key for session
-                    let pin = std::mem::take(&mut self.state.pin_input);
-                    self.state.pin_confirm.clear();
-
-                    match self.pin_manager.verify_pin(&pin) {
-                        Ok(encryption_key) => {
-                            self.auth = AuthState::Authenticated;
-                            self.session =
-                                Some(Session::new(encryption_key, SessionConfig::default()));
-                            self.state.current_screen = Screen::Dashboard;
-                            self.state.status_message =
-                                Some("PIN set successfully. Welcome to Sigil Mother!".to_string());
-                        }
-                        Err(e) => {
-                            self.state.error_message =
-                                Some(format!("PIN verification failed: {}", e));
-                            self.state.setup_step = 0;
-                        }
-                    }
-                } else {
-                    self.state.error_message =
-                        Some("PINs do not match. Please try again.".to_string());
-                    self.state.pin_input.clear();
-                    self.state.pin_confirm.clear();
-                    self.state.setup_step = 0;
-                }
-            }
-            KeyCode::Esc => {
-                if self.state.setup_step == 1 {
-                    self.state.setup_step = 0;
-                    self.state.pin_confirm.clear();
-                } else {
-                    self.should_quit = true;
-                }
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle dashboard navigation
-    fn handle_dashboard(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Char('q') | KeyCode::Char('Q') => {
-                self.state.current_screen = Screen::Confirm(ConfirmAction::Quit);
-            }
-            KeyCode::Char('?') => {
-                self.state.current_screen = Screen::Help;
-            }
             KeyCode::Up | KeyCode::Char('k') => {
-                self.state.menu_index = self.state.menu_index.saturating_sub(1);
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.menu_index = (self.state.menu_index + 1).min(5);
-            }
-            KeyCode::Enter => {
-                self.navigate_from_dashboard();
-            }
-            KeyCode::F(1) => {
-                self.state.current_screen = Screen::DiskStatus;
-            }
-            KeyCode::F(2) => {
-                self.state.current_screen = Screen::ChildList;
-            }
-            KeyCode::F(3) => {
-                self.state.current_screen = Screen::Reconciliation;
-            }
-            KeyCode::F(4) => {
-                self.state.current_screen = Screen::Reports;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Navigate based on dashboard menu selection
-    fn navigate_from_dashboard(&mut self) {
-        match self.state.menu_index {
-            0 => self.state.current_screen = Screen::DiskStatus,
-            1 => self.state.current_screen = Screen::ChildList,
-            2 => self.state.current_screen = Screen::Reconciliation,
-            3 => self.state.current_screen = Screen::Reports,
-            4 => self.state.current_screen = Screen::QrDisplay(QrDisplayType::AgentShard),
-            5 => self.state.current_screen = Screen::Settings,
-            _ => {}
-        }
-    }
-
-    /// Handle disk status screen
-    fn handle_disk_status(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::Dashboard;
-            }
-            KeyCode::Char('f') | KeyCode::Char('F') => {
-                self.state.current_screen = Screen::DiskFormat(0);
-            }
-            KeyCode::Char('?') => {
-                self.state.current_screen = Screen::Help;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle disk format wizard
-    fn handle_disk_format(&mut self, key: KeyCode) -> Result<()> {
-        let step = match &self.state.current_screen {
-            Screen::DiskFormat(s) => *s,
-            _ => return Ok(()),
-        };
-
-        match key {
-            KeyCode::Esc => {
-                if step > 0 {
-                    self.state.current_screen = Screen::DiskFormat(step - 1);
-                } else {
-                    self.state.current_screen = Screen::DiskStatus;
-                }
-            }
-            KeyCode::Enter | KeyCode::Right => {
-                if step < 4 {
-                    self.state.current_screen = Screen::DiskFormat(step + 1);
-                } else {
-                    // Complete - return to disk status
-                    self.state.current_screen = Screen::DiskStatus;
-                    self.state.status_message = Some("Disk formatted successfully".to_string());
-                }
-            }
-            KeyCode::Left => {
-                if step > 0 {
-                    self.state.current_screen = Screen::DiskFormat(step - 1);
-                }
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle child list screen
-    fn handle_child_list(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::Dashboard;
-            }
-            KeyCode::Char('n') | KeyCode::Char('N') => {
-                self.state.current_screen = Screen::ChildCreate(0);
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.child_list_index = self.state.child_list_index.saturating_sub(1);
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.child_list_index += 1;
-            }
-            KeyCode::Enter => {
-                // View child details
-                self.state.current_screen = Screen::ChildDetail(self.state.child_list_index);
-            }
-            KeyCode::Char('?') => {
-                self.state.current_screen = Screen::Help;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle child create wizard
-    fn handle_child_create(&mut self, key: KeyCode) -> Result<()> {
-        let step = match &self.state.current_screen {
-            Screen::ChildCreate(s) => *s,
-            _ => return Ok(()),
-        };
-
-        match key {
-            KeyCode::Esc => {
-                if step > 0 {
-                    self.state.current_screen = Screen::ChildCreate(step - 1);
-                } else {
-                    self.state.current_screen = Screen::ChildList;
-                }
-            }
-            KeyCode::Enter | KeyCode::Right => {
-                if step < 5 {
-                    self.state.current_screen = Screen::ChildCreate(step + 1);
-                } else {
-                    // Complete - show QR code with agent shard
-                    self.state.current_screen = Screen::QrDisplay(QrDisplayType::NewChildShard);
-                }
-            }
-            KeyCode::Left => {
-                if step > 0 {
-                    self.state.current_screen = Screen::ChildCreate(step - 1);
-                }
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                // Navigate options within step
-                if self.state.wizard_option_index > 0 {
-                    self.state.wizard_option_index -= 1;
+                if self.state.menu_index > 0 {
+                    self.state.menu_index -= 1;
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                self.state.wizard_option_index += 1;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle child detail screen
-    fn handle_child_detail(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::ChildList;
-            }
-            KeyCode::Char('q') | KeyCode::Char('Q') => {
-                // Show QR code for this child's agent shard
-                self.state.current_screen = Screen::QrDisplay(QrDisplayType::AgentShard);
-            }
-            KeyCode::Char('n') | KeyCode::Char('N') => {
-                // Nullify - requires confirmation
-                self.state.current_screen = Screen::Confirm(ConfirmAction::NullifyChild);
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle reconciliation screen
-    fn handle_reconciliation(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::Dashboard;
-            }
-            KeyCode::Char('a') | KeyCode::Char('A') => {
-                // Analyze disk
-                self.state.status_message = Some("Analyzing disk...".to_string());
-            }
-            KeyCode::Char('r') | KeyCode::Char('R') => {
-                // Refill approved disk
-                self.state.current_screen = Screen::Confirm(ConfirmAction::RefillDisk);
-            }
-            KeyCode::Char('?') => {
-                self.state.current_screen = Screen::Help;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle reports screen
-    fn handle_reports(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::Dashboard;
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.report_type_index = self.state.report_type_index.saturating_sub(1);
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.report_type_index = (self.state.report_type_index + 1).min(3);
+                if self.state.menu_index < 6 {
+                    self.state.menu_index += 1;
+                }
             }
             KeyCode::Enter => {
-                // Generate selected report
-                self.state.status_message = Some("Generating report...".to_string());
-            }
-            KeyCode::Char('e') | KeyCode::Char('E') => {
-                // Export to USB
-                self.state.status_message = Some("Looking for USB drives...".to_string());
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle QR display screen
-    fn handle_qr_display(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                // Return to previous screen
-                self.state.current_screen = Screen::Dashboard;
-            }
-            KeyCode::Char('s') | KeyCode::Char('S') => {
-                // Save QR as image
-                self.state.status_message = Some("QR code saved to file".to_string());
-            }
-            KeyCode::Left if self.state.qr_chunk_index > 0 => {
-                self.state.qr_chunk_index -= 1;
-            }
-            KeyCode::Right => {
-                self.state.qr_chunk_index += 1;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    /// Handle settings screen
-    fn handle_settings(&mut self, key: KeyCode) -> Result<()> {
-        match key {
-            KeyCode::Esc => {
-                self.state.current_screen = Screen::Dashboard;
-            }
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.state.settings_index = self.state.settings_index.saturating_sub(1);
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.state.settings_index = (self.state.settings_index + 1).min(4);
-            }
-            KeyCode::Enter => {
-                match self.state.settings_index {
+                match self.state.menu_index {
                     0 => {
-                        // Change PIN
-                        self.state.current_screen = Screen::Confirm(ConfirmAction::ChangePIN);
+                        // Disk Management
+                        self.state.refresh_disk_status();
+                        self.state.current_screen = Screen::DiskManagement;
                     }
-                    4 => {
-                        // Factory reset
-                        self.state.current_screen = Screen::Confirm(ConfirmAction::FactoryReset);
+                    1 => self.state.current_screen = Screen::ChildList, // Children
+                    2 => self.state.current_screen = Screen::AgentList, // Agents
+                    3 => {} // Reconciliation (not implemented)
+                    4 => {} // Reports (not implemented)
+                    5 => self.state.current_screen = Screen::Help, // Help
+                    6 => self.should_quit = true, // Quit
+                    _ => {}
+                }
+            }
+            KeyCode::Char('?') => {
+                self.state.current_screen = Screen::Help;
+            }
+            KeyCode::Char('d') => {
+                // Quick access to disk management
+                self.state.refresh_disk_status();
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_agent_list_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::Dashboard;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.agent_list_index > 0 {
+                    self.state.agent_list_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let agent_count = self.state.agent_registry.list_all().len();
+                if self.state.agent_list_index < agent_count.saturating_sub(1) {
+                    self.state.agent_list_index += 1;
+                }
+            }
+            KeyCode::Enter => {
+                if !self.state.agent_registry.list_all().is_empty() {
+                    self.state.current_screen = Screen::AgentDetail;
+                }
+            }
+            KeyCode::Char('n') => {
+                self.state.current_screen = Screen::AgentCreate;
+                self.state.agent_create_step = 0;
+                self.state.agent_name_input.clear();
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_agent_detail_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::AgentList;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.agent_action_index > 0 {
+                    self.state.agent_action_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.state.agent_action_index < 3 {
+                    self.state.agent_action_index += 1;
+                }
+            }
+            KeyCode::Enter => {
+                match self.state.agent_action_index {
+                    0 => {} // View witness (not implemented)
+                    1 => {} // Suspend/Reactivate
+                    2 => {
+                        self.state.current_screen = Screen::AgentNullify;
+                        self.state.nullify_confirmed = false;
+                    }
+                    3 => self.state.current_screen = Screen::AgentList, // Back
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_agent_create_key(&mut self, key: KeyCode) {
+        match self.state.agent_create_step {
+            0 => {
+                // Name input step
+                match key {
+                    KeyCode::Esc => {
+                        self.state.current_screen = Screen::AgentList;
+                    }
+                    KeyCode::Enter => {
+                        if !self.state.agent_name_input.is_empty() {
+                            self.state.agent_create_step = 1;
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        self.state.agent_name_input.pop();
+                    }
+                    KeyCode::Char(c) => {
+                        if self.state.agent_name_input.len() < 32 {
+                            self.state.agent_name_input.push(c);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            1 => {
+                // Confirm step
+                match key {
+                    KeyCode::Esc => {
+                        self.state.agent_create_step = 0;
+                    }
+                    KeyCode::Enter | KeyCode::Char('y') => {
+                        // Create the agent
+                        self.create_agent();
+                        self.state.current_screen = Screen::AgentList;
+                    }
+                    KeyCode::Char('n') => {
+                        self.state.agent_create_step = 0;
                     }
                     _ => {}
                 }
             }
             _ => {}
         }
-        Ok(())
     }
 
-    /// Handle help screen
-    fn handle_help(&mut self, key: KeyCode) -> Result<()> {
+    fn handle_agent_nullify_key(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Esc | KeyCode::Char('?') | KeyCode::Enter => {
-                // Return to previous screen
-                self.state.current_screen = self.router.back().unwrap_or(Screen::Dashboard);
+            KeyCode::Esc | KeyCode::Char('n') => {
+                self.state.current_screen = Screen::AgentDetail;
+            }
+            KeyCode::Char('y') if !self.state.nullify_confirmed => {
+                self.state.nullify_confirmed = true;
+            }
+            KeyCode::Enter if self.state.nullify_confirmed => {
+                self.nullify_selected_agent();
+                self.state.current_screen = Screen::AgentList;
             }
             _ => {}
         }
-        Ok(())
     }
 
-    /// Handle confirmation dialogs
-    fn handle_confirm(&mut self, key: KeyCode) -> Result<()> {
+    fn handle_child_list_key(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
-                // Cancel
-                self.state.current_screen = self.router.back().unwrap_or(Screen::Dashboard);
-                self.state.confirm_input.clear();
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::Dashboard;
             }
-            KeyCode::Char('y') | KeyCode::Char('Y') => {
-                // Quick confirm for simple dialogs
-                if let Screen::Confirm(ConfirmAction::Quit) = &self.state.current_screen {
-                    self.should_quit = true;
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.child_list_index > 0 {
+                    self.state.child_list_index -= 1;
                 }
             }
-            KeyCode::Char(c) => {
-                // Typed confirmation for dangerous operations
-                self.state.confirm_input.push(c);
+            KeyCode::Down | KeyCode::Char('j') => {
+                let child_count = self.state.child_registry.list_all().len();
+                if self.state.child_list_index < child_count.saturating_sub(1) {
+                    self.state.child_list_index += 1;
+                }
             }
-            KeyCode::Backspace => {
-                self.state.confirm_input.pop();
-            }
-            KeyCode::Enter => {
-                // Verify typed confirmation
-                self.process_confirmation()?;
+            KeyCode::Char('n') => {
+                self.state.current_screen = Screen::ChildCreate;
             }
             _ => {}
         }
-        Ok(())
     }
 
-    /// Process a typed confirmation
-    fn process_confirmation(&mut self) -> Result<()> {
-        let action = match &self.state.current_screen {
-            Screen::Confirm(a) => a.clone(),
-            _ => return Ok(()),
+    fn handle_child_create_key(&mut self, key: KeyCode) {
+        if key == KeyCode::Esc {
+            self.state.current_screen = Screen::ChildList;
+        }
+    }
+
+    fn handle_qr_display_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Enter => {
+                self.state.current_screen = Screen::Dashboard;
+            }
+            KeyCode::Left => {
+                if self.state.qr_chunk_index > 0 {
+                    self.state.qr_chunk_index -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if self.state.qr_chunk_index < self.state.qr_total_chunks.saturating_sub(1) {
+                    self.state.qr_chunk_index += 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_help_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter => {
+                self.state.current_screen = Screen::Dashboard;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_disk_management_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::Dashboard;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.disk_action_index > 0 {
+                    self.state.disk_action_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.state.disk_action_index < 5 {
+                    self.state.disk_action_index += 1;
+                }
+            }
+            KeyCode::Char('r') => {
+                // Refresh disk status
+                self.state.refresh_disk_status();
+                self.state.refresh_available_devices();
+            }
+            KeyCode::Char('m') => {
+                // Quick mount
+                self.mount_disk();
+            }
+            KeyCode::Char('u') => {
+                // Quick unmount
+                self.unmount_disk();
+            }
+            KeyCode::Char('s') => {
+                // Open device selection screen
+                self.state.refresh_available_devices();
+                self.state.device_select_index = 0;
+                self.state.current_screen = Screen::DiskSelect;
+            }
+            KeyCode::Enter => {
+                match self.state.disk_action_index {
+                    0 => {
+                        // Select Device - go to device selection screen
+                        self.state.refresh_available_devices();
+                        self.state.device_select_index = 0;
+                        self.state.current_screen = Screen::DiskSelect;
+                    }
+                    1 => self.mount_disk(),   // Mount
+                    2 => self.unmount_disk(), // Unmount
+                    3 => {
+                        // Format - go to confirmation screen
+                        self.state.format_confirmed = false;
+                        self.state.format_type_index = 0;
+                        self.state.current_screen = Screen::DiskFormat;
+                    }
+                    4 => self.eject_disk(), // Eject
+                    5 => self.state.current_screen = Screen::Dashboard, // Back
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_disk_select_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc | KeyCode::Char('b') => {
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.state.device_select_index > 0 {
+                    self.state.device_select_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                let count = self.state.available_devices.len();
+                if count > 0 && self.state.device_select_index < count - 1 {
+                    self.state.device_select_index += 1;
+                }
+            }
+            KeyCode::Char('r') => {
+                // Refresh device list
+                self.state.refresh_available_devices();
+            }
+            KeyCode::Enter => {
+                // Select the device
+                if !self.state.available_devices.is_empty() {
+                    self.state.select_device(self.state.device_select_index);
+                    self.state.current_screen = Screen::DiskManagement;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_disk_format_key(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Esc => {
+                self.state.format_confirmed = false;
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                if !self.state.format_confirmed && self.state.format_type_index > 0 {
+                    self.state.format_type_index -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if !self.state.format_confirmed && self.state.format_type_index < 1 {
+                    self.state.format_type_index += 1;
+                }
+            }
+            KeyCode::Char('y') if !self.state.format_confirmed => {
+                self.state.format_confirmed = true;
+            }
+            KeyCode::Enter if self.state.format_confirmed => {
+                self.format_disk();
+                self.state.format_confirmed = false;
+                self.state.current_screen = Screen::DiskManagement;
+            }
+            _ => {}
+        }
+    }
+
+    /// Mount the floppy disk
+    fn mount_disk(&mut self) {
+        match self.state.floppy_manager.mount() {
+            Ok(path) => {
+                self.state.status_message = Some(format!("Disk mounted at {}", path.display()));
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Mount failed: {}", e));
+            }
+        }
+    }
+
+    /// Unmount the floppy disk
+    fn unmount_disk(&mut self) {
+        match self.state.floppy_manager.unmount() {
+            Ok(()) => {
+                self.state.status_message = Some("Disk unmounted successfully".to_string());
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Unmount failed: {}", e));
+            }
+        }
+    }
+
+    /// Eject the floppy disk
+    fn eject_disk(&mut self) {
+        match self.state.floppy_manager.eject() {
+            Ok(()) => {
+                self.state.status_message = Some("Disk ejected".to_string());
+                self.state.refresh_disk_status();
+            }
+            Err(e) => {
+                self.state.error_message = Some(format!("Eject failed: {}", e));
+            }
+        }
+    }
+
+    /// Format the floppy disk
+    fn format_disk(&mut self) {
+        let result = if self.state.format_type_index == 0 {
+            // ext2
+            self.state.floppy_manager.format(Some("SIGIL"))
+        } else {
+            // FAT12
+            self.state.floppy_manager.format_fat(Some("SIGIL"))
         };
 
-        match action {
-            ConfirmAction::Quit => {
-                self.should_quit = true;
-            }
-            ConfirmAction::NullifyChild => {
-                // Requires typing "NULLIFY <child_id>"
-                // For now, just return to dashboard
-                self.state.current_screen = Screen::Dashboard;
+        match result {
+            Ok(()) => {
+                let format_type = if self.state.format_type_index == 0 {
+                    "ext2"
+                } else {
+                    "FAT12"
+                };
                 self.state.status_message =
-                    Some("Child nullification not yet implemented".to_string());
+                    Some(format!("Disk formatted successfully ({})", format_type));
+                self.state.refresh_disk_status();
             }
-            ConfirmAction::FactoryReset => {
-                // Requires typing "FACTORY RESET"
-                self.state.current_screen = Screen::Dashboard;
-                self.state.status_message = Some("Factory reset not yet implemented".to_string());
-            }
-            ConfirmAction::RefillDisk => {
-                self.state.current_screen = Screen::Reconciliation;
-                self.state.status_message = Some("Disk refill not yet implemented".to_string());
-            }
-            ConfirmAction::ChangePIN => {
-                self.state.current_screen = Screen::PinSetup;
-                self.state.setup_step = 0;
+            Err(e) => {
+                self.state.error_message = Some(format!("Format failed: {}", e));
             }
         }
-
-        self.state.confirm_input.clear();
-        Ok(())
     }
 
-    /// Handle periodic tick
-    fn on_tick(&mut self) -> Result<()> {
-        self.tick = self.tick.wrapping_add(1);
+    /// Create a new agent from current input
+    fn create_agent(&mut self) {
+        use sigil_core::agent::AgentId;
 
-        // Check session timeout
-        if let Some(session) = &self.session {
-            if !session.is_valid() {
-                self.session = None;
-                self.auth = AuthState::RequiresPin;
-                self.state.current_screen = Screen::PinEntry;
-                self.state.status_message =
-                    Some("Session timed out. Please re-authenticate.".to_string());
-            } else if session.should_warn() {
-                let remaining = session.idle_seconds_remaining();
-                self.state.session_warning =
-                    Some(format!("Session expires in {} seconds", remaining));
-            } else {
-                self.state.session_warning = None;
+        // Generate a random agent ID (in real usage, this would come from agent's public key)
+        let mut id_bytes = [0u8; 32];
+        use rand::RngCore;
+        rand::thread_rng().fill_bytes(&mut id_bytes);
+        let agent_id = AgentId::new(id_bytes);
+
+        let _ = self
+            .state
+            .agent_registry
+            .register_agent(agent_id, self.state.agent_name_input.clone());
+
+        self.state.agent_name_input.clear();
+        self.state.agent_create_step = 0;
+        self.state.status_message = Some("Agent created successfully".to_string());
+    }
+
+    /// Nullify the currently selected agent
+    fn nullify_selected_agent(&mut self) {
+        let agents = self.state.agent_registry.list_all();
+        if let Some(entry) = agents.get(self.state.agent_list_index) {
+            let agent_id = entry.agent_id;
+            if self.state.agent_registry.nullify_agent(&agent_id).is_ok() {
+                self.state.status_message = Some("Agent nullified".to_string());
             }
         }
-
-        // Periodic disk status check (every 2 seconds)
-        if self.last_disk_check.elapsed() > Duration::from_secs(2) {
-            self.check_disk_status()?;
-            self.last_disk_check = Instant::now();
-        }
-
-        // Clear transient messages after a few seconds
-        if self.tick.is_multiple_of(180) {
-            self.state.status_message = None;
-            self.state.error_message = None;
-        }
-
-        Ok(())
+        self.state.nullify_confirmed = false;
     }
-
-    /// Check current disk status
-    fn check_disk_status(&mut self) -> Result<()> {
-        // TODO: Integrate with sigil-core disk detection
-        // For now, just update state.disk_detected
-        Ok(())
-    }
-
-    /// Draw the current frame
-    fn draw(&self, frame: &mut Frame) {
-        ui::draw(frame, self);
-    }
-}
-
-/// Types of confirmation actions
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ConfirmAction {
-    Quit,
-    NullifyChild,
-    FactoryReset,
-    RefillDisk,
-    ChangePIN,
-}
-
-/// Types of QR code displays
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum QrDisplayType {
-    AgentShard,
-    NewChildShard,
-    DkgPackage,
 }

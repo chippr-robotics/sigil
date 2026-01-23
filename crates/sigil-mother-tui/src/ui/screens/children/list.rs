@@ -1,197 +1,115 @@
-//! Children list screen
+//! Child disk list screen
 
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Cell, Row, Table, TableState};
+use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 
-use crate::app::App;
-use crate::ui::layout::{render_footer, render_header, ScreenLayout};
+use crate::app::AppState;
+use crate::ui::components::header;
 
-/// Sample child data for display
-struct ChildRow {
-    id: &'static str,
-    status: &'static str,
-    scheme: &'static str,
-    presigs: &'static str,
-    expires: &'static str,
-    signs: &'static str,
-}
+/// Render the child list screen
+pub fn render(frame: &mut Frame, state: &mut AppState) {
+    let area = frame.area();
 
-const SAMPLE_CHILDREN: &[ChildRow] = &[
-    ChildRow {
-        id: "a1b2c3d4",
-        status: "● Active",
-        scheme: "ECDSA",
-        presigs: "847/1000",
-        expires: "23 days",
-        signs: "153",
-    },
-    ChildRow {
-        id: "e5f6g7h8",
-        status: "● Active",
-        scheme: "Taproot",
-        presigs: "234/500",
-        expires: "12 days",
-        signs: "266",
-    },
-    ChildRow {
-        id: "i9j0k1l2",
-        status: "⚠ Warn",
-        scheme: "ECDSA",
-        presigs: "45/1000",
-        expires: "3 days",
-        signs: "955",
-    },
-    ChildRow {
-        id: "m3n4o5p6",
-        status: "◐ Recon",
-        scheme: "Ed25519",
-        presigs: "0/1000",
-        expires: "OVERDUE",
-        signs: "1000",
-    },
-    ChildRow {
-        id: "q7r8s9t0",
-        status: "✗ Null",
-        scheme: "ECDSA",
-        presigs: "-/500",
-        expires: "N/A",
-        signs: "342",
-    },
-];
-
-/// Draw the children list screen
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-    let layout = ScreenLayout::new(area);
-
-    // Header
-    render_header(
-        frame,
-        layout.header,
-        &format!("Dashboard > Children ({} total)", SAMPLE_CHILDREN.len()),
-        None,
-        theme,
-    );
-
-    // Main content
-    let content_chunks = Layout::default()
+    let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(3), // Header
             Constraint::Min(10),   // Table
-            Constraint::Length(3), // Legend
+            Constraint::Length(3), // Help bar
         ])
-        .split(layout.content);
-
-    // Children table
-    render_table(frame, content_chunks[0], app);
-
-    // Legend
-    render_legend(frame, content_chunks[1], app);
-
-    // Footer
-    let hints = &[
-        ("↑/↓", "Navigate"),
-        ("Enter", "View Details"),
-        ("N", "Create New"),
-        ("/", "Search"),
-        ("Esc", "Back"),
-    ];
-    render_footer(frame, layout.footer, hints, theme);
-}
-
-/// Render the children table
-fn render_table(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+        .split(area);
 
     // Header
-    let header_cells = ["ID", "Status", "Scheme", "Presigs", "Expires", "Signs"]
-        .iter()
-        .map(|h| Cell::from(*h).style(theme.text_highlight()));
-    let header = Row::new(header_cells).height(1);
+    header::render(frame, chunks[0], "Child Disks");
 
-    // Rows
-    let rows: Vec<Row> = SAMPLE_CHILDREN
-        .iter()
-        .enumerate()
-        .map(|(i, child)| {
-            let status_style = match child.status.chars().next() {
-                Some('●') => theme.success(),
-                Some('⚠') => theme.warning(),
-                Some('◐') => theme.warning(),
-                Some('✗') => theme.danger(),
-                _ => theme.text(),
-            };
+    // Child table
+    let children = state.child_registry.list_all();
 
-            let cells = vec![
-                Cell::from(child.id),
-                Cell::from(child.status).style(status_style),
-                Cell::from(child.scheme),
-                Cell::from(child.presigs),
-                Cell::from(child.expires),
-                Cell::from(child.signs),
-            ];
+    if children.is_empty() {
+        let empty_msg = Paragraph::new(
+            "\n  No child disks registered.\n\n  Press 'n' to create a new child disk.",
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(" Children "),
+        )
+        .style(Style::default().fg(Color::Yellow));
+        frame.render_widget(empty_msg, chunks[1]);
+    } else {
+        let header = Row::new(vec![
+            Cell::from("ID").style(Style::default().add_modifier(Modifier::BOLD)),
+            Cell::from("Status").style(Style::default().add_modifier(Modifier::BOLD)),
+            Cell::from("Created").style(Style::default().add_modifier(Modifier::BOLD)),
+            Cell::from("Signatures").style(Style::default().add_modifier(Modifier::BOLD)),
+            Cell::from("Path").style(Style::default().add_modifier(Modifier::BOLD)),
+        ])
+        .style(Style::default().fg(Color::Cyan))
+        .height(1);
 
-            let style = if i == app.state.child_list_index {
-                theme.selection()
-            } else {
-                Style::default()
-            };
+        let rows: Vec<Row> = children
+            .iter()
+            .enumerate()
+            .map(|(i, child)| {
+                let status_style = match &child.status {
+                    sigil_core::child::ChildStatus::Active => Style::default().fg(Color::Green),
+                    sigil_core::child::ChildStatus::Suspended => Style::default().fg(Color::Yellow),
+                    sigil_core::child::ChildStatus::Nullified { .. } => {
+                        Style::default().fg(Color::Red)
+                    }
+                };
 
-            Row::new(cells).style(style)
-        })
-        .collect();
+                let status_text = match &child.status {
+                    sigil_core::child::ChildStatus::Active => "Active",
+                    sigil_core::child::ChildStatus::Suspended => "Suspended",
+                    sigil_core::child::ChildStatus::Nullified { .. } => "Nullified",
+                };
 
-    // Column widths
-    let widths = [
-        Constraint::Length(10),
-        Constraint::Length(12),
-        Constraint::Length(10),
-        Constraint::Length(12),
-        Constraint::Length(10),
-        Constraint::Length(8),
-    ];
+                let created_time = chrono::DateTime::from_timestamp(child.created_at as i64, 0)
+                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "Unknown".to_string());
 
-    let table = Table::new(rows, widths)
+                let row_style = if i == state.child_list_index {
+                    Style::default().bg(Color::DarkGray)
+                } else {
+                    Style::default()
+                };
+
+                Row::new(vec![
+                    Cell::from(child.child_id.short()),
+                    Cell::from(status_text).style(status_style),
+                    Cell::from(created_time),
+                    Cell::from(format!("{}", child.total_signatures)),
+                    Cell::from(child.derivation_path.to_string_path()),
+                ])
+                .style(row_style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Length(10),
+                Constraint::Length(12),
+                Constraint::Length(12),
+                Constraint::Length(12),
+                Constraint::Min(20),
+            ],
+        )
         .header(header)
         .block(
             Block::default()
-                .title(" All Children ")
-                .title_style(theme.title())
                 .borders(Borders::ALL)
-                .border_style(theme.border()),
-        )
-        .highlight_style(theme.selection())
-        .highlight_symbol("▶ ");
-
-    let mut state = TableState::default().with_selected(Some(
-        app.state
-            .child_list_index
-            .min(SAMPLE_CHILDREN.len().saturating_sub(1)),
-    ));
-    frame.render_stateful_widget(table, area, &mut state);
-}
-
-/// Render status legend
-fn render_legend(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-
-    let legend_items = vec![
-        Span::styled("● Active", theme.success()),
-        Span::raw("   "),
-        Span::styled("⚠ Warning", theme.warning()),
-        Span::raw("   "),
-        Span::styled("◐ Needs Reconciliation", theme.warning()),
-        Span::raw("   "),
-        Span::styled("✗ Nullified", theme.danger()),
-    ];
-
-    let legend = ratatui::widgets::Paragraph::new(Line::from(legend_items))
-        .alignment(Alignment::Center)
-        .block(
-            Block::default()
-                .borders(Borders::TOP)
-                .border_style(theme.border()),
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(format!(" Children ({}) ", children.len())),
         );
 
-    frame.render_widget(legend, area);
+        frame.render_widget(table, chunks[1]);
+    }
+
+    // Help bar
+    let help = Paragraph::new(" [n] New child | [Enter] View details | [Esc] Back ")
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    frame.render_widget(help, chunks[2]);
 }

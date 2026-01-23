@@ -1,241 +1,216 @@
-//! Disk status screen
+//! Disk status and management screen
 
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 
-use crate::app::App;
-use crate::ui::components::floppy::{DiskStatus, FloppyDisk};
-use crate::ui::components::progress::PresigInventory;
-use crate::ui::layout::{render_footer, render_header, ScreenLayout};
+use crate::app::AppState;
+use crate::ui::components::header;
 
-/// Draw the disk status screen
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-    let layout = ScreenLayout::new(area);
+/// Disk action menu items
+const DISK_ACTIONS: [&str; 6] = [
+    "Select Device   - Choose removable device",
+    "Mount Disk      - Mount the floppy disk",
+    "Unmount Disk    - Safely unmount the disk",
+    "Format Disk     - Format disk for Sigil use",
+    "Eject Disk      - Eject the floppy disk",
+    "Back            - Return to dashboard",
+];
 
-    // Header
-    render_header(frame, layout.header, "Dashboard > Disk Status", None, theme);
-
-    // Main content
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(layout.content);
-
-    // Left side: Floppy visualization
-    render_disk_visual(frame, content_chunks[0], app);
-
-    // Right side: Detailed info
-    render_disk_details(frame, content_chunks[1], app);
-
-    // Footer
-    let hints = if app.state.disk_detected {
-        vec![
-            ("R", "Reconcile"),
-            ("D", "View Log"),
-            ("E", "Eject"),
-            ("Esc", "Back"),
-        ]
-    } else {
-        vec![("F", "Format New"), ("Esc", "Back")]
-    };
-    render_footer(frame, layout.footer, &hints, theme);
-}
-
-/// Render the disk visualization
-fn render_disk_visual(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-
-    let block = Block::default()
-        .title(" Disk ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    if app.state.disk_detected {
-        let status = if app.state.disk_presigs_remaining.unwrap_or(0) < 50 {
-            DiskStatus::Warning
-        } else {
-            DiskStatus::Active
-        };
-
-        let floppy = FloppyDisk::from_data(
-            app.state.disk_child_id.as_deref().unwrap_or("unknown"),
-            "2025-01-15",
-            app.state.disk_presigs_remaining.unwrap_or(0),
-            app.state.disk_presigs_total.unwrap_or(1000),
-            status,
-        );
-        floppy.render(frame, inner, theme);
-    } else {
-        let floppy = FloppyDisk::empty();
-        floppy.render(frame, inner, theme);
-    }
-}
-
-/// Render detailed disk information
-fn render_disk_details(frame: &mut Frame, area: Rect, app: &App) {
-    let _theme = &app.theme;
+/// Render the disk status screen
+pub fn render(frame: &mut Frame, state: &mut AppState) {
+    let area = frame.area();
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(12), // Info panel
-            Constraint::Length(8),  // Presig inventory
-            Constraint::Min(5),     // Expiry status
+            Constraint::Length(3),  // Header
+            Constraint::Length(12), // Status panel (increased for more info)
+            Constraint::Min(8),     // Actions menu
+            Constraint::Length(3),  // Help bar
         ])
         .split(area);
 
-    // Info panel
-    render_info_panel(frame, chunks[0], app);
+    // Header
+    header::render(frame, chunks[0], "Disk Management");
 
-    // Presig inventory
-    render_presig_panel(frame, chunks[1], app);
+    // Status panel
+    render_status_panel(frame, chunks[1], state);
 
-    // Expiry status
-    render_expiry_panel(frame, chunks[2], app);
+    // Actions menu
+    render_actions_menu(frame, chunks[2], state);
+
+    // Help bar
+    let help =
+        Paragraph::new(" [j/k] Navigate | [Enter] Select | [s] Select Device | [m] Mount | [u] Unmount | [r] Refresh | [Esc] Back ")
+            .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    frame.render_widget(help, chunks[3]);
 }
 
-/// Render disk information panel
-fn render_info_panel(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+/// Render the disk status panel
+fn render_status_panel(frame: &mut Frame, area: Rect, state: &AppState) {
+    // Get selected device info if available
+    let selected_device_info = state
+        .selected_device_path
+        .as_ref()
+        .and_then(|path| state.available_devices.iter().find(|d| &d.path == path));
 
-    let block = Block::default()
-        .title(" Disk Information ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    if app.state.disk_detected {
-        let child_id = app.state.disk_child_id.as_deref().unwrap_or("unknown");
-        let lines = vec![
-            Line::from(vec![
-                Span::styled("Child ID:     ", theme.text_secondary()),
-                Span::styled(child_id, theme.text_highlight()),
-            ]),
-            Line::from(vec![
-                Span::styled("Status:       ", theme.text_secondary()),
-                Span::styled("● ACTIVE", theme.success()),
-            ]),
-            Line::from(vec![
-                Span::styled("Scheme:       ", theme.text_secondary()),
-                Span::raw("ECDSA secp256k1"),
-            ]),
-            Line::from(vec![
-                Span::styled("Address:      ", theme.text_secondary()),
-                Span::raw("0x742d35Cc6634C05..."),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("Created:      ", theme.text_secondary()),
-                Span::raw("2025-01-15 14:23:00"),
-            ]),
-            Line::from(vec![
-                Span::styled("Last Recon:   ", theme.text_secondary()),
-                Span::raw("2025-01-18 09:00:00"),
-            ]),
-        ];
-
-        let info = Paragraph::new(lines);
-        frame.render_widget(info, inner);
-    } else {
-        let msg = Paragraph::new("No disk inserted")
-            .style(theme.text_muted())
-            .alignment(Alignment::Center);
-        frame.render_widget(msg, inner);
-    }
-}
-
-/// Render presignature inventory panel
-fn render_presig_panel(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-
-    let block = Block::default()
-        .title(" Presignature Inventory ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    if app.state.disk_detected {
-        let inventory = PresigInventory::new(
-            app.state.disk_presigs_remaining.unwrap_or(847),
-            150,
-            3,
-            app.state.disk_presigs_total.unwrap_or(1000),
-        );
-        inventory.render(frame, inner, theme);
-
-        // Warning if low
-        if app.state.disk_presigs_remaining.unwrap_or(0) < 50 {
-            let warning_y = inner.y + inner.height.saturating_sub(1);
-            let warning = "⚠ Emergency reserve active - reconcile soon";
-            let warning_widget = Paragraph::new(warning)
-                .style(theme.warning())
-                .alignment(Alignment::Center);
-            frame.render_widget(
-                warning_widget,
-                Rect::new(inner.x, warning_y, inner.width, 1),
-            );
+    let (status_text, status_color, details) = match &state.disk_status {
+        Some(status) => {
+            use sigil_mother::DiskStatus;
+            match status {
+                DiskStatus::NoDisk => (
+                    "NO DISK DETECTED",
+                    Color::Red,
+                    vec![
+                        format!(
+                            "Selected Device: {}",
+                            state.selected_device_path.as_deref().unwrap_or("None")
+                        ),
+                        "Insert a floppy disk into the drive.".to_string(),
+                        "Press 's' to select a different device.".to_string(),
+                    ],
+                ),
+                DiskStatus::Unmounted { device } => {
+                    let mut details = vec![format!("Device: {}", device)];
+                    if let Some(dev_info) = selected_device_info {
+                        details.push(format!(
+                            "Size: {} {}",
+                            dev_info.size_human,
+                            if dev_info.is_floppy_size {
+                                "(floppy)"
+                            } else {
+                                ""
+                            }
+                        ));
+                        if let Some(label) = &dev_info.label {
+                            details.push(format!("Label: {}", label));
+                        }
+                        if let Some(fstype) = &dev_info.fstype {
+                            details.push(format!("Filesystem: {}", fstype));
+                        }
+                    }
+                    details.push("Press 'm' or select 'Mount Disk' to mount.".to_string());
+                    ("DISK DETECTED (UNMOUNTED)", Color::Yellow, details)
+                }
+                DiskStatus::Mounted {
+                    device,
+                    mount_point,
+                    filesystem,
+                    is_sigil_disk,
+                } => {
+                    let sigil_status = if *is_sigil_disk {
+                        "Yes (sigil.disk found)"
+                    } else {
+                        "No (blank or other format)"
+                    };
+                    let mut details = vec![
+                        format!("Device: {}", device),
+                        format!("Mount Point: {}", mount_point.display()),
+                        format!("Filesystem: {}", filesystem),
+                    ];
+                    if let Some(dev_info) = selected_device_info {
+                        details.push(format!(
+                            "Size: {} {}",
+                            dev_info.size_human,
+                            if dev_info.is_floppy_size {
+                                "(floppy)"
+                            } else {
+                                ""
+                            }
+                        ));
+                        if let Some(label) = &dev_info.label {
+                            details.push(format!("Label: {}", label));
+                        }
+                    }
+                    details.push(format!("Sigil Disk: {}", sigil_status));
+                    ("DISK MOUNTED", Color::Green, details)
+                }
+                DiskStatus::Error(e) => ("ERROR", Color::Red, vec![format!("Error: {}", e)]),
+            }
         }
-    } else {
-        let msg = Paragraph::new("No disk inserted")
-            .style(theme.text_muted())
-            .alignment(Alignment::Center);
-        frame.render_widget(msg, inner);
+        None => (
+            "CHECKING...",
+            Color::Gray,
+            vec!["Checking disk status...".to_string()],
+        ),
+    };
+
+    let mut lines = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("  Status: "),
+            Span::styled(
+                status_text,
+                Style::default()
+                    .fg(status_color)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(""),
+    ];
+
+    for detail in details {
+        lines.push(Line::from(format!("  {}", detail)));
     }
+
+    let status_panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(" Disk Status "),
+    );
+
+    frame.render_widget(status_panel, area);
 }
 
-/// Render expiry status panel
-fn render_expiry_panel(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+/// Render the actions menu
+fn render_actions_menu(frame: &mut Frame, area: Rect, state: &AppState) {
+    let items: Vec<ListItem> = DISK_ACTIONS
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let style = if i == state.disk_action_index {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                // Gray out unavailable actions based on disk status
+                let available = is_action_available(i, &state.disk_status);
+                if available {
+                    Style::default().fg(Color::White)
+                } else {
+                    Style::default().fg(Color::DarkGray)
+                }
+            };
+            ListItem::new(format!("  {}  ", item)).style(style)
+        })
+        .collect();
 
-    let block = Block::default()
-        .title(" Expiry Status ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
+    let menu = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(" Actions "),
+    );
 
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    frame.render_widget(menu, area);
+}
 
-    if app.state.disk_detected {
-        let days_remaining = app.state.disk_days_until_expiry.unwrap_or(23);
-        let validity_style = if days_remaining < 7 {
-            theme.warning()
-        } else {
-            theme.text()
-        };
+/// Check if an action is available based on disk status
+fn is_action_available(action_index: usize, status: &Option<sigil_mother::DiskStatus>) -> bool {
+    use sigil_mother::DiskStatus;
 
-        let lines = vec![
-            Line::from(vec![
-                Span::styled("Validity:              ", theme.text_secondary()),
-                Span::styled(format!("{} days remaining", days_remaining), validity_style),
-            ]),
-            Line::from(vec![
-                Span::styled("Reconciliation Due:    ", theme.text_secondary()),
-                Span::raw("12 days remaining"),
-            ]),
-            Line::from(vec![
-                Span::styled("Max Signatures:        ", theme.text_secondary()),
-                Span::raw("350/500 remaining"),
-            ]),
-        ];
-
-        let info = Paragraph::new(lines);
-        frame.render_widget(info, inner);
-    } else {
-        let msg = Paragraph::new("No disk inserted")
-            .style(theme.text_muted())
-            .alignment(Alignment::Center);
-        frame.render_widget(msg, inner);
+    match status {
+        None => action_index == 0 || action_index == 5, // Select device and Back always available
+        Some(status) => match action_index {
+            0 => true,                                           // Select Device always available
+            1 => matches!(status, DiskStatus::Unmounted { .. }), // Mount
+            2 => matches!(status, DiskStatus::Mounted { .. }),   // Unmount
+            3 => !matches!(status, DiskStatus::NoDisk),          // Format (need disk)
+            4 => !matches!(status, DiskStatus::NoDisk),          // Eject
+            5 => true,                                           // Back always available
+            _ => false,
+        },
     }
 }

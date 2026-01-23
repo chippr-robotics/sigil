@@ -1,72 +1,103 @@
 //! Help screen
 
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Paragraph};
 
-use crate::app::App;
-use crate::ui::layout::centered_rect;
+use crate::app::AppState;
+use crate::ui::components::header;
 
-/// Draw the help screen
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+/// Render the help screen
+pub fn render(frame: &mut Frame, _state: &mut AppState) {
+    let area = frame.area();
 
-    // Semi-transparent overlay effect via centered dialog
-    let dialog = centered_rect(70, 80, area);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // Header
+            Constraint::Min(10),   // Help content
+            Constraint::Length(3), // Footer
+        ])
+        .split(area);
 
-    let block = Block::default()
-        .title(" Help - Keyboard Shortcuts ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border_focused());
+    // Header
+    header::render(frame, chunks[0], "Help");
 
-    let inner = block.inner(dialog);
-    frame.render_widget(block, dialog);
+    // Help content
+    let content = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  SIGIL MOTHER - Air-Gapped MPC Key Management",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Navigation:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from("    j/k or Up/Down  - Move selection"),
+        Line::from("    Enter           - Select / Confirm"),
+        Line::from("    Esc or b        - Go back"),
+        Line::from("    d               - Disk management (from dashboard)"),
+        Line::from("    q               - Quit (from dashboard)"),
+        Line::from("    ?               - Show this help"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Disk Management:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from("    m               - Mount floppy disk"),
+        Line::from("    u               - Unmount floppy disk"),
+        Line::from("    r               - Refresh disk status"),
+        Line::from(""),
+        Line::from("    Mount:   Mounts disk at /mnt/floppy"),
+        Line::from("    Unmount: Safely unmounts before removal"),
+        Line::from("    Format:  Formats disk as ext2 or FAT12"),
+        Line::from("    Eject:   Unmounts and ejects (USB floppies)"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Agent Management:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from("    Agents hold the 'hot' shard of presignatures."),
+        Line::from("    They participate in signing ceremonies with cold"),
+        Line::from("    shares from floppy disks."),
+        Line::from(""),
+        Line::from("    - Create: Register a new signing agent"),
+        Line::from("    - Suspend: Temporarily disable an agent"),
+        Line::from("    - Nullify: Permanently revoke (adds to accumulator)"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  RSA Accumulator:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from("    The accumulator tracks nullified agents."),
+        Line::from("    Active agents hold non-membership witnesses."),
+        Line::from("    When nullified, the witness becomes invalid."),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Child Disks:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from("    Floppy disks containing cold presig shares."),
+        Line::from("    Created during the child creation ceremony."),
+        Line::from(""),
+        Line::from(Span::styled("  Security:", Style::default().fg(Color::Red))),
+        Line::from("    This device should remain AIR-GAPPED."),
+        Line::from("    Never connect to any network."),
+        Line::from("    Transfer data only via QR codes or floppy disks."),
+    ])
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(" Help "),
+    )
+    .scroll((0, 0));
 
-    let content = r#"
-GLOBAL SHORTCUTS
-────────────────────────────────────────────────────────────
-  ?           Show this help screen
-  Esc         Go back / Cancel
-  Q           Quit application (with confirmation)
-  Ctrl+C      Force quit
+    frame.render_widget(content, chunks[1]);
 
-NAVIGATION
-────────────────────────────────────────────────────────────
-  ↑ / k       Move up
-  ↓ / j       Move down
-  ← / h       Move left / Previous
-  → / l       Move right / Next
-  Tab         Next focus area
-  Shift+Tab   Previous focus area
-  Enter       Select / Confirm
-  /           Search (in lists)
-
-QUICK ACCESS (from Dashboard)
-────────────────────────────────────────────────────────────
-  F1          Disk Status
-  F2          Children List
-  F3          Reconciliation
-  F4          Reports
-
-DISK MANAGEMENT
-────────────────────────────────────────────────────────────
-  F           Format new disk
-  R           Reconcile disk
-  E           Eject safely
-
-CHILD MANAGEMENT
-────────────────────────────────────────────────────────────
-  N           Create new child
-  Q           Show QR code
-  H           View history
-
-────────────────────────────────────────────────────────────
-Press Esc or ? to close this help screen
-"#;
-
-    let help = Paragraph::new(content)
-        .style(theme.text())
-        .wrap(Wrap { trim: false });
-
-    frame.render_widget(help, inner);
+    // Footer
+    let footer = Paragraph::new(" Press [Enter] or [Esc] to return ")
+        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    frame.render_widget(footer, chunks[2]);
 }

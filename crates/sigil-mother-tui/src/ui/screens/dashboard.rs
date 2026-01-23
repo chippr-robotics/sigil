@@ -1,318 +1,92 @@
-//! Main dashboard screen
+//! Dashboard screen - main menu
 
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 
-use crate::app::App;
-use crate::ui::components::floppy::{DiskStatus, FloppyDisk};
-use crate::ui::layout::{render_footer, render_header, ScreenLayout};
+use crate::app::AppState;
+use crate::ui::components::header;
 
-/// Menu items on the dashboard
-const MENU_ITEMS: &[(&str, &str, &str)] = &[
-    (
-        "💾",
-        "Disk Management",
-        "View disk status and format new disks",
-    ),
-    ("👶", "Children", "Manage child signing keys"),
-    ("🔄", "Reconciliation", "Analyze and refill returning disks"),
-    ("📋", "Reports", "Generate and export reports"),
-    ("📱", "QR Codes", "Display QR codes for data transfer"),
-    ("⚙️", "Settings", "Configure security and system settings"),
+/// Menu items
+const MENU_ITEMS: [&str; 7] = [
+    "Disk         - Mount/unmount/format floppy",
+    "Children     - Manage child disks",
+    "Agents       - Manage signing agents",
+    "Reconcile    - Reconcile returned disks",
+    "Reports      - Generate audit reports",
+    "Help         - View documentation",
+    "Quit         - Exit application",
 ];
 
-/// Draw the dashboard
-pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-    let layout = ScreenLayout::new(area);
+/// Render the dashboard
+pub fn render(frame: &mut Frame, state: &mut AppState) {
+    let area = frame.area();
 
-    // Header
-    render_header(frame, layout.header, "Dashboard", None, theme);
-
-    // Main content area
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(layout.content);
-
-    // Left side: Menu
-    render_menu(frame, content_chunks[0], app);
-
-    // Right side: Status panels
-    render_status_panels(frame, content_chunks[1], app);
-
-    // Footer
-    let hints = &[
-        ("↑/↓", "Navigate"),
-        ("Enter", "Select"),
-        ("F1-F4", "Quick Access"),
-        ("?", "Help"),
-        ("Q", "Quit"),
-    ];
-    render_footer(frame, layout.footer, hints, theme);
-
-    // Status message
-    if let Some(msg) = &app.state.status_message {
-        let msg_y = layout.footer.y.saturating_sub(1);
-        let msg_widget = Paragraph::new(msg.as_str())
-            .style(theme.success())
-            .alignment(Alignment::Center);
-        frame.render_widget(msg_widget, Rect::new(area.x, msg_y, area.width, 1));
-    }
-
-    // Error message
-    if let Some(err) = &app.state.error_message {
-        let err_y = layout.footer.y.saturating_sub(1);
-        let err_widget = Paragraph::new(err.as_str())
-            .style(theme.danger())
-            .alignment(Alignment::Center);
-        frame.render_widget(err_widget, Rect::new(area.x, err_y, area.width, 1));
-    }
-}
-
-/// Render the navigation menu
-fn render_menu(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-
-    let block = Block::default()
-        .title(" Navigation ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border_focused());
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    // Create menu items
-    let items: Vec<ListItem> = MENU_ITEMS
-        .iter()
-        .enumerate()
-        .map(|(i, (icon, title, desc))| {
-            let content = if i == app.state.menu_index {
-                Line::from(vec![
-                    Span::styled(format!(" {} ", icon), theme.text_highlight()),
-                    Span::styled(*title, theme.text_highlight()),
-                ])
-            } else {
-                Line::from(vec![
-                    Span::styled(format!(" {} ", icon), theme.text()),
-                    Span::styled(*title, theme.text()),
-                ])
-            };
-            ListItem::new(vec![
-                content,
-                Line::from(Span::styled(format!("    {}", desc), theme.text_muted())),
-                Line::from(""),
-            ])
-        })
-        .collect();
-
-    let list = List::new(items)
-        .highlight_style(theme.selection())
-        .highlight_symbol("▶ ");
-
-    let mut state = ListState::default().with_selected(Some(app.state.menu_index));
-    frame.render_stateful_widget(list, inner, &mut state);
-}
-
-/// Render status panels on the right side
-fn render_status_panels(frame: &mut Frame, area: Rect, app: &App) {
-    let _theme = &app.theme;
-
+    // Create layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(10), // Disk status
-            Constraint::Length(8),  // System status
-            Constraint::Min(5),     // Recent activity
+            Constraint::Length(3), // Header
+            Constraint::Min(10),   // Menu
+            Constraint::Length(3), // Status bar
         ])
         .split(area);
 
-    // Disk status panel
-    render_disk_panel(frame, chunks[0], app);
+    // Header
+    header::render(frame, chunks[0], "Dashboard");
 
-    // System status panel
-    render_system_panel(frame, chunks[1], app);
+    // Menu
+    let items: Vec<ListItem> = MENU_ITEMS
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let style = if i == state.menu_index {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(format!("  {}  ", item)).style(style)
+        })
+        .collect();
 
-    // Recent activity panel
-    render_activity_panel(frame, chunks[2], app);
-}
+    let menu = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(" Main Menu "),
+        )
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
-/// Render disk status panel
-fn render_disk_panel(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
+    frame.render_widget(menu, chunks[1]);
 
-    let block = Block::default()
-        .title(" Current Disk ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
+    // Status bar
+    let (active_agents, _, _nullified_agents) = state.agent_registry.count_by_status();
+    let (active_children, _, _) = state.child_registry.count_by_status();
 
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    if app.state.disk_detected {
-        // Show disk info
-        let floppy = FloppyDisk::from_data(
-            app.state.disk_child_id.as_deref().unwrap_or("unknown"),
-            "2025-01",
-            app.state.disk_presigs_remaining.unwrap_or(0),
-            app.state.disk_presigs_total.unwrap_or(1000),
-            DiskStatus::Active,
-        );
-
-        // Compact layout for dashboard
-        let info_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(15), Constraint::Min(20)])
-            .split(inner);
-
-        // Mini floppy
-        floppy.render(frame, info_chunks[0], theme);
-
-        // Text info
-        let info = vec![
-            Line::from(vec![
-                Span::raw("Child: "),
-                Span::styled(
-                    app.state.disk_child_id.as_deref().unwrap_or("----")[..8].to_string(),
-                    theme.text_highlight(),
-                ),
-            ]),
-            Line::from(vec![
-                Span::raw("Presigs: "),
-                Span::styled(
-                    format!(
-                        "{}/{}",
-                        app.state.disk_presigs_remaining.unwrap_or(0),
-                        app.state.disk_presigs_total.unwrap_or(0)
-                    ),
-                    theme.text(),
-                ),
-            ]),
-            Line::from(vec![
-                Span::raw("Expires: "),
-                Span::styled(
-                    format!("{} days", app.state.disk_days_until_expiry.unwrap_or(0)),
-                    if app.state.disk_days_until_expiry.unwrap_or(30) < 7 {
-                        theme.warning()
-                    } else {
-                        theme.text()
-                    },
-                ),
-            ]),
-        ];
-        let info_widget = Paragraph::new(info);
-        frame.render_widget(info_widget, info_chunks[1]);
-    } else {
-        // No disk
-        let msg = "No disk detected\n\nInsert a Sigil floppy disk";
-        let msg_widget = Paragraph::new(msg)
-            .style(theme.text_muted())
-            .alignment(Alignment::Center);
-        frame.render_widget(msg_widget, inner);
-    }
-}
-
-/// Render system status panel
-fn render_system_panel(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-
-    let block = Block::default()
-        .title(" System Status ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let status_lines = vec![
-        Line::from(vec![
-            Span::styled("● ", theme.success()),
-            Span::raw("Daemon: "),
-            Span::styled("Running", theme.success()),
-        ]),
-        Line::from(vec![
-            Span::styled(
-                if app.state.disk_detected {
-                    "● "
-                } else {
-                    "○ "
-                },
-                if app.state.disk_detected {
-                    theme.success()
-                } else {
-                    theme.text_muted()
-                },
-            ),
-            Span::raw("Disk: "),
-            Span::styled(
-                if app.state.disk_detected {
-                    "Detected"
-                } else {
-                    "Not Detected"
-                },
-                if app.state.disk_detected {
-                    theme.success()
-                } else {
-                    theme.text_muted()
-                },
-            ),
-        ]),
-        Line::from(vec![
-            Span::raw("Session: "),
-            Span::styled(
-                app.session
-                    .as_ref()
-                    .map(|s| format_session_remaining(s.idle_seconds_remaining()))
-                    .unwrap_or_else(|| "N/A".to_string()),
-                theme.text(),
-            ),
-        ]),
-    ];
-
-    let status_widget = Paragraph::new(status_lines);
-    frame.render_widget(status_widget, inner);
-}
-
-/// Render recent activity panel
-fn render_activity_panel(frame: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-
-    let block = Block::default()
-        .title(" Recent Activity ")
-        .title_style(theme.title())
-        .borders(Borders::ALL)
-        .border_style(theme.border());
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    // Placeholder activity
-    let activity = ["No recent activity"];
-
-    let activity_widget = Paragraph::new(activity.join("\n"))
-        .style(theme.text_muted())
-        .alignment(Alignment::Center);
-    frame.render_widget(activity_widget, inner);
-}
-
-/// Format session remaining time as human-readable string
-fn format_session_remaining(seconds: u64) -> String {
-    if seconds < 60 {
-        format!("{} seconds", seconds)
-    } else if seconds < 3600 {
-        let mins = seconds / 60;
-        let secs = seconds % 60;
-        if secs == 0 {
-            format!("{} min", mins)
-        } else {
-            format!("{}:{:02} min", mins, secs)
+    let disk_status = match &state.disk_status {
+        Some(sigil_mother::DiskStatus::Mounted { is_sigil_disk, .. }) => {
+            if *is_sigil_disk {
+                "Sigil disk"
+            } else {
+                "Mounted"
+            }
         }
-    } else {
-        let hours = seconds / 3600;
-        let mins = (seconds % 3600) / 60;
-        format!("{}:{:02} hrs", hours, mins)
-    }
+        Some(sigil_mother::DiskStatus::Unmounted { .. }) => "Unmounted",
+        Some(sigil_mother::DiskStatus::NoDisk) => "No disk",
+        Some(sigil_mother::DiskStatus::Error(_)) => "Error",
+        None => "Unknown",
+    };
+
+    let status_text = format!(
+        " Disk: {} | Agents: {} active | Children: {} active | [d] Disk | [?] Help ",
+        disk_status, active_agents, active_children
+    );
+
+    let status =
+        Paragraph::new(status_text).style(Style::default().fg(Color::White).bg(Color::DarkGray));
+
+    frame.render_widget(status, chunks[2]);
 }

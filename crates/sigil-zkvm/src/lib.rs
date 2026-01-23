@@ -8,5 +8,8 @@
 pub mod signing;
 pub mod types;
 
-pub use signing::{complete_presig, verify_signature};
-pub use types::{SigningInput, SigningOutput};
+pub use signing::{complete_presig, complete_presig_v2, verify_signature};
+pub use types::{
+    AccumulatorInput, NonMembershipWitnessInput, PresigShareInputV2, SigningInput, SigningInputV2,
+    SigningOutput, SigningOutputV2,
+};
