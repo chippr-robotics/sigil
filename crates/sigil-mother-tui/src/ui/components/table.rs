@@ -122,7 +122,7 @@ impl<'a> DataTable<'a> {
                     .iter()
                     .enumerate()
                     .map(|(j, cell)| {
-                        let alignment = self
+                        let _alignment = self
                             .columns
                             .get(j)
                             .map(|c| c.alignment)

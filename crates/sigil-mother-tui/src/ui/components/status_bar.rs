@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use crate::ui::Theme;
 
 /// System status indicators
+#[derive(Default)]
 pub struct SystemStatus {
     /// Daemon running status
     pub daemon_running: bool,
@@ -15,17 +16,6 @@ pub struct SystemStatus {
     pub session_time: Option<String>,
     /// Current child ID (if disk inserted)
     pub child_id: Option<String>,
-}
-
-impl Default for SystemStatus {
-    fn default() -> Self {
-        Self {
-            daemon_running: false,
-            disk_detected: false,
-            session_time: None,
-            child_id: None,
-        }
-    }
 }
 
 /// Render the status bar

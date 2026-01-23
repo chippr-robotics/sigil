@@ -77,7 +77,7 @@ pub fn centered_rect_fixed(width: u16, height: u16, area: Rect) -> Rect {
 pub fn render_header(
     frame: &mut Frame,
     area: Rect,
-    title: &str,
+    _title: &str,
     breadcrumb: Option<&str>,
     theme: &Theme,
 ) {

@@ -4,7 +4,6 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::App;
-use crate::ui::components::table::InfoTable;
 use crate::ui::layout::{render_footer, render_header, ScreenLayout};
 
 /// Draw the child detail screen

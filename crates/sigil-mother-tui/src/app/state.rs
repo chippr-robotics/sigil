@@ -5,9 +5,10 @@ use std::time::Instant;
 use super::{ConfirmAction, QrDisplayType};
 
 /// Current screen/view in the application
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum Screen {
     /// Initial splash screen with animated logo
+    #[default]
     Splash,
     /// PIN entry for authentication
     PinEntry,
@@ -39,12 +40,6 @@ pub enum Screen {
     Help,
     /// Confirmation dialog
     Confirm(ConfirmAction),
-}
-
-impl Default for Screen {
-    fn default() -> Self {
-        Screen::Splash
-    }
 }
 
 /// Main application state

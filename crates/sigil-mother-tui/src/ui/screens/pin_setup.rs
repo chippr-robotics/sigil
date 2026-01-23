@@ -134,12 +134,10 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         } else {
             "Enter 6-12 digits    [Esc] Quit"
         }
+    } else if pin_len >= 6 {
+        "[Enter] Complete setup    [Esc] Go back"
     } else {
-        if pin_len >= 6 {
-            "[Enter] Complete setup    [Esc] Go back"
-        } else {
-            "Re-enter your PIN    [Esc] Go back"
-        }
+        "Re-enter your PIN    [Esc] Go back"
     };
     let help_widget = Paragraph::new(help)
         .style(theme.text_muted())
