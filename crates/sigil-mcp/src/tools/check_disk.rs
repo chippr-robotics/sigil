@@ -64,7 +64,19 @@ pub fn tool_definition() -> Tool {
 
 /// Execute the check disk tool
 pub async fn execute(ctx: &ToolContext) -> ToolsCallResult {
-    let state = ctx.disk_state.read().await;
+    use crate::client::ClientError;
+
+    let state = match ctx.daemon_client.get_disk_status().await {
+        Ok(s) => s,
+        Err(ClientError::DaemonNotRunning) => {
+            return ToolsCallResult::error(
+                "Sigil daemon is not running. Start it with: sigil-daemon start",
+            );
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Failed to check disk: {}", e));
+        }
+    };
 
     if !state.detected {
         let result = serde_json::json!({
@@ -137,12 +149,13 @@ mod tests {
     use super::*;
     use crate::tools::DiskState;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_check_disk_detected() {
+        use crate::client::DaemonClient;
+
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let result = execute(&ctx).await;
@@ -152,8 +165,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_disk_not_detected() {
+        use crate::client::DaemonClient;
+
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::no_disk())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::default())),
         };
 
         let result = execute(&ctx).await;

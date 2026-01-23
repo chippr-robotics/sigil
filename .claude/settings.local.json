@@ -5,7 +5,9 @@
       "Bash(ls:*)",
       "Bash(cargo clippy:*)",
       "Bash(timeout:*)",
-      "Bash(target/release/sigil.exe:*)"
+      "Bash(target/release/sigil.exe:*)",
+      "Bash(git --version:*)",
+      "Bash(cargo test:*)"
     ]
   }
 }

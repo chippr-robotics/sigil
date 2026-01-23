@@ -94,11 +94,23 @@ pub fn tool_definition() -> Tool {
 
 /// Execute the get address tool
 pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCallResult {
+    use crate::client::ClientError;
+
     // Parse arguments (allow empty object)
     let params: GetAddressParams = serde_json::from_value(arguments).unwrap_or_default();
 
     // Check disk status
-    let state = ctx.disk_state.read().await;
+    let state = match ctx.daemon_client.get_disk_status().await {
+        Ok(s) => s,
+        Err(ClientError::DaemonNotRunning) => {
+            return ToolsCallResult::error(
+                "Sigil daemon is not running. Start it with: sigil-daemon start",
+            );
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Failed to check disk: {}", e));
+        }
+    };
 
     if !state.detected {
         return ToolsCallResult::error(
@@ -194,14 +206,14 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::DaemonClient;
     use crate::tools::DiskState;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_get_address_default() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let result = execute(&ctx, serde_json::json!({})).await;
@@ -211,7 +223,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_address_evm() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let args = serde_json::json!({
@@ -230,7 +242,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_address_cosmos() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let args = serde_json::json!({
@@ -250,7 +262,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_address_no_disk() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::no_disk())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::default())),
         };
 
         let result = execute(&ctx, serde_json::json!({})).await;

@@ -78,7 +78,11 @@ pub async fn read_resource(ctx: &ToolContext, uri: &str) -> Result<ResourcesRead
 
 /// Read disk status resource
 async fn read_disk_status(ctx: &ToolContext) -> Result<ResourcesReadResult, String> {
-    let state = ctx.disk_state.read().await;
+    let state = ctx
+        .daemon_client
+        .get_disk_status()
+        .await
+        .map_err(|e| format!("Failed to get disk status: {}", e))?;
 
     if !state.detected {
         return Err("No disk detected".to_string());
@@ -112,7 +116,11 @@ async fn read_disk_status(ctx: &ToolContext) -> Result<ResourcesReadResult, Stri
 
 /// Read presigs info resource
 async fn read_presigs_info(ctx: &ToolContext) -> Result<ResourcesReadResult, String> {
-    let state = ctx.disk_state.read().await;
+    let state = ctx
+        .daemon_client
+        .get_disk_status()
+        .await
+        .map_err(|e| format!("Failed to get disk status: {}", e))?;
 
     if !state.detected {
         return Err("No disk detected".to_string());
@@ -195,7 +203,11 @@ async fn read_supported_chains() -> Result<ResourcesReadResult, String> {
 
 /// Read child disk info resource
 async fn read_child_info(ctx: &ToolContext, child_id: &str) -> Result<ResourcesReadResult, String> {
-    let state = ctx.disk_state.read().await;
+    let state = ctx
+        .daemon_client
+        .get_disk_status()
+        .await
+        .map_err(|e| format!("Failed to get disk status: {}", e))?;
 
     // Check if this is the current disk
     if state.child_id.as_deref() == Some(child_id) {
@@ -229,12 +241,12 @@ async fn read_child_info(ctx: &ToolContext, child_id: &str) -> Result<ResourcesR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::DaemonClient;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_get_all_resources_no_disk() {
-        let state = DiskState::no_disk();
+        let state = DiskState::default();
         let resources = get_all_resources(&state);
         // Should still have supported-chains
         assert!(resources
@@ -262,7 +274,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_disk_status() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let result = read_disk_status(&ctx).await.unwrap();

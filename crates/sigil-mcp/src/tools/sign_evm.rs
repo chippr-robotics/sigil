@@ -90,6 +90,8 @@ pub fn tool_definition() -> Tool {
 
 /// Execute the sign EVM tool
 pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCallResult {
+    use crate::client::ClientError;
+
     // Parse arguments
     let params: SignEvmParams = match serde_json::from_value(arguments) {
         Ok(p) => p,
@@ -105,8 +107,18 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         );
     }
 
-    // Check disk status
-    let state = ctx.disk_state.read().await;
+    // Check disk status first
+    let state = match ctx.daemon_client.get_disk_status().await {
+        Ok(s) => s,
+        Err(ClientError::DaemonNotRunning) => {
+            return ToolsCallResult::error(
+                "Sigil daemon is not running. Start it with: sigil-daemon start",
+            );
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Failed to check disk: {}", e));
+        }
+    };
 
     if !state.detected {
         return ToolsCallResult::error(
@@ -127,32 +139,57 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         );
     }
 
-    // Check scheme compatibility
-    if state.scheme.as_deref() != Some("ecdsa") {
+    // Check scheme compatibility (if available)
+    if let Some(scheme) = &state.scheme {
+        if scheme != "ecdsa" {
+            return ToolsCallResult::error(format!(
+                "Disk scheme mismatch: EVM signing requires 'ecdsa', but disk has '{}'",
+                scheme
+            ));
+        }
+    }
+
+    // Call daemon to sign
+    let sign_result = match ctx
+        .daemon_client
+        .sign(&params.message_hash, params.chain_id, &params.description)
+        .await
+    {
+        Ok(r) => r,
+        Err(ClientError::NoDiskDetected) => {
+            return ToolsCallResult::error("No disk detected");
+        }
+        Err(ClientError::SigningFailed(msg)) => {
+            return ToolsCallResult::error(format!("Signing failed: {}", msg));
+        }
+        Err(e) => {
+            return ToolsCallResult::error(format!("Signing error: {}", e));
+        }
+    };
+
+    // Parse signature into v, r, s components
+    // Signature format from daemon: hex string (may or may not have 0x prefix)
+    let sig_hex = sign_result.signature.trim_start_matches("0x");
+
+    // ECDSA signature is 65 bytes: r (32) + s (32) + v (1)
+    if sig_hex.len() != 130 {
         return ToolsCallResult::error(format!(
-            "Disk scheme mismatch: EVM signing requires 'ecdsa', but disk has '{}'",
-            state.scheme.as_deref().unwrap_or("unknown")
+            "Invalid signature length: expected 130 hex chars, got {}",
+            sig_hex.len()
         ));
     }
 
-    // In a real implementation, this would call the daemon's signing API
-    // For now, we return a mock signature to demonstrate the flow
-    //
-    // TODO: Integrate with sigil-daemon IPC or direct signing
-
-    // Mock signature for demonstration (would be replaced with real MPC signing)
-    let mock_presig_index = 1000 - remaining;
-    let mock_r = format!("0x{:0>64}", "a1b2c3d4e5f6"); // Mock R value
-    let mock_s = format!("0x{:0>64}", "f6e5d4c3b2a1"); // Mock S value
-    let mock_v = 27 + (params.chain_id * 2) + 35; // EIP-155 v value
+    let r = format!("0x{}", &sig_hex[0..64]);
+    let s = format!("0x{}", &sig_hex[64..128]);
+    let v = u8::from_str_radix(&sig_hex[128..130], 16).unwrap_or(27) as u32;
 
     let result = serde_json::json!({
-        "signature": format!("{}{}{:02x}", &mock_r[2..], &mock_s[2..], mock_v),
-        "v": mock_v,
-        "r": mock_r,
-        "s": mock_s,
-        "presig_index": mock_presig_index,
-        "proof_hash": format!("0x{:0>64}", "deadbeef"),
+        "signature": format!("0x{}", sig_hex),
+        "v": v,
+        "r": r,
+        "s": s,
+        "presig_index": sign_result.presig_index,
+        "proof_hash": sign_result.proof_hash,
         "chain_id": params.chain_id,
         "message_hash": params.message_hash
     });
@@ -169,7 +206,7 @@ pub async fn execute(ctx: &ToolContext, arguments: serde_json::Value) -> ToolsCa
         params.chain_id,
         &params.message_hash[..10],
         &params.message_hash[58..],
-        mock_presig_index,
+        sign_result.presig_index,
         remaining - 1,
         params.description
     );
@@ -204,14 +241,14 @@ fn get_chain_name(chain_id: u32) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::DaemonClient;
     use crate::tools::DiskState;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_sign_evm_success() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let args = serde_json::json!({
@@ -227,7 +264,7 @@ mod tests {
     #[tokio::test]
     async fn test_sign_evm_no_disk() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::no_disk())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::default())),
         };
 
         let args = serde_json::json!({
@@ -243,7 +280,7 @@ mod tests {
     #[tokio::test]
     async fn test_sign_evm_invalid_hash() {
         let ctx = ToolContext {
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())),
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
 
         let args = serde_json::json!({

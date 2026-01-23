@@ -4,9 +4,9 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::client::{ClientError, DaemonClient};
 use crate::prompts;
 use crate::protocol::*;
 use crate::resources;
@@ -26,35 +26,48 @@ pub struct McpServerState {
     /// Client info
     pub client_info: Option<ClientInfo>,
 
-    /// Disk state
-    pub disk_state: Arc<RwLock<DiskState>>,
+    /// Daemon client for signing operations
+    pub daemon_client: Arc<DaemonClient>,
 
     /// Resource subscriptions
     pub subscriptions: HashMap<String, Vec<String>>, // uri -> session_ids
 }
 
 impl McpServerState {
-    pub fn new() -> Self {
+    /// Create new server state with mock daemon client
+    pub fn new_with_mock() -> Self {
         Self {
             protocol_version: None,
             initialized: false,
             client_capabilities: None,
             client_info: None,
-            disk_state: Arc::new(RwLock::new(DiskState::mock_detected())), // Start with mock for testing
+            daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
             subscriptions: HashMap::new(),
         }
     }
 
+    /// Create new server state with real daemon client
+    pub fn new_with_daemon() -> Result<Self, ClientError> {
+        Ok(Self {
+            protocol_version: None,
+            initialized: false,
+            client_capabilities: None,
+            client_info: None,
+            daemon_client: Arc::new(DaemonClient::new_real()?),
+            subscriptions: HashMap::new(),
+        })
+    }
+
     pub fn tool_context(&self) -> ToolContext {
         ToolContext {
-            disk_state: Arc::clone(&self.disk_state),
+            daemon_client: Arc::clone(&self.daemon_client),
         }
     }
 }
 
 impl Default for McpServerState {
     fn default() -> Self {
-        Self::new()
+        Self::new_with_mock()
     }
 }
 
@@ -239,7 +252,12 @@ async fn handle_resources_list(
         .map_err(|e| JsonRpcError::invalid_params(e.to_string()))?
         .unwrap_or_default();
 
-    let disk_state = state.disk_state.read().await;
+    // Get disk status from daemon client
+    let disk_state = state
+        .daemon_client
+        .get_disk_status()
+        .await
+        .unwrap_or_else(|_| DiskState::default());
     let resources_list = resources::get_all_resources(&disk_state);
 
     let result = ResourcesListResult {
@@ -369,7 +387,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_initialize() {
-        let mut state = McpServerState::new();
+        let mut state = McpServerState::new_with_mock();
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: RequestId::Number(1),
@@ -391,7 +409,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_tools_list() {
-        let mut state = McpServerState::new();
+        let mut state = McpServerState::new_with_mock();
         state.initialized = true;
 
         let request = JsonRpcRequest {
@@ -410,7 +428,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_prompts_list() {
-        let mut state = McpServerState::new();
+        let mut state = McpServerState::new_with_mock();
         state.initialized = true;
 
         let request = JsonRpcRequest {

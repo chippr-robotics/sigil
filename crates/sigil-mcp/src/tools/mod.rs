@@ -8,13 +8,14 @@ mod sign_evm;
 mod sign_frost;
 mod update_tx_hash;
 
+use crate::client::DaemonClient;
 use crate::protocol::{Tool, ToolAnnotations, ToolContent, ToolsCallResult};
 use std::sync::Arc;
 
 /// Tool execution context
 pub struct ToolContext {
-    /// Disk watcher for checking disk status
-    pub disk_state: Arc<tokio::sync::RwLock<DiskState>>,
+    /// Daemon client for signing operations
+    pub daemon_client: Arc<DaemonClient>,
 }
 
 /// Current disk state (simplified for MCP server)
@@ -165,33 +166,30 @@ pub async fn execute_list_schemes() -> ToolsCallResult {
 
 /// Execute get presig count tool
 pub async fn execute_get_presig_count(ctx: &ToolContext) -> ToolsCallResult {
-    let state = ctx.disk_state.read().await;
+    match ctx.daemon_client.get_presig_count().await {
+        Ok((remaining, total)) => {
+            let percentage = if total > 0 {
+                (remaining as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            };
 
-    if !state.detected {
-        return ToolsCallResult::error("No signing disk detected. Please insert your Sigil disk.");
+            let result = serde_json::json!({
+                "remaining": remaining,
+                "total": total,
+                "percentage": percentage
+            });
+
+            ToolsCallResult::success_with_structured(
+                vec![ToolContent::text(format!(
+                    "Presignatures: {}/{} ({:.1}% remaining)",
+                    remaining, total, percentage
+                ))],
+                result,
+            )
+        }
+        Err(e) => ToolsCallResult::error(format!("Failed to get presig count: {}", e)),
     }
-
-    let remaining = state.presigs_remaining.unwrap_or(0);
-    let total = state.presigs_total.unwrap_or(0);
-    let percentage = if total > 0 {
-        (remaining as f64 / total as f64) * 100.0
-    } else {
-        0.0
-    };
-
-    let result = serde_json::json!({
-        "remaining": remaining,
-        "total": total,
-        "percentage": percentage
-    });
-
-    ToolsCallResult::success_with_structured(
-        vec![ToolContent::text(format!(
-            "Presignatures: {}/{} ({:.1}% remaining)",
-            remaining, total, percentage
-        ))],
-        result,
-    )
 }
 
 /// Execute a tool by name

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
+use crate::client::{ClientError, DaemonClient};
 use crate::handlers::{handle_notification, handle_request, McpServerState};
 use crate::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse, JSONRPC_VERSION};
 use crate::tools::DiskState;
@@ -17,19 +18,39 @@ pub struct McpServer {
 }
 
 impl McpServer {
-    /// Create a new MCP server
+    /// Create a new MCP server with mock data
     pub fn new() -> Self {
         Self {
-            state: Arc::new(RwLock::new(McpServerState::new())),
+            state: Arc::new(RwLock::new(McpServerState::new_with_mock())),
         }
     }
 
-    /// Create a server with a specific disk state
-    pub fn with_disk_state(disk_state: DiskState) -> Self {
-        let mut state = McpServerState::new();
-        state.disk_state = Arc::new(RwLock::new(disk_state));
+    /// Create a server with mock daemon client
+    pub fn with_mock() -> Self {
         Self {
-            state: Arc::new(RwLock::new(state)),
+            state: Arc::new(RwLock::new(McpServerState::new_with_mock())),
+        }
+    }
+
+    /// Create a server that connects to the real daemon
+    pub fn with_daemon() -> Result<Self, ClientError> {
+        Ok(Self {
+            state: Arc::new(RwLock::new(McpServerState::new_with_daemon()?)),
+        })
+    }
+
+    /// Create a server with a specific disk state (for testing)
+    #[allow(dead_code)]
+    pub fn with_disk_state(disk_state: DiskState) -> Self {
+        Self {
+            state: Arc::new(RwLock::new(McpServerState {
+                protocol_version: None,
+                initialized: false,
+                client_capabilities: None,
+                client_info: None,
+                daemon_client: Arc::new(DaemonClient::new_mock(disk_state)),
+                subscriptions: std::collections::HashMap::new(),
+            })),
         }
     }
 
@@ -121,18 +142,10 @@ impl McpServer {
         Ok(())
     }
 
-    /// Update disk state (for testing or external updates)
-    pub async fn set_disk_state(&self, disk_state: DiskState) {
-        let state = self.state.read().await;
-        let mut disk = state.disk_state.write().await;
-        *disk = disk_state;
-    }
-
     /// Get current disk state
-    pub async fn get_disk_state(&self) -> DiskState {
+    pub async fn get_disk_state(&self) -> Result<DiskState, ClientError> {
         let state = self.state.read().await;
-        let disk = state.disk_state.read().await;
-        disk.clone()
+        state.daemon_client.get_disk_status().await
     }
 }
 
@@ -149,22 +162,14 @@ mod tests {
     #[tokio::test]
     async fn test_server_creation() {
         let server = McpServer::new();
-        let disk_state = server.get_disk_state().await;
+        let disk_state = server.get_disk_state().await.unwrap();
         assert!(disk_state.detected); // Default is mock_detected
     }
 
     #[tokio::test]
     async fn test_server_with_custom_disk() {
-        let server = McpServer::with_disk_state(DiskState::no_disk());
-        let disk_state = server.get_disk_state().await;
-        assert!(!disk_state.detected);
-    }
-
-    #[tokio::test]
-    async fn test_update_disk_state() {
-        let server = McpServer::new();
-        server.set_disk_state(DiskState::no_disk()).await;
-        let disk_state = server.get_disk_state().await;
+        let server = McpServer::with_disk_state(DiskState::default());
+        let disk_state = server.get_disk_state().await.unwrap();
         assert!(!disk_state.detected);
     }
 }
