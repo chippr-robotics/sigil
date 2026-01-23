@@ -8,6 +8,8 @@ use k256::{
     ProjectivePoint, Scalar,
 };
 
+#[cfg(feature = "sp1-prover")]
+use super::BatchPresigProverTrait;
 use crate::error::{Result, ZkvmError};
 use crate::merkle::MerkleTree;
 use crate::types::{BatchPresigInput, BatchPresigOutput, SampledRPoint};

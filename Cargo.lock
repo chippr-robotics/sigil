@@ -6237,6 +6237,7 @@ dependencies = [
  "chrono",
  "clap",
  "cryptoki",
+ "dirs",
  "hex",
  "k256",
  "ledger-apdu",

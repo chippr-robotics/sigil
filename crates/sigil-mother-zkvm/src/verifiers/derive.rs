@@ -1,6 +1,8 @@
 //! Derive proof verifier
 
 use crate::error::Result;
+#[cfg(feature = "sp1-prover")]
+use crate::error::ZkvmError;
 use crate::provers::DeriveProver;
 use crate::types::DeriveOutput;
 

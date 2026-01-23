@@ -8,6 +8,14 @@
 //! - Nullification
 //! - Agent registry and management
 //!
+//! # Security Model
+//!
+//! **The mother device is protected by PIN-based authentication.**
+//!
+//! All access to the master shard MUST go through the `auth` module.
+//! The master shard is encrypted at rest using ChaCha20-Poly1305 with
+//! a key derived from the PIN via Argon2id.
+//!
 //! # Optional Features
 //!
 //! - `ledger` - Enable Ledger hardware wallet support
@@ -21,6 +29,7 @@
 pub mod accumulator_publish;
 pub mod agent_registry;
 pub mod agent_shard_encryption;
+pub mod auth;
 pub mod ceremony;
 pub mod disk_ops;
 pub mod error;
@@ -41,6 +50,10 @@ pub use agent_registry::AgentRegistry;
 pub use agent_shard_encryption::{
     decrypt_agent_shard, encode_for_qr, encrypt_agent_shard, AgentShardData, EncryptedAgentShard,
     Passcode, ENCRYPTED_SHARD_PREFIX,
+};
+pub use auth::{
+    AuthError, AuthState, EncryptedMotherStorage, LockoutPolicy, PinConfig, PinManager, Session,
+    SessionConfig, MAX_PIN_LENGTH, MIN_PIN_LENGTH,
 };
 pub use ceremony::{CreateChildCeremony, ReconcileCeremony, RefillCeremony};
 pub use disk_ops::{

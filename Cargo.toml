@@ -32,6 +32,11 @@ sigil-mother-tui = { path = "crates/sigil-mother-tui" }
 sigil-mother-zkvm = { path = "crates/sigil-mother-zkvm" }
 sigil-mcp = { path = "crates/sigil-mcp" }
 
+# TUI
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+tui-textarea = "0.6"
+
 # Cryptography
 k256 = { version = "0.13", default-features = true, features = ["ecdsa", "arithmetic", "sha256"] }
 sha3 = "0.10"
@@ -54,6 +59,10 @@ serde_json = "1.0"
 bitcode = "0.6"
 bincode = "1.3"
 hex = "0.4"
+csv = "1.3"
+toml = "0.8"
+
+dirs = "5.0"
 
 # Hardware wallet/HSM support (optional)
 ledger-transport = "0.11"
@@ -94,10 +103,6 @@ uuid = { version = "1.0", features = ["v4"] }
 qrcode = "0.14"
 image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.22"
-
-# TUI framework
-ratatui = "0.29"
-crossterm = "0.28"
 
 # SP1 zkVM
 sp1-sdk = "5.2"
