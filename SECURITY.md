@@ -128,6 +128,6 @@ Currently, we do not have a formal bug bounty program. However, we commit to:
 
 ## References
 
-- [CRYPTO_SPEC.md](docs/CRYPTO_SPEC.md) - Cryptographic specification
-- [THREAT_MODEL.md](docs/THREAT_MODEL.md) - Threat model analysis
-- [docs/RECOVERY.md](docs/RECOVERY.md) - Recovery procedures
+- [CRYPTO_SPEC.md](documentation/CRYPTO_SPEC.md) - Cryptographic specification
+- [THREAT_MODEL.md](documentation/THREAT_MODEL.md) - Threat model analysis
+- [documentation/RECOVERY.md](documentation/RECOVERY.md) - Recovery procedures

@@ -988,7 +988,7 @@ src/server.rs
 **Key Files:**
 ```
 src/security/*.rs
-docs/MCP_SERVER.md
+documentation/MCP_SERVER.md
 ```
 
 ### Phase 6: Claude Desktop Integration (Week 6)
@@ -1225,7 +1225,7 @@ pub struct JsonRpcNotification {
 2. [MCP TypeScript Schema](https://github.com/modelcontextprotocol/specification/tree/main/schema)
 3. [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification)
 4. [RFC 6570 - URI Templates](https://tools.ietf.org/html/rfc6570)
-5. [Sigil Architecture Documentation](/docs/ARCHITECTURE.md)
+5. [Sigil Architecture Documentation](/documentation/ARCHITECTURE.md)
 
 ---
 

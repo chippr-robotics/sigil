@@ -432,7 +432,7 @@ sigil-mother create-child --scheme ristretto255 --label "zec-001"
 
 - [REFERENCE.md](REFERENCE.md) - Complete API reference
 - [DKG-CEREMONY.md](DKG-CEREMONY.md) - Detailed DKG ceremony guide
-- [docs/FROST.md](/docs/FROST.md) - FROST technical specification
+- [documentation/FROST.md](/documentation/FROST.md) - FROST technical specification
 
 ## Troubleshooting
 
