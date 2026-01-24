@@ -360,7 +360,7 @@ When your PR is merged to `main`:
 - Document all public APIs with `///` doc comments
 - Include examples in documentation when appropriate
 - Update README.md for significant changes
-- Keep docs/ directory synchronized with code changes
+- Keep documentation/ directory synchronized with code changes
 
 ## Security
 
