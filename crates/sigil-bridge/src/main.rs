@@ -275,7 +275,7 @@ async fn update_tx_hash(
         .update_tx_hash(req.presig_index, &req.tx_hash)
         .await
     {
-        Ok(()) => (
+        Ok(_) => (
             StatusCode::OK,
             Json(serde_json::json!({
                 "type": "Ok"
@@ -332,7 +332,7 @@ async fn import_agent_shard(
         .import_agent_shard(&req.agent_shard_hex)
         .await
     {
-        Ok(()) => (
+        Ok(_) => (
             StatusCode::OK,
             Json(serde_json::json!({
                 "type": "Ok"
@@ -367,7 +367,7 @@ async fn import_child_shares(
         .import_child_shares(&req.shares_json, req.replace)
         .await
     {
-        Ok(()) => (
+        Ok(_) => (
             StatusCode::OK,
             Json(serde_json::json!({
                 "type": "Ok"
