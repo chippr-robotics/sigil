@@ -1,0 +1,36 @@
+# Analysis options for Sigil Mobile App
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Style rules
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    avoid_print: true
+
+    # Documentation
+    public_member_api_docs: false
+
+    # Error handling
+    avoid_catches_without_on_clauses: true
+
+    # Null safety
+    avoid_null_checks_in_equality_operators: true
+
+    # Collections
+    prefer_collection_literals: true
+
+    # Async
+    unawaited_futures: true
+
+    # Security
+    avoid_web_libraries_in_flutter: true
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+  errors:
+    invalid_annotation_target: ignore

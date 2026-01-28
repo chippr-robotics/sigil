@@ -10,6 +10,7 @@ members = [
     "crates/sigil-mother",
     "crates/sigil-mother-tui",
     "crates/sigil-mcp",
+    "crates/sigil-bridge",
     "crates/sigil-tests",
 ]
 
