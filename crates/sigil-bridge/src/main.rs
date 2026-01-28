@@ -60,9 +60,7 @@ async fn main() -> Result<()> {
     } else {
         "sigil_bridge=info"
     };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     info!("Starting sigil-bridge HTTP server");
     info!("Daemon socket: {}", args.socket_path);
@@ -112,16 +110,22 @@ async fn health() -> impl IntoResponse {
 // Ping daemon
 async fn ping(State(state): State<AppState>) -> impl IntoResponse {
     match state.daemon_client.ping().await {
-        Ok(version) => (StatusCode::OK, Json(serde_json::json!({
-            "type": "Pong",
-            "version": version
-        }))),
+        Ok(version) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "type": "Pong",
+                "version": version
+            })),
+        ),
         Err(e) => {
             warn!("Ping failed: {}", e);
-            (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -132,10 +136,13 @@ async fn get_disk_status(State(state): State<AppState>) -> impl IntoResponse {
         Ok(status) => (StatusCode::OK, Json(status)),
         Err(e) => {
             warn!("Get disk status failed: {}", e);
-            (StatusCode::OK, Json(serde_json::json!({
-                "detected": false,
-                "error": e.to_string()
-            })))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "detected": false,
+                    "error": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -146,10 +153,13 @@ async fn get_presig_count(State(state): State<AppState>) -> impl IntoResponse {
         Ok(count) => (StatusCode::OK, Json(count)),
         Err(e) => {
             warn!("Get presig count failed: {}", e);
-            (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -162,18 +172,22 @@ struct SignRequest {
 }
 
 // Sign EVM transaction
-async fn sign(
-    State(state): State<AppState>,
-    Json(req): Json<SignRequest>,
-) -> impl IntoResponse {
-    match state.daemon_client.sign(&req.message_hash, req.chain_id, &req.description).await {
+async fn sign(State(state): State<AppState>, Json(req): Json<SignRequest>) -> impl IntoResponse {
+    match state
+        .daemon_client
+        .sign(&req.message_hash, req.chain_id, &req.description)
+        .await
+    {
         Ok(result) => (StatusCode::OK, Json(result)),
         Err(e) => {
             warn!("Sign failed: {}", e);
-            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -190,14 +204,21 @@ async fn sign_frost(
     State(state): State<AppState>,
     Json(req): Json<SignFrostRequest>,
 ) -> impl IntoResponse {
-    match state.daemon_client.sign_frost(&req.scheme, &req.message_hash, &req.description).await {
+    match state
+        .daemon_client
+        .sign_frost(&req.scheme, &req.message_hash, &req.description)
+        .await
+    {
         Ok(result) => (StatusCode::OK, Json(result)),
         Err(e) => {
             warn!("Sign FROST failed: {}", e);
-            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -214,14 +235,25 @@ async fn get_address(
     State(state): State<AppState>,
     Json(req): Json<GetAddressRequest>,
 ) -> impl IntoResponse {
-    match state.daemon_client.get_address(req.scheme.as_deref(), &req.format, req.cosmos_prefix.as_deref()).await {
+    match state
+        .daemon_client
+        .get_address(
+            req.scheme.as_deref(),
+            &req.format,
+            req.cosmos_prefix.as_deref(),
+        )
+        .await
+    {
         Ok(address) => (StatusCode::OK, Json(address)),
         Err(e) => {
             warn!("Get address failed: {}", e);
-            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -237,16 +269,26 @@ async fn update_tx_hash(
     State(state): State<AppState>,
     Json(req): Json<UpdateTxHashRequest>,
 ) -> impl IntoResponse {
-    match state.daemon_client.update_tx_hash(req.presig_index, &req.tx_hash).await {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({
-            "type": "Ok"
-        }))),
+    match state
+        .daemon_client
+        .update_tx_hash(req.presig_index, &req.tx_hash)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "type": "Ok"
+            })),
+        ),
         Err(e) => {
             warn!("Update tx hash failed: {}", e);
-            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -254,16 +296,22 @@ async fn update_tx_hash(
 // List children
 async fn list_children(State(state): State<AppState>) -> impl IntoResponse {
     match state.daemon_client.list_children().await {
-        Ok(children) => (StatusCode::OK, Json(serde_json::json!({
-            "type": "Children",
-            "child_ids": children
-        }))),
+        Ok(children) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "type": "Children",
+                "child_ids": children
+            })),
+        ),
         Err(e) => {
             warn!("List children failed: {}", e);
-            (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -278,16 +326,26 @@ async fn import_agent_shard(
     State(state): State<AppState>,
     Json(req): Json<ImportAgentShardRequest>,
 ) -> impl IntoResponse {
-    match state.daemon_client.import_agent_shard(&req.agent_shard_hex).await {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({
-            "type": "Ok"
-        }))),
+    match state
+        .daemon_client
+        .import_agent_shard(&req.agent_shard_hex)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "type": "Ok"
+            })),
+        ),
         Err(e) => {
             warn!("Import agent shard failed: {}", e);
-            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }
@@ -303,16 +361,26 @@ async fn import_child_shares(
     State(state): State<AppState>,
     Json(req): Json<ImportChildSharesRequest>,
 ) -> impl IntoResponse {
-    match state.daemon_client.import_child_shares(&req.shares_json, req.replace).await {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({
-            "type": "Ok"
-        }))),
+    match state
+        .daemon_client
+        .import_child_shares(&req.shares_json, req.replace)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "type": "Ok"
+            })),
+        ),
         Err(e) => {
             warn!("Import child shares failed: {}", e);
-            (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-                "type": "Error",
-                "message": e.to_string()
-            })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "type": "Error",
+                    "message": e.to_string()
+                })),
+            )
         }
     }
 }

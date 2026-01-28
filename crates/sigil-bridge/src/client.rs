@@ -51,9 +51,11 @@ impl DaemonClient {
 
     /// Ping the daemon
     pub async fn ping(&self) -> Result<String> {
-        let response = self.send_request(serde_json::json!({
-            "type": "Ping"
-        })).await?;
+        let response = self
+            .send_request(serde_json::json!({
+                "type": "Ping"
+            }))
+            .await?;
 
         Ok(response["version"]
             .as_str()
@@ -63,46 +65,69 @@ impl DaemonClient {
 
     /// Get disk status
     pub async fn get_disk_status(&self) -> Result<Value> {
-        let response = self.send_request(serde_json::json!({
-            "type": "GetDiskStatus"
-        })).await?;
+        let response = self
+            .send_request(serde_json::json!({
+                "type": "GetDiskStatus"
+            }))
+            .await?;
         Ok(response)
     }
 
     /// Get presignature count
     pub async fn get_presig_count(&self) -> Result<Value> {
-        let response = self.send_request(serde_json::json!({
-            "type": "GetPresigCount"
-        })).await?;
+        let response = self
+            .send_request(serde_json::json!({
+                "type": "GetPresigCount"
+            }))
+            .await?;
         Ok(response)
     }
 
     /// Sign a message (ECDSA)
-    pub async fn sign(&self, message_hash: &str, chain_id: u32, description: &str) -> Result<Value> {
-        let response = self.send_request(serde_json::json!({
-            "type": "Sign",
-            "message_hash": message_hash,
-            "chain_id": chain_id,
-            "description": description
-        })).await?;
+    pub async fn sign(
+        &self,
+        message_hash: &str,
+        chain_id: u32,
+        description: &str,
+    ) -> Result<Value> {
+        let response = self
+            .send_request(serde_json::json!({
+                "type": "Sign",
+                "message_hash": message_hash,
+                "chain_id": chain_id,
+                "description": description
+            }))
+            .await?;
         Ok(response)
     }
 
     /// Sign with FROST
-    pub async fn sign_frost(&self, scheme: &str, message_hash: &str, description: &str) -> Result<Value> {
+    pub async fn sign_frost(
+        &self,
+        scheme: &str,
+        message_hash: &str,
+        description: &str,
+    ) -> Result<Value> {
         // FROST signing would go through a separate endpoint if supported by daemon
         // For now, simulate the response format
-        let response = self.send_request(serde_json::json!({
-            "type": "SignFrost",
-            "scheme": scheme,
-            "message_hash": message_hash,
-            "description": description
-        })).await?;
+        let response = self
+            .send_request(serde_json::json!({
+                "type": "SignFrost",
+                "scheme": scheme,
+                "message_hash": message_hash,
+                "description": description
+            }))
+            .await?;
         Ok(response)
     }
 
     /// Get address
-    pub async fn get_address(&self, scheme: Option<&str>, format: &str, cosmos_prefix: Option<&str>) -> Result<Value> {
+    pub async fn get_address(
+        &self,
+        scheme: Option<&str>,
+        format: &str,
+        cosmos_prefix: Option<&str>,
+    ) -> Result<Value> {
         let mut request = serde_json::json!({
             "type": "GetAddress",
             "format": format
@@ -125,15 +150,18 @@ impl DaemonClient {
             "type": "UpdateTxHash",
             "presig_index": presig_index,
             "tx_hash": tx_hash
-        })).await?;
+        }))
+        .await?;
         Ok(())
     }
 
     /// List children
     pub async fn list_children(&self) -> Result<Vec<String>> {
-        let response = self.send_request(serde_json::json!({
-            "type": "ListChildren"
-        })).await?;
+        let response = self
+            .send_request(serde_json::json!({
+                "type": "ListChildren"
+            }))
+            .await?;
 
         let children: Vec<String> = response["child_ids"]
             .as_array()
@@ -152,7 +180,8 @@ impl DaemonClient {
         self.send_request(serde_json::json!({
             "type": "ImportAgentShard",
             "agent_shard_hex": shard_hex
-        })).await?;
+        }))
+        .await?;
         Ok(())
     }
 
@@ -162,7 +191,8 @@ impl DaemonClient {
             "type": "ImportChildShares",
             "shares_json": shares_json,
             "replace": replace
-        })).await?;
+        }))
+        .await?;
         Ok(())
     }
 }
