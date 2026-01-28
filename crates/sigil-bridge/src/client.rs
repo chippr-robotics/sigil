@@ -1,7 +1,6 @@
 //! Daemon IPC client for sigil-bridge
 
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
