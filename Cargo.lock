@@ -6173,6 +6173,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "tokio-stream",
  "tokio-udev",
  "tonic 0.10.2",
  "tracing",

@@ -7,7 +7,17 @@ set -e
 
 API_HOST="${LOGSEQ_API_HOST:-localhost}"
 API_PORT="${LOGSEQ_API_PORT:-3001}"
-API_BASE="http://${API_HOST}:${API_PORT}"
+API_PROTOCOL="${LOGSEQ_API_PROTOCOL:-http}"
+API_BASE="${API_PROTOCOL}://${API_HOST}:${API_PORT}"
+
+# Warn about sending tokens over unencrypted HTTP
+warn_insecure_http() {
+    if [[ "$API_PROTOCOL" == "http" && -n "$LOGSEQ_API_TOKEN" && "$API_HOST" != "localhost" && "$API_HOST" != "127.0.0.1" ]]; then
+        echo "⚠️  WARNING: Sending authentication token over unencrypted HTTP to remote host"
+        echo "   Consider using HTTPS (set LOGSEQ_API_PROTOCOL=https) for production environments"
+        echo ""
+    fi
+}
 
 show_help() {
     cat << 'EOF'
@@ -17,10 +27,11 @@ USAGE:
     check-api.sh [OPTIONS]
 
 OPTIONS:
-    --host HOST     API host (default: localhost)
-    --port PORT     API port (default: 3001)
-    --token TOKEN   API token (default: $LOGSEQ_API_TOKEN)
-    --help          Show this help
+    --host HOST         API host (default: localhost)
+    --port PORT         API port (default: 3001)
+    --protocol PROTO    API protocol: http or https (default: http)
+    --token TOKEN       API token (default: $LOGSEQ_API_TOKEN)
+    --help              Show this help
 
 DESCRIPTION:
     Verifies Logseq HTTP API server is running and accessible.
@@ -34,15 +45,18 @@ SETUP:
 
 EXAMPLES:
     check-api.sh
-    check-api.sh --host remote-server --port 3001
-    LOGSEQ_API_TOKEN=xxx check-api.sh
+    check-api.sh --host remote-server --port 3001 --protocol https
+    LOGSEQ_API_TOKEN=xxx LOGSEQ_API_PROTOCOL=https check-api.sh
 EOF
 }
 
 check_api_server() {
     local host="$1"
     local port="$2"
-    local base_url="http://${host}:${port}"
+    local base_url="${API_PROTOCOL}://${host}:${port}"
+
+    # Warn about insecure HTTP when using tokens with remote hosts
+    warn_insecure_http
 
     echo "🔍 Checking Logseq API server at ${base_url}..."
 

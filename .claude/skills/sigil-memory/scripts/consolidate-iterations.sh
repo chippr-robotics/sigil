@@ -237,7 +237,7 @@ add_strategic_blocks() {
     local query_blocks=(
         "Recent Strategic Insights: {{query (and [[strategic]] [[insight]] (created-at 7d))}}"
         "Success Metrics Trend: {{query (property-values :success-metrics)}}"
-        "Platform Evolution: {{query (and [[platform]] [[evolution]] [[analysis]]}}"
+        "Platform Evolution: {{query (and [[platform]] [[evolution]] [[analysis]])}}"
         "Agent Network Growth: {{query (property-values :agent-connections)}}"
     )
 

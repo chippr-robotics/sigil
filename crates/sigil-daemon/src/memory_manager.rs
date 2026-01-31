@@ -6,9 +6,11 @@
 use crate::disk_watcher::DiskWatcher;
 use crate::ipc::{MemoryEntry, MemoryStatusData};
 use anyhow::{anyhow, Result};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tokio::fs;
+use tokio_stream::wrappers::ReadDirStream;
+use tokio_stream::StreamExt;
 use tracing::{debug, info};
 use uuid::Uuid;
 
@@ -41,7 +43,7 @@ impl MemoryManager {
             .join("pages")
             .join(format!("{}.md", formatted_topic));
 
-        fs::write(&page_path, content)?;
+        fs::write(&page_path, content).await?;
 
         // Update Strategic Memory Home hub
         self.update_strategic_hub(&logseq_dir, &formatted_topic, &content_description)
@@ -59,19 +61,20 @@ impl MemoryManager {
         let logseq_dir = self.get_logseq_directory().await?;
         let pages_dir = logseq_dir.join("pages");
 
-        if !pages_dir.exists() {
+        if !fs::try_exists(&pages_dir).await.unwrap_or(false) {
             return Ok(Vec::new());
         }
 
         let mut results = Vec::new();
 
         // Search through all markdown files
-        for entry in fs::read_dir(&pages_dir)? {
-            let entry = entry?;
+        let mut entries = ReadDirStream::new(fs::read_dir(&pages_dir).await?);
+        while let Some(entry_result) = entries.next().await {
+            let entry: tokio::fs::DirEntry = entry_result?;
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("md") {
-                if let Ok(content) = fs::read_to_string(&path) {
+            if path.extension().and_then(|s: &std::ffi::OsStr| s.to_str()) == Some("md") {
+                if let Ok(content) = fs::read_to_string(&path).await {
                     if self.matches_search_terms(&content, &search_terms) {
                         if let Ok(memory_entry) = self.parse_memory_entry(&path, &content) {
                             results.push(memory_entry);
@@ -166,16 +169,20 @@ impl MemoryManager {
             .await
             .ok_or_else(|| anyhow!("No sigil disk detected"))?;
 
-        let logseq_dir = disk_path.join("logseq");
+        // disk_path points to sigil.disk file, use parent to get mount directory
+        let mount_dir = disk_path
+            .parent()
+            .ok_or_else(|| anyhow!("Invalid disk path: no parent directory"))?;
+        let logseq_dir = mount_dir.join("logseq");
 
         // Create directory structure if it doesn't exist
-        fs::create_dir_all(logseq_dir.join("pages"))?;
-        fs::create_dir_all(logseq_dir.join("logseq"))?;
+        fs::create_dir_all(logseq_dir.join("pages")).await?;
+        fs::create_dir_all(logseq_dir.join("logseq")).await?;
 
         // Create or update Logseq configuration
         let config_path = logseq_dir.join("logseq").join("config.edn");
-        if !config_path.exists() {
-            self.create_logseq_config(&config_path)?;
+        if !fs::try_exists(&config_path).await.unwrap_or(false) {
+            self.create_logseq_config(&config_path).await?;
         }
 
         // Ensure Strategic Memory Home exists
@@ -192,9 +199,13 @@ impl MemoryManager {
             .await
             .ok_or_else(|| anyhow!("No sigil disk detected"))?;
 
-        let logseq_dir = disk_path.join("logseq");
+        // disk_path points to sigil.disk file, use parent to get mount directory
+        let mount_dir = disk_path
+            .parent()
+            .ok_or_else(|| anyhow!("Invalid disk path: no parent directory"))?;
+        let logseq_dir = mount_dir.join("logseq");
 
-        if !logseq_dir.exists() {
+        if !fs::try_exists(&logseq_dir).await.unwrap_or(false) {
             return Err(anyhow!("Logseq structure not initialized"));
         }
 
@@ -229,7 +240,7 @@ impl MemoryManager {
     }
 
     /// Create Logseq configuration optimized for floppy disk constraints
-    fn create_logseq_config(&self, config_path: &Path) -> Result<()> {
+    async fn create_logseq_config(&self, config_path: &Path) -> Result<()> {
         let config_content = r#";; Strategic Memory Graph Configuration
 {:meta/version 1
 
@@ -264,7 +275,7 @@ impl MemoryManager {
  :file/name-format :triple-lowbar}
 "#;
 
-        fs::write(config_path, config_content)?;
+        fs::write(config_path, config_content).await?;
         debug!("Created Logseq configuration: {:?}", config_path);
         Ok(())
     }
@@ -273,9 +284,9 @@ impl MemoryManager {
     async fn ensure_strategic_memory_home(&self, logseq_dir: &Path) -> Result<()> {
         let hub_path = logseq_dir.join("pages").join("Strategic Memory Home.md");
 
-        if !hub_path.exists() {
+        if !fs::try_exists(&hub_path).await.unwrap_or(false) {
             let hub_content = self.generate_strategic_memory_home_content()?;
-            fs::write(&hub_path, hub_content)?;
+            fs::write(&hub_path, hub_content).await?;
             info!("Created Strategic Memory Home hub: {:?}", hub_path);
         }
 
@@ -327,7 +338,7 @@ impl MemoryManager {
     ) -> Result<()> {
         let hub_path = logseq_dir.join("pages").join("Strategic Memory Home.md");
 
-        if let Ok(content) = fs::read_to_string(&hub_path) {
+        if let Ok(content) = fs::read_to_string(&hub_path).await {
             // Add new entry to Core Strategic Intelligence section
             let new_entry = format!("\t\t- [[{}]] - {}", topic, description);
 
@@ -347,7 +358,7 @@ impl MemoryManager {
 
             if found_core_section {
                 let updated_content = new_lines.join("\n");
-                fs::write(&hub_path, updated_content)?;
+                fs::write(&hub_path, updated_content).await?;
                 debug!("Updated Strategic Memory Home with: {}", topic);
             }
         }
@@ -446,12 +457,16 @@ impl MemoryManager {
         let lines: Vec<&str> = content.lines().collect();
         for (i, line) in lines.iter().enumerate() {
             if line.contains("## Executive Summary") {
-                if let Some(_next_line) = lines.get(i + 1) {
-                    if let Some(summary_line) = lines.get(i + 2) {
-                        return summary_line
-                            .trim()
+                // Scan forward for first non-empty, non-heading line after section marker
+                for candidate_line in lines.iter().skip(i + 1) {
+                    let candidate = candidate_line.trim();
+                    if !candidate.is_empty()
+                        && !candidate.starts_with('#')
+                        && !candidate.starts_with("##")
+                    {
+                        return candidate
                             .strip_prefix("- ")
-                            .unwrap_or(summary_line.trim())
+                            .unwrap_or(candidate)
                             .to_string();
                     }
                 }
@@ -484,14 +499,15 @@ impl MemoryManager {
     /// Count total pages in Logseq directory
     async fn count_pages(&self, logseq_dir: &Path) -> Result<u32> {
         let pages_dir = logseq_dir.join("pages");
-        if !pages_dir.exists() {
+        if !fs::try_exists(&pages_dir).await.unwrap_or(false) {
             return Ok(0);
         }
 
         let mut count = 0;
-        for entry in fs::read_dir(pages_dir)? {
-            let entry = entry?;
-            if entry.path().extension().and_then(|s| s.to_str()) == Some("md") {
+        let mut entries = ReadDirStream::new(fs::read_dir(pages_dir).await?);
+        while let Some(entry_result) = entries.next().await {
+            let entry: tokio::fs::DirEntry = entry_result?;
+            if entry.path().extension().and_then(|s: &std::ffi::OsStr| s.to_str()) == Some("md") {
                 count += 1;
             }
         }
@@ -501,27 +517,31 @@ impl MemoryManager {
 
     /// Calculate disk usage
     async fn calculate_disk_usage(&self, logseq_dir: &Path) -> Result<String> {
-        let mut total_size = 0u64;
+        let total_size = if fs::try_exists(logseq_dir).await.unwrap_or(false) {
+            Self::calculate_dir_size_async(logseq_dir).await?
+        } else {
+            0
+        };
 
-        fn calculate_dir_size(dir: &Path) -> std::io::Result<u64> {
-            let mut size = 0;
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let metadata = entry.metadata()?;
+        Ok(self.format_bytes(total_size))
+    }
+
+    /// Recursively calculate directory size asynchronously
+    fn calculate_dir_size_async(dir: &Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64>> + Send + '_>> {
+        Box::pin(async move {
+            let mut size = 0u64;
+            let mut entries = ReadDirStream::new(fs::read_dir(dir).await?);
+            while let Some(entry_result) = entries.next().await {
+                let entry: tokio::fs::DirEntry = entry_result?;
+                let metadata: std::fs::Metadata = entry.metadata().await?;
                 if metadata.is_dir() {
-                    size += calculate_dir_size(&entry.path())?;
+                    size += Self::calculate_dir_size_async(&entry.path()).await?;
                 } else {
                     size += metadata.len();
                 }
             }
             Ok(size)
-        }
-
-        if logseq_dir.exists() {
-            total_size = calculate_dir_size(logseq_dir)?;
-        }
-
-        Ok(self.format_bytes(total_size))
+        })
     }
 
     /// Format bytes in human readable format
@@ -557,11 +577,8 @@ impl MemoryManager {
         // Simple scoring based on reasonable utilization and page count
         let base_score = if pages_count > 0 { 0.7 } else { 0.0 };
         let usage_score = if usage_result.is_ok() { 0.2 } else { 0.0 };
-        let structure_score = if logseq_dir
-            .join("pages")
-            .join("Strategic Memory Home.md")
-            .exists()
-        {
+        let hub_path = logseq_dir.join("pages").join("Strategic Memory Home.md");
+        let structure_score = if fs::try_exists(&hub_path).await.unwrap_or(false) {
             0.1
         } else {
             0.0
@@ -634,6 +651,7 @@ impl MemoryManager {
 
 // OODA Loop data structures
 #[derive(Debug)]
+#[allow(dead_code)] // Fields planned for future implementation
 struct MemoryObservation {
     total_pages: u32,
     disk_usage: String,
@@ -641,12 +659,14 @@ struct MemoryObservation {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // Fields planned for future implementation
 struct MemoryOrientation {
     strategy_type: String,
     tier_distribution: Vec<String>,
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // Fields planned for future implementation
 struct MemoryDecision {
     optimization_targets: Vec<String>,
     predicted_savings: f64,

@@ -74,6 +74,9 @@ install_logseq() {
     if [[ "$no_sandbox" == "true" ]]; then
         echo "🔧 Configuring for no-sandbox operation..."
 
+        # Ensure bin directory exists
+        mkdir -p "$BIN_DIR"
+
         # Create wrapper script for no-sandbox operation
         cat > "$BIN_DIR/logseq-no-sandbox" << 'EOF'
 #!/bin/bash

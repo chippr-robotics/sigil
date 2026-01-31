@@ -31,14 +31,14 @@ allowed-tools: Read, Write, Edit, Bash, WebFetch
 ```bash
 # First, enable HTTP API in Logseq desktop app:
 # Settings → Features → "Enable HTTP APIs server"
-~/.claude/skills/logseq/scripts/check-api.sh
+~/.claude/skills/sigil-memory/scripts/check-api.sh
 ```
 
 ### 2. Install MCP Integration (Recommended)
 
 ```bash
 # Install mcp-logseq for direct Claude integration
-~/.claude/skills/logseq/scripts/setup-mcp.sh
+~/.claude/skills/sigil-memory/scripts/setup-mcp.sh
 ```
 
 ### 3. Or Use CLI Interface
@@ -48,7 +48,7 @@ allowed-tools: Read, Write, Edit, Bash, WebFetch
 npm install -g @logseq/cli
 
 # Set up authentication token
-~/.claude/skills/logseq/scripts/setup-cli.sh
+~/.claude/skills/sigil-memory/scripts/setup-cli.sh
 ```
 
 ## Core Operations
@@ -433,43 +433,28 @@ npm start -- --graph-path "/strategic/memory"
 
 ## Helper Scripts Reference
 
+The following scripts are currently available in `~/.claude/skills/sigil-memory/scripts/`:
+
 ### API Integration
-- `check-api.sh` - Verify HTTP API connectivity
-- `api-request.sh` - Make authenticated API calls
-- `create-page.sh` - Create pages via API
-- `query-graph.sh` - Query graph data
+- `check-api.sh` - Verify HTTP API connectivity and authentication
 
 ### MCP Integration
-- `setup-mcp.sh` - Install and configure MCP server
-- `mcp-request.sh` - Send MCP requests
-- `test-mcp.sh` - Test MCP connectivity
+- `setup-mcp.sh` - Install and configure MCP server (mcp-logseq)
 
-### CLI Operations
-- `setup-cli.sh` - Configure official CLI
-- `export-graph.sh` - Export graph data
-- `append-content.sh` - Add content to pages
+### Graph Operations
+- `init-graph.sh` - Initialize a new Logseq graph structure
+- `analyze-relationships.sh` - Analyze graph relationships and connections
+- `merge-graphs.sh` - Merge multiple Logseq graphs
+- `consolidate-iterations.sh` - Consolidate iteration learnings using Logseq queries
 
 ### Strategic Memory
-- `consolidate-iterations.sh` - Real iteration analysis using logseq queries
-- `generate-insights.sh` - Strategic intelligence extraction
-- `setup-strategic-memory.sh` - Strategic graph initialization
-
-### Sigil Integration
-- `setup-sigil-mother.sh` - Distributed graph coordination
-- `sigil-sync.sh` - Cross-graph synchronization
-- `crypto-backup.sh` - Cryptographic backup management
-
-### Memory Optimization
 - `analyze-strategic-memory.sh` - Memory usage and strategic value analysis
-- `memory-ooda-loop.sh` - OODA loop memory optimization framework
-- `optimize-memory-tiers.sh` - Tiered memory management implementation
-- `validate-memory-optimization.sh` - Brier scoring for optimization effectiveness
-- `create-memory-predictions.sh` - Strategic memory optimization predictions
-- `execute-measured-optimization.sh` - Prediction-tracked optimization execution
-- `test-strategic-decisions.sh` - Strategic decision quality validation
-- `calibrate-optimization-predictions.sh` - Brier score calibration for predictions
 
-All scripts provide real logseq integration, not file manipulation.
+### Installation
+- `install.sh` - Install Logseq desktop application
+
+> **Note**: Additional scripts referenced in the documentation above are planned features.
+> The core integration functionality is available through the scripts listed here.
 
 ---
 

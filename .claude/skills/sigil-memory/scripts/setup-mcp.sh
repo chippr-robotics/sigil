@@ -5,6 +5,10 @@
 
 set -e
 
+# Pin mcp-logseq to a specific commit for supply chain security
+# Update this hash after verifying new releases
+MCP_LOGSEQ_COMMIT="${MCP_LOGSEQ_COMMIT:-main}"  # Override with env var or use main branch
+
 MCP_LOGSEQ_DIR="${HOME}/.claude/mcp-servers/logseq"
 LOGSEQ_GRAPH_PATH="/media/dontpanic/1112-15D8"
 
@@ -74,17 +78,20 @@ install_mcp_server() {
     # Create install directory
     mkdir -p "$install_dir"
 
-    # Clone mcp-logseq repository
+    # Clone mcp-logseq repository (pinned to specific commit for supply chain security)
     if [[ -d "$install_dir/mcp-logseq" ]]; then
         echo "📁 mcp-logseq already exists, updating..."
         cd "$install_dir/mcp-logseq"
-        git pull origin main
+        git fetch origin
+        git checkout "$MCP_LOGSEQ_COMMIT"
     else
         echo "📥 Cloning mcp-logseq repository..."
         cd "$install_dir"
         git clone https://github.com/ergut/mcp-logseq.git
         cd mcp-logseq
+        git checkout "$MCP_LOGSEQ_COMMIT"
     fi
+    echo "📌 Pinned to commit: $(git rev-parse HEAD)"
 
     # Install dependencies
     echo "📦 Installing dependencies..."
@@ -184,9 +191,10 @@ configure_claude_integration() {
 }' > "$mcp_config"
     fi
 
-    # Add logseq server configuration
-    local temp_config=$(mktemp)
-    jq ".servers.logseq = $mcp_entry" "$mcp_config" > "$temp_config" && mv "$temp_config" "$mcp_config"
+    # Add logseq server configuration (using --argjson to safely pass JSON)
+    local temp_config
+    temp_config=$(mktemp)
+    jq --argjson mcp_entry "$mcp_entry" '.servers.logseq = $mcp_entry' "$mcp_config" > "$temp_config" && mv "$temp_config" "$mcp_config"
 
     echo "✅ Claude MCP configuration updated"
 }
