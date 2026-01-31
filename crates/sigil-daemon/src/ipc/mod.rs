@@ -17,4 +17,4 @@ mod windows;
 // Public API
 pub use client::IpcClient;
 pub use server::IpcServer;
-pub use types::{IpcRequest, IpcResponse};
+pub use types::{IpcRequest, IpcResponse, MemoryEntry, MemoryStatusData};

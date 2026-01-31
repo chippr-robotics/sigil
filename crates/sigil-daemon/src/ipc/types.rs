@@ -44,6 +44,24 @@ pub enum IpcRequest {
         shares_json: String, // JSON-encoded AgentChildData
         replace: bool,       // Replace existing shares if true
     },
+
+    /// Strategic memory management commands
+    /// Store strategic intelligence with Logseq integration
+    MemoryStore {
+        topic_key: String,
+        content_description: String,
+    },
+
+    /// Query strategic memory with graph traversal
+    MemoryQuery {
+        search_terms: String,
+    },
+
+    /// Optimize memory using OODA loop and Brier scoring
+    MemoryOptimize,
+
+    /// Get memory status and resource utilization
+    MemoryStatus,
 }
 
 /// IPC response types
@@ -81,6 +99,44 @@ pub enum IpcResponse {
 
     /// Presig count
     PresigCount { remaining: u32, total: u32 },
+
+    /// Memory operation result
+    MemoryResult {
+        success: bool,
+        message: String,
+        path: Option<String>,
+    },
+
+    /// Memory query results
+    MemoryQueryResults {
+        results: Vec<MemoryEntry>,
+        total_count: u32,
+    },
+
+    /// Memory status information
+    MemoryStatusInfo(MemoryStatusData),
+}
+
+/// Memory entry for query results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryEntry {
+    pub title: String,
+    pub path: String,
+    pub tier: String,
+    pub priority: String,
+    pub date: String,
+    pub confidence: f64,
+    pub summary: String,
+}
+
+/// Memory status information data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryStatusData {
+    pub disk_path: Option<String>,
+    pub total_pages: u32,
+    pub memory_usage: String,
+    pub optimization_score: f64,
+    pub last_optimization: Option<String>,
 }
 
 /// Parse a hex-encoded message hash

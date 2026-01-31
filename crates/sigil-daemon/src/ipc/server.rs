@@ -11,6 +11,7 @@ use sigil_core::types::ChainId;
 use crate::agent_store::AgentStore;
 use crate::disk_watcher::DiskWatcher;
 use crate::error::Result;
+use crate::memory_manager::MemoryManager;
 use crate::signer::{Signer, SigningRequest};
 
 use super::connection::{IpcTransport, PlatformTransport};
@@ -29,6 +30,9 @@ pub struct IpcServer {
 
     /// Signer
     signer: Arc<Signer>,
+
+    /// Memory manager
+    memory_manager: Arc<MemoryManager>,
 }
 
 impl IpcServer {
@@ -38,12 +42,14 @@ impl IpcServer {
         disk_watcher: Arc<DiskWatcher>,
         agent_store: Arc<RwLock<AgentStore>>,
         signer: Arc<Signer>,
+        memory_manager: Arc<MemoryManager>,
     ) -> Self {
         Self {
             socket_path,
             disk_watcher,
             agent_store,
             signer,
+            memory_manager,
         }
     }
 
@@ -59,10 +65,11 @@ impl IpcServer {
                     let disk_watcher = Arc::clone(&self.disk_watcher);
                     let agent_store = Arc::clone(&self.agent_store);
                     let signer = Arc::clone(&self.signer);
+                    let memory_manager = Arc::clone(&self.memory_manager);
 
                     tokio::spawn(async move {
                         if let Err(e) =
-                            handle_connection(stream, disk_watcher, agent_store, signer).await
+                            handle_connection(stream, disk_watcher, agent_store, signer, memory_manager).await
                         {
                             error!("Connection error: {}", e);
                         }
@@ -82,6 +89,7 @@ async fn handle_connection<S>(
     disk_watcher: Arc<DiskWatcher>,
     agent_store: Arc<RwLock<AgentStore>>,
     signer: Arc<Signer>,
+    memory_manager: Arc<MemoryManager>,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -110,6 +118,7 @@ where
             Arc::clone(&disk_watcher),
             Arc::clone(&agent_store),
             Arc::clone(&signer),
+            Arc::clone(&memory_manager),
         )
         .await;
 
@@ -126,6 +135,7 @@ async fn handle_request(
     disk_watcher: Arc<DiskWatcher>,
     agent_store: Arc<RwLock<AgentStore>>,
     signer: Arc<Signer>,
+    memory_manager: Arc<MemoryManager>,
 ) -> IpcResponse {
     match request {
         IpcRequest::Ping => IpcResponse::Pong {
@@ -290,6 +300,63 @@ async fn handle_request(
                 }
                 Err(e) => IpcResponse::Error {
                     message: format!("Invalid JSON: {}", e),
+                },
+            }
+        }
+
+        // Memory management commands
+        IpcRequest::MemoryStore {
+            topic_key,
+            content_description,
+        } => {
+            match memory_manager
+                .store_memory(topic_key.clone(), content_description)
+                .await
+            {
+                Ok(result_msg) => IpcResponse::MemoryResult {
+                    success: true,
+                    message: result_msg,
+                    path: None,
+                },
+                Err(e) => IpcResponse::Error {
+                    message: format!("Failed to store memory: {}", e),
+                },
+            }
+        }
+
+        IpcRequest::MemoryQuery { search_terms } => {
+            match memory_manager.query_memory(search_terms).await {
+                Ok(results) => {
+                    let total_count = results.len() as u32;
+                    IpcResponse::MemoryQueryResults {
+                        total_count,
+                        results,
+                    }
+                },
+                Err(e) => IpcResponse::Error {
+                    message: format!("Failed to query memory: {}", e),
+                },
+            }
+        }
+
+        IpcRequest::MemoryOptimize => {
+            match memory_manager.optimize_memory().await {
+                Ok(result_msg) => IpcResponse::MemoryResult {
+                    success: true,
+                    message: result_msg,
+                    path: None,
+                },
+                Err(e) => IpcResponse::Error {
+                    message: format!("Failed to optimize memory: {}", e),
+                },
+            }
+        }
+
+        IpcRequest::MemoryStatus => {
+            match memory_manager.get_memory_status().await {
+                Ok(status) => IpcResponse::MemoryStatusInfo(status),
+                Err(e) => IpcResponse::Error {
+                    message: format!("Failed to get memory status: {}", e),
                 },
             }
         }

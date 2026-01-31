@@ -72,6 +72,11 @@ impl DiskWatcher {
         self.current_disk.read().await.is_some()
     }
 
+    /// Get the current disk path for memory management
+    pub async fn get_current_disk_path(&self) -> Option<PathBuf> {
+        self.current_disk.read().await.as_ref().map(|d| d.path.clone())
+    }
+
     /// Start watching for disk events (blocking)
     pub async fn watch(&self) -> Result<()> {
         info!("Starting disk watcher with pattern: {}", self.mount_pattern);
