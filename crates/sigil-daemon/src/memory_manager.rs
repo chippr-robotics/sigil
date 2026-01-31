@@ -37,15 +37,21 @@ impl MemoryManager {
 
         // Create proper Logseq page with standardized format
         let content = self.generate_logseq_content(&formatted_topic, &id, &content_description)?;
-        let page_path = logseq_dir.join("pages").join(format!("{}.md", formatted_topic));
+        let page_path = logseq_dir
+            .join("pages")
+            .join(format!("{}.md", formatted_topic));
 
         fs::write(&page_path, content)?;
 
         // Update Strategic Memory Home hub
-        self.update_strategic_hub(&logseq_dir, &formatted_topic, &content_description).await?;
+        self.update_strategic_hub(&logseq_dir, &formatted_topic, &content_description)
+            .await?;
 
         info!("Strategic memory stored: [[{}]]", formatted_topic);
-        Ok(format!("Strategic memory stored: [[{}]] at {:?}", formatted_topic, page_path))
+        Ok(format!(
+            "Strategic memory stored: [[{}]] at {:?}",
+            formatted_topic, page_path
+        ))
     }
 
     /// Query strategic memory with graph traversal
@@ -79,7 +85,9 @@ impl MemoryManager {
         results.sort_by(|a, b| {
             let a_score = self.calculate_relevance_score(a);
             let b_score = self.calculate_relevance_score(b);
-            b_score.partial_cmp(&a_score).unwrap_or(std::cmp::Ordering::Equal)
+            b_score
+                .partial_cmp(&a_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         Ok(results)
@@ -125,11 +133,17 @@ impl MemoryManager {
             match logseq_dir_result {
                 Ok(logseq_dir) => {
                     let pages_count = self.count_pages(&logseq_dir).await.unwrap_or(0);
-                    let usage = self.calculate_disk_usage(&logseq_dir).await.unwrap_or_else(|_| "Unknown".to_string());
-                    let score = self.calculate_optimization_score(&logseq_dir).await.unwrap_or(0.0);
+                    let usage = self
+                        .calculate_disk_usage(&logseq_dir)
+                        .await
+                        .unwrap_or_else(|_| "Unknown".to_string());
+                    let score = self
+                        .calculate_optimization_score(&logseq_dir)
+                        .await
+                        .unwrap_or(0.0);
                     (pages_count, usage, score)
                 }
-                Err(_) => (0, "No Logseq structure".to_string(), 0.0)
+                Err(_) => (0, "No Logseq structure".to_string(), 0.0),
             }
         } else {
             (0, "No disk detected".to_string(), 0.0)
@@ -146,7 +160,8 @@ impl MemoryManager {
 
     /// Get or create Logseq directory structure
     async fn get_or_create_logseq_structure(&self) -> Result<PathBuf> {
-        let disk_path = self.disk_watcher
+        let disk_path = self
+            .disk_watcher
             .get_current_disk_path()
             .await
             .ok_or_else(|| anyhow!("No sigil disk detected"))?;
@@ -171,7 +186,8 @@ impl MemoryManager {
 
     /// Get existing Logseq directory
     async fn get_logseq_directory(&self) -> Result<PathBuf> {
-        let disk_path = self.disk_watcher
+        let disk_path = self
+            .disk_watcher
             .get_current_disk_path()
             .await
             .ok_or_else(|| anyhow!("No sigil disk detected"))?;
@@ -348,7 +364,9 @@ impl MemoryManager {
                 let mut chars = word.chars();
                 match chars.next() {
                     None => String::new(),
-                    Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
+                    Some(first) => {
+                        first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+                    }
                 }
             })
             .collect::<Vec<_>>()
@@ -360,17 +378,23 @@ impl MemoryManager {
         let terms: Vec<&str> = search_terms.split_whitespace().collect();
         let content_lower = content.to_lowercase();
 
-        terms.iter().any(|term| {
-            content_lower.contains(&term.to_lowercase())
-        })
+        terms
+            .iter()
+            .any(|term| content_lower.contains(&term.to_lowercase()))
     }
 
     /// Parse memory entry from file content
     fn parse_memory_entry(&self, path: &Path, content: &str) -> Result<MemoryEntry> {
         let title = self.extract_title(content)?;
-        let tier = self.extract_property(content, "memory-tier").unwrap_or_else(|| "tier_2".to_string());
-        let priority = self.extract_property(content, "strategic-priority").unwrap_or_else(|| "medium".to_string());
-        let date = self.extract_property(content, "date").unwrap_or_else(|| "unknown".to_string());
+        let tier = self
+            .extract_property(content, "memory-tier")
+            .unwrap_or_else(|| "tier_2".to_string());
+        let priority = self
+            .extract_property(content, "strategic-priority")
+            .unwrap_or_else(|| "medium".to_string());
+        let date = self
+            .extract_property(content, "date")
+            .unwrap_or_else(|| "unknown".to_string());
         let confidence = self.extract_confidence(content);
         let summary = self.extract_summary(content);
 
@@ -424,7 +448,11 @@ impl MemoryManager {
             if line.contains("## Executive Summary") {
                 if let Some(_next_line) = lines.get(i + 1) {
                     if let Some(summary_line) = lines.get(i + 2) {
-                        return summary_line.trim().strip_prefix("- ").unwrap_or(summary_line.trim()).to_string();
+                        return summary_line
+                            .trim()
+                            .strip_prefix("- ")
+                            .unwrap_or(summary_line.trim())
+                            .to_string();
                     }
                 }
             }
@@ -529,7 +557,15 @@ impl MemoryManager {
         // Simple scoring based on reasonable utilization and page count
         let base_score = if pages_count > 0 { 0.7 } else { 0.0 };
         let usage_score = if usage_result.is_ok() { 0.2 } else { 0.0 };
-        let structure_score = if logseq_dir.join("pages").join("Strategic Memory Home.md").exists() { 0.1 } else { 0.0 };
+        let structure_score = if logseq_dir
+            .join("pages")
+            .join("Strategic Memory Home.md")
+            .exists()
+        {
+            0.1
+        } else {
+            0.0
+        };
 
         Ok(base_score + usage_score + structure_score)
     }
@@ -538,7 +574,10 @@ impl MemoryManager {
 
     async fn observe_memory_patterns(&self, logseq_dir: &Path) -> Result<MemoryObservation> {
         let pages_count = self.count_pages(logseq_dir).await.unwrap_or(0);
-        let disk_usage = self.calculate_disk_usage(logseq_dir).await.unwrap_or_else(|_| "Unknown".to_string());
+        let disk_usage = self
+            .calculate_disk_usage(logseq_dir)
+            .await
+            .unwrap_or_else(|_| "Unknown".to_string());
 
         Ok(MemoryObservation {
             total_pages: pages_count,
@@ -547,7 +586,10 @@ impl MemoryManager {
         })
     }
 
-    async fn orient_memory_strategy(&self, observation: &MemoryObservation) -> Result<MemoryOrientation> {
+    async fn orient_memory_strategy(
+        &self,
+        observation: &MemoryObservation,
+    ) -> Result<MemoryOrientation> {
         let strategy_type = if observation.total_pages > 50 {
             "aggressive_compression".to_string()
         } else if observation.total_pages > 20 {
@@ -562,9 +604,14 @@ impl MemoryManager {
         })
     }
 
-    async fn decide_memory_allocation(&self, orientation: &MemoryOrientation) -> Result<MemoryDecision> {
+    async fn decide_memory_allocation(
+        &self,
+        orientation: &MemoryOrientation,
+    ) -> Result<MemoryDecision> {
         let optimization_targets = match orientation.strategy_type.as_str() {
-            "aggressive_compression" => vec!["compress_tier_3".to_string(), "archive_tier_4".to_string()],
+            "aggressive_compression" => {
+                vec!["compress_tier_3".to_string(), "archive_tier_4".to_string()]
+            }
             "moderate_optimization" => vec!["optimize_cross_references".to_string()],
             _ => vec!["maintain_structure".to_string()],
         };
@@ -578,7 +625,10 @@ impl MemoryManager {
     async fn act_memory_optimization(&self, decision: &MemoryDecision) -> Result<String> {
         // TODO: Implement actual optimization actions based on decisions
         let actions_performed = decision.optimization_targets.len();
-        Ok(format!("Performed {} optimization actions", actions_performed))
+        Ok(format!(
+            "Performed {} optimization actions",
+            actions_performed
+        ))
     }
 }
 

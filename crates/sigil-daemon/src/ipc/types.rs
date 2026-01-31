@@ -53,9 +53,7 @@ pub enum IpcRequest {
     },
 
     /// Query strategic memory with graph traversal
-    MemoryQuery {
-        search_terms: String,
-    },
+    MemoryQuery { search_terms: String },
 
     /// Optimize memory using OODA loop and Brier scoring
     MemoryOptimize,

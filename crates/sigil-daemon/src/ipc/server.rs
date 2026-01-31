@@ -68,8 +68,14 @@ impl IpcServer {
                     let memory_manager = Arc::clone(&self.memory_manager);
 
                     tokio::spawn(async move {
-                        if let Err(e) =
-                            handle_connection(stream, disk_watcher, agent_store, signer, memory_manager).await
+                        if let Err(e) = handle_connection(
+                            stream,
+                            disk_watcher,
+                            agent_store,
+                            signer,
+                            memory_manager,
+                        )
+                        .await
                         {
                             error!("Connection error: {}", e);
                         }
@@ -332,34 +338,30 @@ async fn handle_request(
                         total_count,
                         results,
                     }
-                },
+                }
                 Err(e) => IpcResponse::Error {
                     message: format!("Failed to query memory: {}", e),
                 },
             }
         }
 
-        IpcRequest::MemoryOptimize => {
-            match memory_manager.optimize_memory().await {
-                Ok(result_msg) => IpcResponse::MemoryResult {
-                    success: true,
-                    message: result_msg,
-                    path: None,
-                },
-                Err(e) => IpcResponse::Error {
-                    message: format!("Failed to optimize memory: {}", e),
-                },
-            }
-        }
+        IpcRequest::MemoryOptimize => match memory_manager.optimize_memory().await {
+            Ok(result_msg) => IpcResponse::MemoryResult {
+                success: true,
+                message: result_msg,
+                path: None,
+            },
+            Err(e) => IpcResponse::Error {
+                message: format!("Failed to optimize memory: {}", e),
+            },
+        },
 
-        IpcRequest::MemoryStatus => {
-            match memory_manager.get_memory_status().await {
-                Ok(status) => IpcResponse::MemoryStatusInfo(status),
-                Err(e) => IpcResponse::Error {
-                    message: format!("Failed to get memory status: {}", e),
-                },
-            }
-        }
+        IpcRequest::MemoryStatus => match memory_manager.get_memory_status().await {
+            Ok(status) => IpcResponse::MemoryStatusInfo(status),
+            Err(e) => IpcResponse::Error {
+                message: format!("Failed to get memory status: {}", e),
+            },
+        },
     }
 }
 

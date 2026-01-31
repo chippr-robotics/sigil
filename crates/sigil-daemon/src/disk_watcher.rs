@@ -74,7 +74,11 @@ impl DiskWatcher {
 
     /// Get the current disk path for memory management
     pub async fn get_current_disk_path(&self) -> Option<PathBuf> {
-        self.current_disk.read().await.as_ref().map(|d| d.path.clone())
+        self.current_disk
+            .read()
+            .await
+            .as_ref()
+            .map(|d| d.path.clone())
     }
 
     /// Start watching for disk events (blocking)
