@@ -6137,7 +6137,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6157,7 +6157,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bitcode",
  "chrono",
@@ -6173,7 +6173,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-daemon"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6200,7 +6200,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-frost"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "base64 0.22.1",
  "bitcode",
@@ -6225,7 +6225,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-mcp"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6246,7 +6246,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-mother"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -6282,7 +6282,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-mother-tui"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6304,7 +6304,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-mother-zkvm"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6322,7 +6322,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-tests"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "sigil-core",
  "sigil-mother",
@@ -6331,7 +6331,7 @@ dependencies = [
 
 [[package]]
 name = "sigil-zkvm"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "hex",
  "k256",
