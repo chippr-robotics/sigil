@@ -4,7 +4,7 @@
 //! - Disk detection and monitoring via udev
 //! - Agent shard storage and management
 //! - Signing operations with zkVM proof generation
-//! - Strategic memory management with Logseq integration
+//! - Memory management with plain markdown storage
 //! - IPC server for CLI communication
 
 pub mod agent_store;

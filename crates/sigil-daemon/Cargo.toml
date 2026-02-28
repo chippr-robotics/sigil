@@ -49,9 +49,6 @@ glob = "0.3"
 futures-util = "0.3"
 tokio-stream = { version = "0.1", features = ["fs"] }
 
-# UUID generation for memory entries
-uuid = { version = "1.0", features = ["v4", "serde"] }
-
 # Date/time handling for memory timestamps
 chrono = { version = "0.4", features = ["serde"] }
 

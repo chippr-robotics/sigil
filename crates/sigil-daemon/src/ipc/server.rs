@@ -310,13 +310,13 @@ async fn handle_request(
             }
         }
 
-        // Memory management commands
+        // Memory commands
         IpcRequest::MemoryStore {
             topic_key,
             content_description,
         } => {
             match memory_manager
-                .store_memory(topic_key.clone(), content_description)
+                .store_memory(topic_key, content_description)
                 .await
             {
                 Ok(result_msg) => IpcResponse::MemoryResult {
@@ -344,17 +344,6 @@ async fn handle_request(
                 },
             }
         }
-
-        IpcRequest::MemoryOptimize => match memory_manager.optimize_memory().await {
-            Ok(result_msg) => IpcResponse::MemoryResult {
-                success: true,
-                message: result_msg,
-                path: None,
-            },
-            Err(e) => IpcResponse::Error {
-                message: format!("Failed to optimize memory: {}", e),
-            },
-        },
 
         IpcRequest::MemoryStatus => match memory_manager.get_memory_status().await {
             Ok(status) => IpcResponse::MemoryStatusInfo(status),

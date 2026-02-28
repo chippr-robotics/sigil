@@ -45,20 +45,16 @@ pub enum IpcRequest {
         replace: bool,       // Replace existing shares if true
     },
 
-    /// Strategic memory management commands
-    /// Store strategic intelligence with Logseq integration
+    /// Store a memory note to the sigil disk
     MemoryStore {
         topic_key: String,
         content_description: String,
     },
 
-    /// Query strategic memory with graph traversal
+    /// Search memory notes by text terms
     MemoryQuery { search_terms: String },
 
-    /// Optimize memory using OODA loop and Brier scoring
-    MemoryOptimize,
-
-    /// Get memory status and resource utilization
+    /// Get memory status and disk usage
     MemoryStatus,
 }
 
@@ -120,10 +116,8 @@ pub enum IpcResponse {
 pub struct MemoryEntry {
     pub title: String,
     pub path: String,
-    pub tier: String,
-    pub priority: String,
     pub date: String,
-    pub confidence: f64,
+    pub tags: Vec<String>,
     pub summary: String,
 }
 
@@ -131,10 +125,10 @@ pub struct MemoryEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryStatusData {
     pub disk_path: Option<String>,
-    pub total_pages: u32,
-    pub memory_usage: String,
-    pub optimization_score: f64,
-    pub last_optimization: Option<String>,
+    pub total_files: u32,
+    pub memory_usage_bytes: u64,
+    pub memory_usage_display: String,
+    pub has_index: bool,
 }
 
 /// Parse a hex-encoded message hash
