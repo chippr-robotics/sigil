@@ -44,6 +44,18 @@ pub enum IpcRequest {
         shares_json: String, // JSON-encoded AgentChildData
         replace: bool,       // Replace existing shares if true
     },
+
+    /// Store a memory note to the sigil disk
+    MemoryStore {
+        topic_key: String,
+        content_description: String,
+    },
+
+    /// Search memory notes by text terms
+    MemoryQuery { search_terms: String },
+
+    /// Get memory status and disk usage
+    MemoryStatus,
 }
 
 /// IPC response types
@@ -81,6 +93,42 @@ pub enum IpcResponse {
 
     /// Presig count
     PresigCount { remaining: u32, total: u32 },
+
+    /// Memory operation result
+    MemoryResult {
+        success: bool,
+        message: String,
+        path: Option<String>,
+    },
+
+    /// Memory query results
+    MemoryQueryResults {
+        results: Vec<MemoryEntry>,
+        total_count: u32,
+    },
+
+    /// Memory status information
+    MemoryStatusInfo(MemoryStatusData),
+}
+
+/// Memory entry for query results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryEntry {
+    pub title: String,
+    pub path: String,
+    pub date: String,
+    pub tags: Vec<String>,
+    pub summary: String,
+}
+
+/// Memory status information data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryStatusData {
+    pub disk_path: Option<String>,
+    pub total_files: u32,
+    pub memory_usage_bytes: u64,
+    pub memory_usage_display: String,
+    pub has_index: bool,
 }
 
 /// Parse a hex-encoded message hash

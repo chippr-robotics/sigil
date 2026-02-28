@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use sigil_daemon::{AgentStore, DaemonConfig, DiskWatcher, IpcServer, Signer};
+use sigil_daemon::{AgentStore, DaemonConfig, DiskWatcher, IpcServer, MemoryManager, Signer};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -66,11 +66,14 @@ async fn main() -> anyhow::Result<()> {
         config.enable_zkvm_proving,
     ));
 
+    let memory_manager = Arc::new(MemoryManager::new(Arc::clone(&disk_watcher)));
+
     let ipc_server = IpcServer::new(
         config.ipc_socket_path.clone(),
         Arc::clone(&disk_watcher),
         Arc::clone(&agent_store),
         Arc::clone(&signer),
+        Arc::clone(&memory_manager),
     );
 
     // Start disk watcher in background on a dedicated thread
