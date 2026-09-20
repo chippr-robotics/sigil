@@ -394,7 +394,18 @@ jobs:
     name: CI Success
     runs-on: ubuntu-latest
     needs: [fmt, clippy, build, test, integration, e2e, docs, audit]
-    if: always()
+    # `!cancelled()` rather than `always()`.
+    #
+    # `always()` runs this job even when the whole workflow run was cancelled —
+    # which the concurrency group above does routinely, superseding an
+    # in-flight PR run when a new commit lands. Its needs are then `cancelled`
+    # rather than `success`, so the check below exits 1 and the run reports a
+    # red "CI Success" for what was simply a superseded run. That is a false
+    # alarm on a check whose entire job is to be trustworthy.
+    #
+    # `!cancelled()` still runs on failure, so a genuinely failing job is
+    # reported; it just stops claiming failure for a cancellation.
+    if: '!cancelled()'
     steps:
       - name: Check all jobs passed
         run: |
