@@ -11,6 +11,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Physical-consent enforcement: spec and tests**
+([#59](https://github.com/chippr-robotics/sigil/issues/59) backlog item 1)
+
+`sigil-daemon/src/signer.rs` was 478 lines with zero tests. Its only test
+module was a placeholder reading "Integration tests would require full setup
+with disk and agent store". `Signer::sign()` is where Sigil's claim is either
+true or false, and it was the least-verified critical code in the repository.
+
+`specs/002-physical-consent-enforcement/` specifies the path; nine tests now
+cover it:
+
+- Fail closed with no disk present, and when the disk is removed mid-session.
+- The disk is re-read from the block device on every operation — state written
+  out-of-band is observed, a cached copy is not trusted.
+- Exhaustion is enforced; signing past the presignature supply fails.
+- Cold and agent halves disagreeing on their R point is rejected, and the
+  rejected attempt consumes nothing.
+- A successful signature burns its presignature and the burn is persisted to
+  the disk, not held in memory.
+- N signatures consume N distinct indices — a repeated index would mean a
+  reused ECDSA nonce, which discloses the private key.
+- One usage-log entry per signature, carrying the index and description.
+
+### Security
+
+**Fixed: disk rollback was not detected (spec FR-014, FR-015)**
+
+`AgentChildData::next_presig_index` was written by
+`AgentStore::mark_presig_used` and read nowhere outside `agent_store.rs`.
+`get_presig_share(child, i)` returned share `i` whether or not it had been
+spent, so the disk's burn was the only thing preventing a presignature being
+used twice.
+
+Restoring an earlier disk image defeated that: the restored disk offers a spent
+index, the agent store serves the matching half, the same nonce `k` signs two
+different messages, and two signatures sharing `r` give
+`k = (z₁ − z₂)/(s₁ − s₂)` and then `d = (s₁·k − z₁)/r`. Full private key
+disclosure from a file restore.
+
+- **FR-014**: `Signer::sign` now reads the mark before fetching the agent half
+  and returns `DaemonError::PresigAlreadyConsumed { index, next_expected }`
+  when the disk offers an index below it. The error explains that the disk may
+  be a restored image and what to do about it.
+- **FR-015**: refill resets the mark. `AgentStore::import_child_shares` zeroes
+  `next_presig_index`, and the `ImportChildShares` IPC handler calls it instead
+  of `store_child`. The reset is enforced there rather than trusted from the
+  payload, because that handler deserializes `AgentChildData` straight from
+  JSON — a stale value would brick the child and a crafted one would disable
+  the guard.
+
+Both were negative-tested: with the guard removed, a rolled-back disk returns a
+real signature on an already-spent presignature.
+
+Reconciliation remains the detective control, comparing usage logs after the
+fact. FR-014 is the preventive one.
+
+### Added
+
 **Constitution conformance tests** ([#59](https://github.com/chippr-robotics/sigil/issues/59))
 
 `crates/sigil-tests/tests/constitution_conformance.rs` makes the constitution

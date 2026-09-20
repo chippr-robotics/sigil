@@ -317,6 +317,37 @@ impl DiskWatcher {
         Ok(format)
     }
 
+    /// Test-only: present a disk at `path` as the currently inserted disk,
+    /// without going through udev.
+    ///
+    /// Physical consent is enforced by `load_full_disk`, which re-reads the
+    /// block device on every signing operation. Exercising that requires a
+    /// disk to be "inserted", and udev is not available in a test process.
+    /// This seam injects one.
+    ///
+    /// `#[cfg(test)]`, so it cannot exist in a release build — the same
+    /// constraint applied to mock signing in `sigil-mcp`. A production binary
+    /// has no way to claim a disk is present when it is not.
+    #[cfg(test)]
+    pub(crate) async fn insert_disk_for_test(&self, path: PathBuf) -> Result<()> {
+        let bytes = tokio::fs::read(&path).await?;
+        let format = DiskFormat::from_bytes(&bytes)?;
+        let mut current = self.current_disk.write().await;
+        *current = Some(DetectedDisk {
+            path,
+            header: format.header.clone(),
+            format: Some(format),
+        });
+        Ok(())
+    }
+
+    /// Test-only: simulate physical removal of the disk.
+    #[cfg(test)]
+    pub(crate) async fn remove_disk_for_test(&self) {
+        let mut current = self.current_disk.write().await;
+        *current = None;
+    }
+
     /// Force re-verification of the current disk
     /// Returns true if a valid disk is present, false otherwise
     pub async fn force_verify(&self) -> bool {

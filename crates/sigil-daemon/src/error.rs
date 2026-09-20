@@ -40,6 +40,17 @@ pub enum DaemonError {
     #[error("Presignature mismatch: {0}")]
     PresigMismatch(String),
 
+    /// The disk offered a presignature the agent side has already recorded as
+    /// spent. The usual cause is a restored disk image: signing anyway would
+    /// reuse an ECDSA nonce, which discloses the private key.
+    #[error(
+        "Presignature {index} was already consumed (agent expects index {next_expected} or \
+         later). This disk is behind the agent's record — it may be a restored image. \
+         Signing would reuse a nonce and disclose the private key. Reconcile the disk \
+         before using it, or refill it and re-import the agent shares."
+    )]
+    PresigAlreadyConsumed { index: u32, next_expected: u32 },
+
     /// Signing failed
     #[error("Signing failed: {0}")]
     SigningFailed(String),
