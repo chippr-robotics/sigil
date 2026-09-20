@@ -15,7 +15,7 @@ pub struct Cli {
 
     /// Path to daemon socket
     #[cfg(unix)]
-    #[arg(long, default_value = "/tmp/sigil.sock")]
+    #[arg(long, default_value = crate::client::DEFAULT_UNIX_SOCKET_PATH)]
     pub socket: String,
 
     /// Path to daemon socket
@@ -217,4 +217,111 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn the_cli_definition_is_valid() {
+        Cli::command().debug_assert();
+    }
+
+    /// The `--socket` default must match the client's, which must match the
+    /// daemon's. Three places, one decision.
+    #[cfg(unix)]
+    #[test]
+    fn the_socket_flag_defaults_to_the_daemons_path() {
+        let cli = Cli::parse_from(["sigil", "status"]);
+        assert_eq!(cli.socket, crate::client::DEFAULT_UNIX_SOCKET_PATH);
+        assert!(
+            !cli.socket.starts_with("/tmp"),
+            "the CLI must not default to a socket in a world-writable directory"
+        );
+    }
+
+    #[test]
+    fn every_subcommand_parses() {
+        let cases: Vec<Vec<&str>> = vec![
+            vec!["sigil", "status"],
+            vec!["sigil", "disk"],
+            vec!["sigil", "sign", "--message", "0xabc"],
+            vec![
+                "sigil",
+                "update-tx",
+                "--presig-index",
+                "3",
+                "--tx-hash",
+                "0xabc",
+            ],
+            vec!["sigil", "presig-count"],
+            vec!["sigil", "import-agent-shard", "--hex", "0xabc"],
+            vec!["sigil", "import-child-shares", "shares.json"],
+            vec!["sigil", "list-children"],
+        ];
+
+        for args in cases {
+            Cli::try_parse_from(&args)
+                .unwrap_or_else(|e| panic!("`{}` must parse: {e}", args.join(" ")));
+        }
+    }
+
+    #[test]
+    fn sign_requires_a_message() {
+        assert!(
+            Cli::try_parse_from(["sigil", "sign"]).is_err(),
+            "signing without a message must be refused at parse time"
+        );
+    }
+
+    #[test]
+    fn sign_defaults_to_mainnet_with_an_audit_description() {
+        let cli = Cli::parse_from(["sigil", "sign", "--message", "0xabc"]);
+        match cli.command {
+            Commands::Sign {
+                chain_id,
+                description,
+                ..
+            } => {
+                assert_eq!(chain_id, 1);
+                assert!(
+                    !description.is_empty(),
+                    "the usage log entry must never be blank"
+                );
+            }
+            _ => panic!("expected Sign"),
+        }
+    }
+
+    /// The two shard sources are mutually exclusive; supplying both is
+    /// ambiguous about which material is authoritative.
+    #[test]
+    fn import_agent_shard_refuses_both_hex_and_file() {
+        assert!(
+            Cli::try_parse_from([
+                "sigil",
+                "import-agent-shard",
+                "--hex",
+                "0xabc",
+                "--file",
+                "shard.txt",
+            ])
+            .is_err(),
+            "hex and file are mutually exclusive"
+        );
+    }
+
+    #[test]
+    fn import_child_shares_does_not_replace_unless_asked() {
+        let cli = Cli::parse_from(["sigil", "import-child-shares", "shares.json"]);
+        match cli.command {
+            Commands::ImportChildShares { replace, .. } => assert!(
+                !replace,
+                "overwriting imported shares must be an explicit choice"
+            ),
+            _ => panic!("expected ImportChildShares"),
+        }
+    }
 }

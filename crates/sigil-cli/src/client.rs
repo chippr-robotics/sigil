@@ -4,6 +4,12 @@ use std::path::PathBuf;
 
 use sigil_daemon::ipc::{IpcClient, IpcRequest, IpcResponse};
 
+/// Default Unix socket path, matching `DaemonConfig::default_ipc_path`'s
+/// fallback. Never `/tmp`: a world-writable directory lets any local user
+/// squat the path the CLI connects to.
+#[cfg(unix)]
+pub const DEFAULT_UNIX_SOCKET_PATH: &str = "/run/sigil/sigil.sock";
+
 /// Client for the Sigil daemon
 pub struct SigilClient {
     inner: IpcClient,
@@ -70,13 +76,18 @@ pub struct SignResult {
 }
 
 impl SigilClient {
-    /// Create a new client with the default socket path
+    /// Create a new client with the default socket path.
+    ///
+    /// This must resolve the same way `DaemonConfig::default_ipc_path` does,
+    /// or the CLI cannot reach a default-configured daemon. It also must not
+    /// fall back to `/tmp`: that directory is world-writable, so any local
+    /// user could create a socket there and receive the operator's signing
+    /// requests. See Constitution Principle VII.
     pub fn new() -> Self {
-        // Use platform-appropriate default path
         #[cfg(unix)]
         let socket_path = std::env::var_os("XDG_RUNTIME_DIR")
             .map(|dir| PathBuf::from(dir).join("sigil.sock"))
-            .unwrap_or_else(|| PathBuf::from("/tmp/sigil.sock"));
+            .unwrap_or_else(|| PathBuf::from(DEFAULT_UNIX_SOCKET_PATH));
 
         #[cfg(windows)]
         let socket_path = PathBuf::from(r"\\.\pipe\sigil");
@@ -268,5 +279,81 @@ impl SigilClient {
 impl Default for SigilClient {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    /// The CLI must look for the daemon where the daemon actually listens.
+    ///
+    /// These drifted apart: #57 moved the daemon's fallback off world-writable
+    /// `/tmp` to `/run/sigil`, and the CLI was missed — so the CLI could not
+    /// reach a default-configured daemon at all, and would have connected to
+    /// whatever any local user had created at `/tmp/sigil.sock`.
+    #[test]
+    fn the_default_socket_path_is_not_world_writable() {
+        assert!(
+            !DEFAULT_UNIX_SOCKET_PATH.starts_with("/tmp"),
+            "the CLI must not default to a socket in a world-writable directory, got {DEFAULT_UNIX_SOCKET_PATH}"
+        );
+    }
+
+    /// Pinned deliberately: this constant and `DaemonConfig::default_ipc_path`
+    /// are two halves of one decision, in two crates that cannot see each
+    /// other. If the daemon moves again, this fails and names the reason.
+    #[test]
+    fn the_default_socket_path_matches_the_daemons() {
+        assert_eq!(
+            DEFAULT_UNIX_SOCKET_PATH, "/run/sigil/sigil.sock",
+            "must match DaemonConfig::default_ipc_path's fallback in sigil-daemon"
+        );
+    }
+
+    #[test]
+    fn an_explicit_socket_path_is_honoured() {
+        let path = PathBuf::from("/run/sigil/custom.sock");
+        let _client = SigilClient::with_socket_path(path);
+        // Construction must not panic or rewrite the caller's choice; the
+        // connection itself is exercised below.
+    }
+
+    /// The operator's signing path fails closed when the daemon is absent —
+    /// it does not hang, and it does not report success.
+    #[tokio::test]
+    async fn a_missing_daemon_is_an_error_not_a_hang() {
+        let client = SigilClient::with_socket_path(PathBuf::from(
+            "/nonexistent/sigil-cli-test/definitely-not-here.sock",
+        ));
+
+        let result =
+            tokio::time::timeout(std::time::Duration::from_secs(5), client.get_disk_status()).await;
+
+        let inner = result.expect("connecting to an absent daemon must not hang");
+        assert!(
+            inner.is_err(),
+            "an absent daemon must be an error, got {inner:?}"
+        );
+    }
+
+    /// Every operation, not just status, must fail closed without a daemon.
+    #[tokio::test]
+    async fn every_operation_fails_closed_without_a_daemon() {
+        let client = SigilClient::with_socket_path(PathBuf::from(
+            "/nonexistent/sigil-cli-test/definitely-not-here.sock",
+        ));
+
+        assert!(client.ping().await.is_err(), "ping");
+        assert!(
+            client.sign("0xabc", 1, "test").await.is_err(),
+            "sign must never succeed without a daemon"
+        );
+        assert!(client.get_presig_count().await.is_err(), "presig count");
+        assert!(client.list_children().await.is_err(), "list children");
+        assert!(
+            client.update_tx_hash(0, "0xabc").await.is_err(),
+            "update tx hash"
+        );
     }
 }
