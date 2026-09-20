@@ -231,11 +231,10 @@ impl App {
                     KeyCode::Backspace => {
                         self.state.agent_name_input.pop();
                     }
-                    KeyCode::Char(c) => {
-                        if self.state.agent_name_input.len() < 32 {
+                    KeyCode::Char(c)
+                        if self.state.agent_name_input.len() < 32 => {
                             self.state.agent_name_input.push(c);
                         }
-                    }
                     _ => {}
                 }
             }
@@ -315,11 +314,10 @@ impl App {
                     self.state.qr_chunk_index -= 1;
                 }
             }
-            KeyCode::Right => {
-                if self.state.qr_chunk_index < self.state.qr_total_chunks.saturating_sub(1) {
+            KeyCode::Right
+                if self.state.qr_chunk_index < self.state.qr_total_chunks.saturating_sub(1) => {
                     self.state.qr_chunk_index += 1;
                 }
-            }
             _ => {}
         }
     }
@@ -412,13 +410,12 @@ impl App {
                 // Refresh device list
                 self.state.refresh_available_devices();
             }
-            KeyCode::Enter => {
+            KeyCode::Enter
                 // Select the device
-                if !self.state.available_devices.is_empty() {
+                if !self.state.available_devices.is_empty() => {
                     self.state.select_device(self.state.device_select_index);
                     self.state.current_screen = Screen::DiskManagement;
                 }
-            }
             _ => {}
         }
     }
