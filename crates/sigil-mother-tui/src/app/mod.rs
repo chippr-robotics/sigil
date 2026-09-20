@@ -231,10 +231,9 @@ impl App {
                     KeyCode::Backspace => {
                         self.state.agent_name_input.pop();
                     }
-                    KeyCode::Char(c)
-                        if self.state.agent_name_input.len() < 32 => {
-                            self.state.agent_name_input.push(c);
-                        }
+                    KeyCode::Char(c) if self.state.agent_name_input.len() < 32 => {
+                        self.state.agent_name_input.push(c);
+                    }
                     _ => {}
                 }
             }
@@ -315,9 +314,10 @@ impl App {
                 }
             }
             KeyCode::Right
-                if self.state.qr_chunk_index < self.state.qr_total_chunks.saturating_sub(1) => {
-                    self.state.qr_chunk_index += 1;
-                }
+                if self.state.qr_chunk_index < self.state.qr_total_chunks.saturating_sub(1) =>
+            {
+                self.state.qr_chunk_index += 1;
+            }
             _ => {}
         }
     }
