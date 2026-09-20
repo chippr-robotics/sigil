@@ -260,8 +260,10 @@ mod tests {
         }
     }
 
+    /// Valid scheme, valid disk state, and it must *still* refuse: mock mode
+    /// fabricates status, never signatures. See Constitution Principle II.
     #[tokio::test]
-    async fn test_sign_frost_taproot() {
+    async fn test_sign_frost_rejects_mock_signing_taproot() {
         let ctx = ToolContext {
             daemon_client: Arc::new(DaemonClient::new_mock(create_frost_disk("taproot"))),
         };
@@ -273,11 +275,17 @@ mod tests {
         });
 
         let result = execute(&ctx, args).await;
-        assert!(result.is_error.is_none() || result.is_error == Some(false));
+        assert_eq!(
+            result.is_error,
+            Some(true),
+            "mock mode must never return a taproot signature"
+        );
     }
 
+    /// Valid scheme, valid disk state, and it must *still* refuse: mock mode
+    /// fabricates status, never signatures. See Constitution Principle II.
     #[tokio::test]
-    async fn test_sign_frost_ed25519() {
+    async fn test_sign_frost_rejects_mock_signing_ed25519() {
         let ctx = ToolContext {
             daemon_client: Arc::new(DaemonClient::new_mock(create_frost_disk("ed25519"))),
         };
@@ -289,7 +297,11 @@ mod tests {
         });
 
         let result = execute(&ctx, args).await;
-        assert!(result.is_error.is_none() || result.is_error == Some(false));
+        assert_eq!(
+            result.is_error,
+            Some(true),
+            "mock mode must never return a ed25519 signature"
+        );
     }
 
     #[tokio::test]

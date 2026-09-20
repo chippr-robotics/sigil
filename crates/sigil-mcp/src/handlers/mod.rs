@@ -34,7 +34,11 @@ pub struct McpServerState {
 }
 
 impl McpServerState {
-    /// Create new server state with mock daemon client
+    /// Create new server state with a mock daemon client.
+    ///
+    /// Gated behind `cfg(test)` / `feature = "mock"`: a default-feature release
+    /// binary cannot construct a mock signer. See `client` module docs.
+    #[cfg(any(test, feature = "mock"))]
     pub fn new_with_mock() -> Self {
         Self {
             protocol_version: None,
@@ -65,6 +69,9 @@ impl McpServerState {
     }
 }
 
+/// `Default` selects mock mode, so it is gated with the rest of the mock
+/// surface. Production callers construct explicitly via `new_with_daemon`.
+#[cfg(any(test, feature = "mock"))]
 impl Default for McpServerState {
     fn default() -> Self {
         Self::new_with_mock()

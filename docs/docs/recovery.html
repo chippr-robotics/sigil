@@ -140,8 +140,13 @@ sigil-mother create-child \
                     <li>
                         <strong>Provision new server</strong>
                         <div class="code-block">
-                            <code># Install Sigil daemon
-curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash</code>
+                            <code># Install the Sigil daemon, pinned and locked
+cargo install --locked --git https://github.com/chippr-robotics/sigil \
+    --tag v0.5.0 sigil-daemon sigil-cli
+
+# Then system integration, from a checkout you have read
+git clone https://github.com/chippr-robotics/sigil &amp;&amp; cd sigil
+sudo ./scripts/install.sh</code>
                         </div>
                     </li>
                     <li>

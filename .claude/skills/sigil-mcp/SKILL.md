@@ -231,4 +231,4 @@ npx @anthropic/mcp-inspector /path/to/sigil-mcp --transport stdio
 ## Reference
 
 - [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25)
-- [MCP Integration Plan](../../../documentation/MCP_INTEGRATION_PLAN.md)
+- [MCP Integration Plan](../../../documentation/history/MCP_INTEGRATION_PLAN.md) — historical; see `specs/README.md` for current status

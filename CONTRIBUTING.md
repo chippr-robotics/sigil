@@ -337,11 +337,21 @@ style: apply rustfmt formatting
 
 ### Version Bump on Merge
 
-When your PR is merged to `main`:
-1. The auto-version workflow analyzes all commit messages
+When your PR is merged to `staging`:
+1. `release-prep.yml` analyzes the commit messages since the last release tag
 2. Determines the highest version bump needed (major > minor > patch)
-3. Automatically updates version files, CHANGELOG, and creates a release tag
-4. Triggers the release workflow to build and publish
+3. Opens a `chore: release vX.Y.Z` **pull request** against `staging` with the
+   version and CHANGELOG changes
+
+That PR is reviewed and merged like any other. It does not cut a release —
+`staging` reaching `main` and a maintainer pushing the tag does. See
+[VERSIONING.md](VERSIONING.md) for the full sequence and for why the tag has to
+be pushed by a person.
+
+Nothing in CI commits to `staging` or `main`. That is a constitutional
+requirement, and
+`crates/sigil-tests/tests/constitution_conformance.rs` fails the build if a
+workflow starts doing it.
 
 **Pro tip**: Squash your commits when merging PRs to ensure clean, semantic commit messages that properly control versioning.
 

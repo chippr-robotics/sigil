@@ -1,10 +1,30 @@
 name: CI
 
 on:
+  # Integration branches only. Branch work is gated by its pull request below.
+  #
+  # `claude/**` used to be listed here as well, which meant a branch with an
+  # open PR against an integration branch matched BOTH triggers and ran the
+  # entire workflow twice on every push — two identical full runs per commit.
+  # A branch with no PR open is not merging anything and does not need a gate.
   push:
-    branches: [main, "claude/**"]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    # `staging` is an integration branch. Without it here, a PR targeting
+    # staging gets no CI at all.
+    branches: [main, staging]
+  # Manual path, for a branch neither trigger reaches. `release-prep.yml` opens
+  # its bump PR with `GITHUB_TOKEN`, and GitHub does not trigger workflows from
+  # events a workflow's own token created — so that PR arrives with no checks.
+  # This is how a reviewer runs the suite on it.
+  workflow_dispatch:
+
+concurrency:
+  # Supersede an in-flight run when a new commit lands on the same ref. Only
+  # for pull requests: a run on an integration branch is the record of what
+  # that commit did and is allowed to finish.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,14 +37,15 @@ jobs:
   fmt:
     name: Format Check
     runs-on: ubuntu-latest
+    # Read-only. This job used to hold `contents: write` and push
+    # "style: auto-fix formatting" commits to the branch under test. A gate
+    # that silently rewrites the code it is gating is not a gate, and CI
+    # write access to branches is an unaudited path to shipped code in a
+    # key-custody repository. See Constitution Principle V.
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -32,84 +53,21 @@ jobs:
           components: rustfmt
 
       - name: Check formatting
-        id: fmt_check
         run: |
-          if ! cargo fmt --all -- --check; then
-            echo "fmt_failed=true" >> $GITHUB_OUTPUT
-            echo "❌ Formatting issues detected" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "fmt_failed=false" >> $GITHUB_OUTPUT
+          if cargo fmt --all -- --check; then
             echo "✅ All files are properly formatted" >> $GITHUB_STEP_SUMMARY
-          fi
-        continue-on-error: true
-
-      - name: Apply formatting fixes
-        if: steps.fmt_check.outputs.fmt_failed == 'true'
-        run: |
-          echo "## 🔧 Applying Formatting Fixes" >> $GITHUB_STEP_SUMMARY
-          cargo fmt --all
-          echo "Formatting fixes applied successfully" >> $GITHUB_STEP_SUMMARY
-
-      - name: Check for changes
-        if: steps.fmt_check.outputs.fmt_failed == 'true'
-        id: check_changes
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "## 📝 Files Modified" >> $GITHUB_STEP_SUMMARY
-            git diff --name-only | while read file; do
-              echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
-            done
           else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            {
+              echo "## ❌ Formatting issues"
+              echo ""
+              echo "Run this locally and commit the result:"
+              echo ""
+              echo '```bash'
+              echo "cargo fmt --all"
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
-
-      - name: Commit and push formatting fixes (non-PR)
-        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "style: auto-fix formatting with cargo fmt"
-          git push
-          echo "## ✅ Formatting Fixes Committed" >> $GITHUB_STEP_SUMMARY
-          echo "Changes have been automatically committed to the branch." >> $GITHUB_STEP_SUMMARY
-
-      - name: Create PR comment with suggestions (PR only)
-        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            
-            const diff = execSync('git diff', { encoding: 'utf-8' });
-            
-            let comment = '## 🔧 Formatting Issues Detected\n\n';
-            comment += 'This PR has formatting issues that can be automatically fixed. Please run the following command locally:\n\n';
-            comment += '```bash\n';
-            comment += 'cargo fmt --all\n';
-            comment += '```\n\n';
-            comment += '<details>\n';
-            comment += '<summary>View suggested changes</summary>\n\n';
-            comment += '```diff\n';
-            comment += diff;
-            comment += '\n```\n\n';
-            comment += '</details>\n\n';
-            comment += '**Note:** These changes will be automatically applied when this PR is merged to a protected branch.';
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: comment
-            });
-
-      - name: Fail if formatting issues remain
-        if: steps.fmt_check.outputs.fmt_failed == 'true' && steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
-        run: |
-          echo "## ❌ Action Required" >> $GITHUB_STEP_SUMMARY
-          echo "Please run \`cargo fmt --all\` locally and push the changes." >> $GITHUB_STEP_SUMMARY
-          exit 1
 
   # ============================================
   # Lint Check
@@ -117,14 +75,13 @@ jobs:
   clippy:
     name: Clippy Lint
     runs-on: ubuntu-latest
+    # Read-only, for the same reason as Format Check above. `clippy --fix`
+    # also does not run rustfmt, so the commits this job used to push were
+    # routinely not fmt-clean, which put it in a loop with Format Check.
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install system dependencies
         run: |
@@ -150,136 +107,23 @@ jobs:
             ${{ runner.os }}-cargo-clippy-
 
       - name: Check Clippy
-        id: clippy_check
-        run: |
-          if ! cargo clippy --workspace --all-targets -- -D warnings; then
-            echo "clippy_failed=true" >> $GITHUB_OUTPUT
-            echo "❌ Clippy warnings detected" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "clippy_failed=false" >> $GITHUB_OUTPUT
-            echo "✅ No clippy warnings found" >> $GITHUB_STEP_SUMMARY
-          fi
-        continue-on-error: true
-
-      - name: Apply Clippy fixes
-        if: steps.clippy_check.outputs.clippy_failed == 'true'
-        run: |
-          echo "## 🔧 Attempting Clippy Auto-Fixes" >> $GITHUB_STEP_SUMMARY
-          # Use --fix to automatically fix issues, --allow-dirty allows fixing uncommitted changes
-          cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged || true
-          echo "Clippy auto-fix completed" >> $GITHUB_STEP_SUMMARY
-
-      - name: Check for changes
-        if: steps.clippy_check.outputs.clippy_failed == 'true'
-        id: check_changes
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "## 📝 Files Modified by Auto-Fix" >> $GITHUB_STEP_SUMMARY
-            git diff --name-only | while read file; do
-              echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
-            done
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No automatic fixes available" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Verify fixes worked
-        if: steps.clippy_check.outputs.clippy_failed == 'true'
-        id: verify_fixes
         run: |
           if cargo clippy --workspace --all-targets -- -D warnings; then
-            echo "fixes_successful=true" >> $GITHUB_OUTPUT
-            echo "✅ All Clippy warnings resolved by auto-fix" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No clippy warnings found" >> $GITHUB_STEP_SUMMARY
           else
-            echo "fixes_successful=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Some Clippy warnings require manual intervention" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>Remaining warnings</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            # Limit output to 150 lines to keep summary readable while showing enough context
-            cargo clippy --workspace --all-targets -- -D warnings 2>&1 | head -150 >> $GITHUB_STEP_SUMMARY || true
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## ❌ Clippy warnings"
+              echo ""
+              echo "Reproduce and fix locally:"
+              echo ""
+              echo '```bash'
+              echo "cargo clippy --workspace --all-targets -- -D warnings"
+              echo "cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged"
+              echo "cargo fmt --all   # clippy --fix does not format what it rewrites"
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
-        continue-on-error: true
-
-      - name: Commit and push Clippy fixes (non-PR)
-        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix: auto-fix clippy warnings"
-          git push
-          echo "## ✅ Clippy Fixes Committed" >> $GITHUB_STEP_SUMMARY
-          echo "Changes have been automatically committed to the branch." >> $GITHUB_STEP_SUMMARY
-
-      - name: Create PR comment with auto-fixes (PR only)
-        if: steps.check_changes.outputs.has_changes == 'true' && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            
-            // GitHub comment size limit is ~65k chars, diff limit prevents exceeding this
-            const MAX_DIFF_LENGTH = 10000;
-            
-            const diff = execSync('git diff', { encoding: 'utf-8' });
-            const fixesSuccessful = '${{ steps.verify_fixes.outputs.fixes_successful }}' === 'true';
-            
-            let comment = '## 🔧 Clippy Issues Detected\n\n';
-            
-            if (fixesSuccessful) {
-              comment += '✅ All issues can be automatically fixed! Run the following command locally:\n\n';
-            } else {
-              comment += '⚠️ Some issues can be automatically fixed, but manual intervention may be required. Start by running:\n\n';
-            }
-            
-            comment += '```bash\n';
-            comment += 'cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged\n';
-            comment += '```\n\n';
-            
-            if (diff.length > 0 && diff.length < MAX_DIFF_LENGTH) {
-              comment += '<details>\n';
-              comment += '<summary>View suggested auto-fixes</summary>\n\n';
-              comment += '```diff\n';
-              comment += diff;
-              comment += '\n```\n\n';
-              comment += '</details>\n\n';
-            } else if (diff.length >= MAX_DIFF_LENGTH) {
-              comment += '_Diff is too large to display in comment. Run the command above to see changes._\n\n';
-            }
-            
-            if (!fixesSuccessful) {
-              comment += '**Additional Manual Fixes Required:**\n';
-              comment += 'After applying auto-fixes, you may need to address remaining warnings manually. Run:\n\n';
-              comment += '```bash\n';
-              comment += 'cargo clippy --workspace --all-targets -- -D warnings\n';
-              comment += '```\n\n';
-              comment += 'to see remaining issues.\n\n';
-            }
-            
-            comment += '**Note:** These changes will be automatically applied when this PR is merged to a protected branch.';
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: comment
-            });
-
-      - name: Fail if issues remain on PR
-        if: steps.clippy_check.outputs.clippy_failed == 'true' && github.event_name == 'pull_request'
-        run: |
-          echo "## ❌ Action Required" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]]; then
-            echo "Please run \`cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged\` locally." >> $GITHUB_STEP_SUMMARY
-          fi
-          if [[ "${{ steps.verify_fixes.outputs.fixes_successful }}" == "false" ]]; then
-            echo "Some warnings require manual fixes. Check the comment above for details." >> $GITHUB_STEP_SUMMARY
-          fi
-          exit 1
 
   # ============================================
   # Build Check
@@ -347,20 +191,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-test-
 
-      - name: Run unit tests (sigil-core)
-        run: cargo test -p sigil-core --lib --verbose
+      # This used to be a hand-maintained list of five `-p` invocations, which
+      # silently omitted sigil-frost (threshold crypto, in the TCB),
+      # sigil-mcp and sigil-mother-tui — over a hundred tests that never ran
+      # in a gating job, including every test asserting the TCB invariants. A
+      # green "Unit Tests" that skips the security tests is the definition of
+      # checkbox theater. Use the whole workspace so a new crate is covered
+      # the day it is added.
+      #
+      # sigil-zkvm is excluded only because its `sigil-zkvm-program` binary is
+      # an SP1 guest program that exits non-zero outside a zkVM; its library
+      # tests run in the step after. This mirrors the Code Coverage job.
+      - name: Run tests (whole workspace)
+        run: cargo test --workspace --exclude sigil-zkvm --verbose
 
-      - name: Run unit tests (sigil-mother)
-        run: cargo test -p sigil-mother --lib --verbose
-
-      - name: Run unit tests (sigil-zkvm)
+      - name: Run unit tests (sigil-zkvm library only)
         run: cargo test -p sigil-zkvm --lib --verbose
 
-      - name: Run unit tests (sigil-daemon)
-        run: cargo test -p sigil-daemon --lib --verbose
-
-      - name: Run unit tests (sigil-cli)
-        run: cargo test -p sigil-cli --lib --verbose
+      - name: Run tests (sigil-mcp with mock feature)
+        # The mock harness is behind a non-default feature; build it too, so
+        # "mock mode refuses to sign" stays covered in both configurations.
+        run: cargo test -p sigil-mcp --features mock --verbose
 
   # ============================================
   # Integration Tests
@@ -529,11 +380,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --locked
 
+      # This job is a GATE. It previously ran with `continue-on-error: true`,
+      # so it reported 22 vulnerabilities and went green anyway — a job named
+      # "Security Audit" in a key-custody repository that could not fail.
+      #
+      # Exceptions are declared in .cargo/audit.toml, each with the reason and
+      # the optional feature that pulls it in. An advisory reachable from a
+      # default build is never ignored: it is fixed, or this fails.
       - name: Run security audit
         run: cargo audit
-        continue-on-error: true # Advisory only
 
   # ============================================
   # Summary Job
@@ -541,8 +398,19 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, build, test, integration, e2e, docs]
-    if: always()
+    needs: [fmt, clippy, build, test, integration, e2e, docs, audit]
+    # `!cancelled()` rather than `always()`.
+    #
+    # `always()` runs this job even when the whole workflow run was cancelled —
+    # which the concurrency group above does routinely, superseding an
+    # in-flight PR run when a new commit lands. Its needs are then `cancelled`
+    # rather than `success`, so the check below exits 1 and the run reports a
+    # red "CI Success" for what was simply a superseded run. That is a false
+    # alarm on a check whose entire job is to be trustworthy.
+    #
+    # `!cancelled()` still runs on failure, so a genuinely failing job is
+    # reported; it just stops claiming failure for a cancellation.
+    if: '!cancelled()'
     steps:
       - name: Check all jobs passed
         run: |
@@ -552,7 +420,8 @@ jobs:
              [[ "${{ needs.test.result }}" != "success" ]] || \
              [[ "${{ needs.integration.result }}" != "success" ]] || \
              [[ "${{ needs.e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.docs.result }}" != "success" ]]; then
+             [[ "${{ needs.docs.result }}" != "success" ]] || \
+             [[ "${{ needs.audit.result }}" != "success" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi

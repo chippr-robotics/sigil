@@ -320,9 +320,180 @@ pub fn format_signing_result_for_display(result: &SignTransactionResult) -> Stri
     let mut output = String::new();
     output.push_str("✓ Signing... ✓ Proving... ✓ Done\n");
     output.push_str(&format!(
-        "└─ Signature: {}...",
-        result.signature.as_ref().map(|s| &s[..18]).unwrap_or("?")
+        "└─ Signature: {}",
+        result
+            .signature
+            .as_deref()
+            .map(truncate_for_display)
+            .unwrap_or_else(|| "?".to_string())
     ));
 
     output
+}
+
+/// Shorten a value for display without panicking.
+///
+/// This was `&s[..18]`, which panics two ways: on a signature shorter than 18
+/// bytes, and on a multi-byte character straddling the boundary. Both are
+/// reachable — the shortening runs on whatever the daemon returned — and a
+/// panic in the operator's signing path is a bad way to learn a signature was
+/// malformed.
+fn truncate_for_display(value: &str) -> String {
+    const DISPLAY_CHARS: usize = 18;
+
+    let shortened: String = value.chars().take(DISPLAY_CHARS).collect();
+    if value.chars().count() > DISPLAY_CHARS {
+        format!("{shortened}...")
+    } else {
+        shortened
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! `sigil-cli` is the operator's signing path and had zero tests. See
+    //! `specs/003-operator-cli/`.
+
+    use super::*;
+
+    fn failed(error: &str) -> SignTransactionResult {
+        SignTransactionResult {
+            success: false,
+            signature: None,
+            v: None,
+            r: None,
+            s: None,
+            presig_index: None,
+            proof_hash: None,
+            error: Some(error.to_string()),
+        }
+    }
+
+    fn succeeded(signature: &str) -> SignTransactionResult {
+        SignTransactionResult {
+            success: true,
+            signature: Some(signature.to_string()),
+            v: Some(27),
+            r: Some("0x11".to_string()),
+            s: Some("0x22".to_string()),
+            presig_index: Some(3),
+            proof_hash: Some("0x33".to_string()),
+            error: None,
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Display formatting must not panic
+    // ------------------------------------------------------------------
+
+    /// This was `&s[..18]`, which panics on a signature shorter than 18 bytes.
+    /// A panic in the operator's signing path is a bad way to learn that the
+    /// daemon returned something malformed.
+    #[test]
+    fn a_short_signature_does_not_panic_the_display() {
+        let rendered = format_signing_result_for_display(&succeeded("0xabc"));
+        assert!(rendered.contains("0xabc"));
+    }
+
+    /// The same slice also panicked when a multi-byte character straddled byte
+    /// 18, because `str` indexing is by byte and must land on a char boundary.
+    #[test]
+    fn a_multibyte_signature_does_not_panic_the_display() {
+        let rendered = format_signing_result_for_display(&succeeded("0x✓✓✓✓✓✓✓✓✓✓"));
+        assert!(rendered.contains('✓'));
+    }
+
+    #[test]
+    fn an_empty_signature_does_not_panic_the_display() {
+        let rendered = format_signing_result_for_display(&succeeded(""));
+        assert!(rendered.contains("Signature:"));
+    }
+
+    #[test]
+    fn a_long_signature_is_shortened_with_an_ellipsis() {
+        let long = format!("0x{}", "ab".repeat(64));
+        let rendered = format_signing_result_for_display(&succeeded(&long));
+        assert!(
+            rendered.contains("..."),
+            "a long signature should be elided"
+        );
+        assert!(
+            !rendered.contains(&long),
+            "the full signature should not be printed"
+        );
+    }
+
+    #[test]
+    fn a_failed_result_shows_the_error_not_a_signature() {
+        let rendered = format_signing_result_for_display(&failed("no disk inserted"));
+        assert!(rendered.contains("no disk inserted"));
+        assert!(!rendered.contains("Done"));
+    }
+
+    #[test]
+    fn a_failed_result_without_an_error_message_still_renders() {
+        let mut result = failed("placeholder");
+        result.error = None;
+        let rendered = format_signing_result_for_display(&result);
+        assert!(rendered.contains("Unknown error"));
+    }
+
+    // ------------------------------------------------------------------
+    // Disk status display
+    // ------------------------------------------------------------------
+
+    /// No disk is the common case, and the operator's instruction must be the
+    /// whole message — not buried under counts that do not exist.
+    #[test]
+    fn an_absent_disk_asks_the_operator_to_insert_one() {
+        let status = CheckDiskResult {
+            detected: false,
+            disk_id: None,
+            presigs_remaining: None,
+            presigs_total: None,
+            days_until_expiry: None,
+            is_valid: None,
+            message: String::new(),
+        };
+
+        let rendered = format_disk_status_for_display(&status);
+        assert!(rendered.contains("insert"), "got: {rendered}");
+        assert!(!rendered.contains("Presigs"));
+    }
+
+    #[test]
+    fn a_detected_disk_shows_its_remaining_presignatures_and_expiry() {
+        let status = CheckDiskResult {
+            detected: true,
+            disk_id: Some("9e8d7c6b".to_string()),
+            presigs_remaining: Some(742),
+            presigs_total: Some(1000),
+            days_until_expiry: Some(30),
+            is_valid: Some(true),
+            message: String::new(),
+        };
+
+        let rendered = format_disk_status_for_display(&status);
+        assert!(rendered.contains("9e8d7c6b"));
+        assert!(rendered.contains("742/1000"));
+        assert!(rendered.contains("30"));
+    }
+
+    /// Missing counts must render as zero rather than panicking or printing a
+    /// misleading number.
+    #[test]
+    fn a_detected_disk_with_unknown_counts_renders_without_panicking() {
+        let status = CheckDiskResult {
+            detected: true,
+            disk_id: None,
+            presigs_remaining: None,
+            presigs_total: None,
+            days_until_expiry: None,
+            is_valid: None,
+            message: String::new(),
+        };
+
+        let rendered = format_disk_status_for_display(&status);
+        assert!(rendered.contains("0/0"));
+    }
 }

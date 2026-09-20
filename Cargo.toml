@@ -10,12 +10,33 @@ members = [
     "crates/sigil-mother",
     "crates/sigil-mother-tui",
     "crates/sigil-mcp",
-    "crates/sigil-bridge",
+    "crates/sigil-tests",
+]
+
+# TCB boundary (see .specify/memory/constitution.md, Principle I).
+#
+# `default-members` is identical to `members` today: every crate in this
+# workspace is in the TCB. Nothing here listens on a network socket.
+#
+# It is kept explicit so that adding an out-of-TCB crate is a visible act —
+# a new crate has to be added here deliberately, or a bare `cargo build` will
+# not produce it. `sigil-bridge` was the last out-of-TCB member and was
+# removed with the mobile app it served.
+default-members = [
+    "crates/sigil-core",
+    "crates/sigil-frost",
+    "crates/sigil-zkvm",
+    "crates/sigil-mother-zkvm",
+    "crates/sigil-daemon",
+    "crates/sigil-cli",
+    "crates/sigil-mother",
+    "crates/sigil-mother-tui",
+    "crates/sigil-mcp",
     "crates/sigil-tests",
 ]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/chippr-robotics/sigil"
@@ -52,6 +73,7 @@ frost-ristretto255 = "2.1"
 sha2 = "0.10"
 rand = "0.8"
 rand_chacha = "0.3"
+subtle = "2.5"
 zeroize = { version = "1.7", features = ["derive"] }
 
 # Serialization
@@ -77,8 +99,6 @@ async-trait = "0.1"
 tokio = { version = "1.35", features = ["full"] }
 
 # IPC
-prost = "0.12"
-tonic = "0.10"
 
 # CLI
 clap = { version = "4.4", features = ["derive"] }

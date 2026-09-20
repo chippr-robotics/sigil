@@ -4,6 +4,8 @@
 //! transactions using Sigil's MPC infrastructure.
 
 use clap::{Parser, ValueEnum};
+#[cfg(feature = "mock")]
+use tracing::warn;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -26,7 +28,11 @@ struct Args {
     #[arg(short, long)]
     verbose: bool,
 
-    /// Use mock disk state (for testing without physical disk)
+    /// Use mock disk state (for testing without a physical disk).
+    ///
+    /// Only present in builds compiled with `--features mock`. Mock mode
+    /// fabricates disk *status*; it never produces a signature.
+    #[cfg(feature = "mock")]
     #[arg(long)]
     mock: bool,
 
@@ -79,10 +85,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("Sigil MCP Server v{} starting", env!("CARGO_PKG_VERSION"));
 
-    // Create server with appropriate mode
-    let server = if args.mock {
-        info!("Using mock disk state");
-        McpServer::with_mock()
+    // Create server with appropriate mode.
+    //
+    // Mock mode is compiled out of default builds (Constitution Principle II):
+    // a release binary must not be able to construct a signer that answers
+    // without a disk. Even when compiled in, mock mode errors on every signing
+    // operation rather than fabricating a signature.
+    #[cfg(feature = "mock")]
+    let mock_requested = args.mock;
+    #[cfg(not(feature = "mock"))]
+    let mock_requested = false;
+
+    let server = if mock_requested {
+        #[cfg(feature = "mock")]
+        {
+            warn!(
+                "Using mock disk state. Signing is DISABLED in this mode: \
+                 a signature requires a physically inserted disk."
+            );
+            McpServer::with_mock()
+        }
+        #[cfg(not(feature = "mock"))]
+        {
+            unreachable!("mock mode is compiled out")
+        }
     } else {
         info!("Connecting to Sigil daemon");
         match McpServer::with_daemon() {
@@ -90,7 +116,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Err(e) => {
                 eprintln!("Failed to connect to daemon: {}", e);
                 eprintln!("Make sure the Sigil daemon is running: sigil-daemon start");
-                eprintln!("Or use --mock flag for testing without daemon");
+                eprintln!(
+                    "There is no disk-free signing mode. Insert a Sigil disk; \
+                     `--features mock` only fabricates status, never signatures."
+                );
                 std::process::exit(1);
             }
         }

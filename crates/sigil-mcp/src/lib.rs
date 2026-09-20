@@ -23,10 +23,18 @@
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     let server = McpServer::new();
+//!     let server = McpServer::with_daemon().expect("daemon unavailable");
 //!     server.run_stdio().await.expect("Server failed");
 //! }
 //! ```
+//!
+//! # Mock mode
+//!
+//! A non-default `mock` feature enables a server backed by fabricated disk
+//! status, for harnessing agent clients without hardware. Mock mode **never**
+//! returns a signature — signing operations error out. A default-feature build
+//! cannot construct a mock signer at all. See `.specify/memory/constitution.md`,
+//! Principle II.
 //!
 //! # Protocol Version
 //!

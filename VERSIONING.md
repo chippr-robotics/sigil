@@ -21,34 +21,89 @@ Examples: `0.2.0-alpha.1`, `1.0.0-beta.2`, `1.0.0-rc.1`
 
 ## Current Version
 
-The current version is defined in the root `Cargo.toml` under `[workspace.package]`:
+The current version is defined once, in the root `Cargo.toml` under
+`[workspace.package]`, and inherited by every crate:
 
 ```toml
 [workspace.package]
-version = "0.1.0"
+version = "0.6.0"
 ```
+
+The latest `v*` git tag is the version that was last *released*. When the two
+differ, a bump has been prepared and its tag has not been pushed yet.
+
 
 ## Release Workflow
 
-Sigil uses **automated semantic versioning** that automatically bumps the version when changes are merged to the `main` branch.
+A release takes three deliberate steps, and no automation performs any of them
+on its own. Nothing reaches `main` without being reviewed on `staging` first,
+and nothing is published without a person pushing a tag.
 
-### Automated Version Bumping
+```
+  merge to staging
+        │
+        ▼
+  release-prep.yml  ──▶  PR: "chore: release vX.Y.Z"  ──▶  merge to staging
+   (proposes only)
+        │
+        ▼
+  staging ──▶ main                                      (you merge)
+        │
+        ▼
+  git push origin vX.Y.Z                                (you push the tag)
+        │
+        ▼
+  release.yml  ──▶  verify, build, GitHub release
+```
 
-When a PR is merged to `main`, the `.github/workflows/auto-version.yml` workflow automatically:
+### Step 1 — the bump is proposed
 
-1. **Analyzes commit messages** using [Conventional Commits](https://www.conventionalcommits.org/) format
-2. **Determines the version bump type**:
-   - **Breaking changes** (MAJOR bump): Commits with `!` suffix or `BREAKING CHANGE:` in footer
-     - Examples: `feat!: change disk format`, `fix!: update IPC protocol`
-     - With footer: commit body contains `BREAKING CHANGE: description`
-   - **New features** (MINOR bump): Commits starting with `feat:`
-     - Example: `feat(daemon): add disk expiration warnings`
-   - **Bug fixes** (PATCH bump): Commits starting with `fix:`, `perf:`, or `refactor:`
-     - Example: `fix(mother): correct presignature generation`, `perf(core): optimize validation`
-3. **Updates version** in `Cargo.toml` and `Cargo.lock`
-4. **Updates CHANGELOG.md** with the new version entry
-5. **Creates and pushes a git tag** (e.g., `v0.2.0`)
-6. **Triggers the release workflow** to build and publish artifacts
+On a push to `staging`, `.github/workflows/release-prep.yml`:
+
+1. **Checks whether a release is already pending.** It proposes nothing unless
+   the workspace version equals the latest `v*` tag. If they differ, a bump is
+   already prepared and awaiting its tag.
+2. **Analyzes commit messages** since that tag, using
+   [Conventional Commits](https://www.conventionalcommits.org/) format.
+3. **Determines the bump type**:
+   - **Breaking changes** (MAJOR): commits with `!` suffix or a
+     `BREAKING CHANGE:` footer — e.g. `feat!: change disk format`
+   - **New features** (MINOR): commits starting with `feat:`
+   - **Bug fixes** (PATCH): commits starting with `fix:`, `perf:`, `refactor:`
+   - Anything else proposes nothing.
+4. **Opens a pull request** against `staging` with the `Cargo.toml`,
+   `Cargo.lock` and `CHANGELOG.md` changes on a `release/vX.Y.Z` branch.
+
+It does not commit to `staging` or to `main`. CI holding write access to an
+integration branch is forbidden by the constitution
+(`.specify/memory/constitution.md`, Security Requirements) and asserted by
+`crates/sigil-tests/tests/constitution_conformance.rs`.
+
+> **The bump PR arrives with no CI.** GitHub does not trigger workflows from
+> events created by a workflow's own `GITHUB_TOKEN`, so `ci.yml` does not run
+> on a branch that workflow pushed. `release-prep.yml` runs
+> `cargo check --workspace --locked --all-targets` itself and reports the
+> result in the PR body. To run the full suite, use **Run workflow** on `CI`
+> and select the release branch.
+
+### Step 2 — staging reaches main
+
+The version bump merges to `staging` like any other change and reaches `main`
+through the normal `staging` → `main` pull request.
+
+### Step 3 — you push the tag
+
+```bash
+git checkout main && git pull
+git tag -a vX.Y.Z -m "Release version X.Y.Z"
+git push origin vX.Y.Z
+```
+
+**The tag must be pushed with a human credential.** A tag pushed by a
+workflow's `GITHUB_TOKEN` does not start `release.yml` — which is why `v0.2.0`
+through `v0.5.0` exist in this repository and produced no releases at all. The
+workflow that pushed them reported success six times.
+
 
 ### Commit Message Format
 
@@ -104,32 +159,35 @@ feat!: breaking change in 0.x.y converts to MINOR bump
 
 ### Manual Version Bumping (Advanced)
 
-For special cases like pre-release versions, you can still use the manual bump script:
+For pre-release versions, or when you would rather not wait for the proposal,
+run the bump script yourself:
 
 ```bash
-# For pre-release versions
-./scripts/bump-version.sh minor alpha  # Creates X.Y.0-alpha.1
-./scripts/bump-version.sh patch beta   # Creates X.Y.Z-beta.1
-./scripts/bump-version.sh patch rc     # Creates X.Y.Z-rc.1
+./scripts/bump-version.sh minor          # X.Y.0
+./scripts/bump-version.sh minor alpha    # X.Y.0-alpha.1
+./scripts/bump-version.sh patch rc       # X.Y.Z-rc.1
 ```
 
-After running the script manually:
+Then open it as a pull request against `staging`, exactly as the workflow
+would:
+
 ```bash
-# Commit version bump and changelog
+git checkout -b release/vX.Y.Z
 git add Cargo.toml Cargo.lock CHANGELOG.md
-git commit -m "chore: bump version to X.Y.Z-alpha.1"
-
-# Create annotated tag
-git tag -a vX.Y.Z-alpha.1 -m "Release version X.Y.Z-alpha.1"
-
-# Push changes and tag
-git push origin main
-git push origin vX.Y.Z-alpha.1
+git commit -m "chore: bump version to X.Y.Z"
+git push -u origin release/vX.Y.Z
 ```
+
+Tag after it has merged and `staging` has reached `main`, per step 3 above.
+
 
 ### CHANGELOG Management
 
-The CHANGELOG.md is automatically updated by the auto-version workflow. However, for better release notes, you should add meaningful entries to the `[Unreleased]` section as you develop:
+`release-prep.yml` adds the version heading and the compare links, and
+nothing else — it writes "See commit history for changes in this release."
+under it. That is a placeholder, not release notes. Add meaningful entries
+to the `[Unreleased]` section as you develop, and they become that
+version's history when the bump lands:
 
 ```markdown
 ## [Unreleased]
@@ -150,13 +208,38 @@ When the version is bumped, the unreleased changes will become part of that vers
 
 ### GitHub Release
 
-When a tag matching `v*` is pushed (either automatically or manually), the `.github/workflows/release.yml` workflow automatically:
-- Creates a GitHub release
-- Builds Linux binaries
-- Uploads release artifacts
-- Publishes crates to crates.io (for stable releases only)
+A pushed `v*` tag starts `.github/workflows/release.yml`, which:
 
-The release workflow will mark releases as pre-release if the tag contains `alpha`, `beta`, or `rc`.
+1. **Validates the tag** — semver shape, and the version must match
+   `Cargo.toml` at that tag.
+2. **Verifies the tagged commit** — `cargo fmt --check`, `cargo clippy -D
+   warnings` and the full test suite. A tag can point at any commit, so CI
+   being green on `main` is not evidence about this one.
+3. **Builds the Linux x86_64 binaries** — `sigil`, `sigil-daemon`,
+   `sigil-mother`, `sigil-mother-tui`, `sigil-mcp` — and fails if any is
+   missing.
+4. **Publishes the GitHub release** with the tarball and a `.sha256` checksum
+   beside it.
+
+The release is marked pre-release if the tag contains `alpha`, `beta` or `rc`.
+
+The same workflow can be re-run against an existing tag with **Run workflow**
+on `Release`, which is the recovery path for a tag whose push did not trigger
+it.
+
+**Crates are not published to crates.io.** The job that claimed to do so could
+not have worked — internal dependencies carry no version requirement, so
+`cargo package` refuses them; `sigil-frost` was missing from the publish order;
+and the name `sigil-cli` belongs to an unrelated crate. Every step carried
+`continue-on-error: true`, so it reported success anyway. Publishing is on hold
+until coverage and end-to-end assurance justify putting key-custody crates into
+a public namespace, where a version cannot be withdrawn. Tracked in
+`specs/README.md`. The supported install does not need crates.io:
+
+```bash
+cargo install --locked --git https://github.com/chippr-robotics/sigil --tag vX.Y.Z sigil-cli
+```
+
 
 ## Version Compatibility
 
