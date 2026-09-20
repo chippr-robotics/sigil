@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+**`specs/README.md` — the spec backlog and coverage inventory**
+([#59](https://github.com/chippr-robotics/sigil/issues/59))
+
+Spec-kit arrived with one spec; everything else predates it and the
+constitution. This is the inventory of what needs specifying, ranked, so specs
+accrete deliberately rather than only where an issue happens to be filed.
+
+What the survey turned up:
+
+- **`sigil-daemon/src/signer.rs` is 478 lines with zero tests.** `Signer::sign()`
+  is the entire physical-consent path — disk re-read, presignature consumption,
+  burn-on-use, persist. Every claim Sigil makes lives there and nothing asserts
+  any of it. The eight daemon tests added in #57 cover the transport around the
+  signer, not the signer. This is ranked first.
+- `sigil-cli` is 858 lines with zero tests, and it is the operator signing path.
+- `sigil-mother/src/ceremony.rs` is 517 lines with zero tests.
+- **`MCP_INTEGRATION_PLAN.md` has 35 checkboxes, none checked;
+  `SIGIL_MOTHER_TUI_PLAN.md` has 58, none checked.** Both describe components
+  that shipped — 5,164 and 6,801 lines respectively. A contributor reading
+  either would conclude the component does not exist. Both are marked for
+  retirement rather than conversion: a completed plan converted into a spec
+  describes a past intention, which is worse than no spec.
+- **`E2E_TEST_PLAN.md` describes 58 scenarios; 7 are implemented.** Unlike the
+  two above it is aspirational rather than stale, so it is marked for
+  reconciliation into spec acceptance criteria, not retirement.
+- Three of seven constitution principles have nothing asserting them (I, V,
+  VI). The file names the cheap assertion that closes each.
+- Naming collision recorded: `sigil-mcp/src/invariants/` is input validation,
+  not constitution conformance. The conformance suite needs a different home.
+
 ### Removed
 
 **The mobile app and the HTTP bridge** ([#58](https://github.com/chippr-robotics/sigil/issues/58))

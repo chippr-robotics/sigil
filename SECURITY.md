@@ -202,4 +202,5 @@ Currently, we do not have a formal bug bounty program. However, we commit to:
 - [THREAT_MODEL.md](documentation/THREAT_MODEL.md) - Threat model analysis
 - [documentation/RECOVERY.md](documentation/RECOVERY.md) - Recovery procedures
 - [.specify/memory/constitution.md](.specify/memory/constitution.md) - Project constitution (TCB principles)
+- [specs/README.md](specs/README.md) - Spec backlog, coverage inventory, and constitution-conformance status
 - [specs/001-tcb-quarantine/spec.md](specs/001-tcb-quarantine/spec.md) - TCB quarantine specification
