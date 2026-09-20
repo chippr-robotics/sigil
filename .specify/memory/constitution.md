@@ -101,7 +101,9 @@ same finding as "any network host can reach the signer", one hop earlier.
 ## Development Workflow
 
 - Specs live in `specs/<NNN>-<slug>/` and precede implementation for any change
-  that touches the TCB boundary.
+  that touches the TCB boundary. [`specs/README.md`](../../specs/README.md) is
+  the backlog: what still needs a spec, ranked, and which principles below are
+  executable today.
 - **Spec numbers are sequential and independent of issue and pull request
   numbers.** `NNN` is assigned by `create-new-feature.sh`, which increments
   from the highest existing spec. It is not an issue number and carries no
