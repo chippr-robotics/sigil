@@ -14,7 +14,14 @@ sigil-mother = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# Constitution conformance tests parse the workspace manifest to assert the
+# TCB boundary (Principle I).
+toml = { workspace = true }
 
 [[test]]
 name = "e2e_workflow_test"
 path = "tests/e2e_workflow_test.rs"
+
+[[test]]
+name = "constitution_conformance"
+path = "tests/constitution_conformance.rs"
