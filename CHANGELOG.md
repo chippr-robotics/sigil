@@ -36,24 +36,36 @@ cover it:
 
 ### Security
 
-**Finding: disk rollback is not detected (spec FR-014, unfixed)**
+**Fixed: disk rollback was not detected (spec FR-014, FR-015)**
 
-`AgentChildData::next_presig_index` is written by `AgentStore::mark_presig_used`
-and read nowhere outside `agent_store.rs`. `get_presig_share(child, i)` returns
-share `i` whether or not it has been spent, so the disk's burn is the only
-thing preventing a presignature being used twice.
+`AgentChildData::next_presig_index` was written by
+`AgentStore::mark_presig_used` and read nowhere outside `agent_store.rs`.
+`get_presig_share(child, i)` returned share `i` whether or not it had been
+spent, so the disk's burn was the only thing preventing a presignature being
+used twice.
 
-Restoring an earlier disk image defeats that: the restored disk offers a spent
+Restoring an earlier disk image defeated that: the restored disk offers a spent
 index, the agent store serves the matching half, the same nonce `k` signs two
-different messages, and the private key follows from the pair. The check that
-would prevent it already exists — the high-water mark is maintained, it is
-simply never consulted.
+different messages, and two signatures sharing `r` give
+`k = (z₁ − z₂)/(s₁ − s₂)` and then `d = (s₁·k − z₁)/r`. Full private key
+disclosure from a file restore.
 
-Not fixed here because it changes TCB signing behaviour and interacts with
-refill, which resets the disk's presignature table and would need to rebase the
-agent-side mark in the same operation. That interaction needs deciding rather
-than guessing. Reconciliation remains a detective control; FR-014 would be a
-preventive one.
+- **FR-014**: `Signer::sign` now reads the mark before fetching the agent half
+  and returns `DaemonError::PresigAlreadyConsumed { index, next_expected }`
+  when the disk offers an index below it. The error explains that the disk may
+  be a restored image and what to do about it.
+- **FR-015**: refill resets the mark. `AgentStore::import_child_shares` zeroes
+  `next_presig_index`, and the `ImportChildShares` IPC handler calls it instead
+  of `store_child`. The reset is enforced there rather than trusted from the
+  payload, because that handler deserializes `AgentChildData` straight from
+  JSON — a stale value would brick the child and a crafted one would disable
+  the guard.
+
+Both were negative-tested: with the guard removed, a rolled-back disk returns a
+real signature on an already-spent presignature.
+
+Reconciliation remains the detective control, comparing usage logs after the
+fact. FR-014 is the preventive one.
 
 ### Added
 

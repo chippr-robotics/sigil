@@ -86,6 +86,25 @@ impl AgentStore {
         Ok(())
     }
 
+    /// Import a fresh presignature table for a child, from a mother refill or
+    /// initial provisioning.
+    ///
+    /// Resets the consumption high-water mark to zero: the incoming table is a
+    /// new set of presignatures whose indices start again at zero, so a mark
+    /// carried over from the previous table would reject every signature.
+    ///
+    /// The reset happens here rather than being trusted from the imported
+    /// payload. `next_presig_index` is the guard `Signer::sign` relies on to
+    /// detect a restored disk image (spec 002, FR-014), and
+    /// `ImportChildShares` deserializes `AgentChildData` straight from JSON —
+    /// so a stale or crafted value in that JSON would otherwise silently
+    /// disable the guard or brick the child.
+    pub fn import_child_shares(&mut self, mut data: AgentChildData) -> Result<()> {
+        data.next_presig_index = 0;
+        data.total_presigs = data.presig_shares.len() as u32;
+        self.store_child(data)
+    }
+
     /// Get agent presig share for a specific index
     pub fn get_presig_share(
         &mut self,

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use sigil_core::{
     accumulator::{NonMembershipWitness, StoredAccumulator},
@@ -204,10 +204,35 @@ impl Signer {
         let (presig_index, cold_share) = disk.get_next_presig()?;
         debug!("Using presig index: {}", presig_index);
 
-        // 4. Get corresponding agent share
+        // 4. Get corresponding agent share, refusing one the agent side has
+        //    already recorded as consumed.
+        //
+        //    The disk's own burn is defeated by restoring an earlier disk
+        //    image: the restored disk offers a spent index, and without this
+        //    check the agent half is served again. The same nonce k would then
+        //    sign two different messages, and two signatures sharing r give
+        //    k = (z1 - z2)/(s1 - s2), then d = (s1*k - z1)/r — full key
+        //    disclosure from a file restore.
+        //
+        //    The high-water mark was already being maintained; this consults
+        //    it. See specs/002-physical-consent-enforcement/ FR-014.
         let child_id = disk.header.child_id;
         let agent_share = {
             let mut store = self.agent_store.write().await;
+
+            let next_expected = store.load_child(&child_id)?.next_presig_index;
+            if presig_index < next_expected {
+                warn!(
+                    "Refusing presig {}: agent side expects {} or later. Disk may be a \
+                     restored image.",
+                    presig_index, next_expected
+                );
+                return Err(DaemonError::PresigAlreadyConsumed {
+                    index: presig_index,
+                    next_expected,
+                });
+            }
+
             store.get_presig_share(&child_id, presig_index)?.clone()
         };
 
@@ -864,27 +889,10 @@ mod tests {
         );
     }
 
-    /// The agent side records consumption as a high-water mark.
-    ///
-    /// This test documents current behaviour, and the behaviour has a gap.
-    ///
-    /// `mark_presig_used` advances `AgentChildData::next_presig_index`, but
-    /// `next_presig_index` is read nowhere outside `agent_store.rs` — the
-    /// signing path does not consult it. `get_presig_share(child, i)` returns
-    /// share `i` whether or not it has been spent. The disk's burn is
-    /// therefore the *only* thing preventing a presignature being used twice.
-    ///
-    /// That matters because the disk's burn is defeated by restoring an older
-    /// disk image: the restored disk offers a spent index, the agent store
-    /// serves the matching share without objection, and the same ECDSA nonce
-    /// signs two different messages — which discloses the private key.
-    ///
-    /// The agent-side high-water mark is exactly the independent check that
-    /// would catch a rollback, and it is already being maintained. Wiring it
-    /// into `sign` is a change to the TCB signing path, so it is raised in
-    /// `specs/002-physical-consent-enforcement/spec.md` rather than made here.
+    /// The agent side records consumption as a high-water mark, and `sign`
+    /// consults it.
     #[tokio::test]
-    async fn the_agent_side_records_consumption_but_does_not_enforce_it() {
+    async fn the_agent_side_records_consumption() {
         let f = fixture("agent-burn", 4).await;
 
         let result = f
@@ -894,25 +902,154 @@ mod tests {
             .expect("should sign");
 
         let mut store = f.signer.agent_store.write().await;
-
-        // The high-water mark advanced past the spent index.
         let data = store.load_child(&f.child_id).expect("child data");
         assert!(
             data.next_presig_index > result.presig_index,
-            "the agent side must at least record that index {} was consumed",
+            "the agent side must record that index {} was consumed",
             result.presig_index
         );
+    }
 
-        // But the spent share is still served on request. This assertion
-        // encodes today's behaviour; if it ever starts failing because the
-        // enforcement below was added, that is an improvement — update this
-        // test and the spec together.
-        let reserved = store.get_presig_share(&f.child_id, result.presig_index);
+    // ------------------------------------------------------------------
+    // FR-014: disk rollback detection
+    // ------------------------------------------------------------------
+
+    /// Restoring an earlier disk image must not re-spend a presignature.
+    ///
+    /// Without this guard the restored disk offers a spent index, the agent
+    /// store serves the matching half, and the same nonce `k` signs two
+    /// different messages. Two signatures sharing `r` give
+    /// `k = (z1 - z2)/(s1 - s2)` and then `d = (s1*k - z1)/r` — the private
+    /// key, from a file restore.
+    #[tokio::test]
+    async fn refuses_a_presignature_the_agent_side_has_already_consumed() {
+        let f = fixture("rollback", 4).await;
+
+        // Take a backup of the pristine disk, then spend two presignatures.
+        let pristine = std::fs::read(&f.disk_path).expect("read disk");
+        f.signer.sign(request("first")).await.expect("should sign");
+        f.signer.sign(request("second")).await.expect("should sign");
+
+        // Roll the disk back to before either signature.
+        std::fs::write(&f.disk_path, &pristine).expect("restore disk image");
+        assert_eq!(
+            reload(&f.disk_path).header.presig_used,
+            0,
+            "the restored image should look unused, which is the whole problem"
+        );
+
+        let result = f.signer.sign(request("replay after rollback")).await;
+
+        match result {
+            Err(DaemonError::PresigAlreadyConsumed {
+                index,
+                next_expected,
+            }) => {
+                assert_eq!(index, 0, "the rolled-back disk offered index 0 again");
+                assert_eq!(next_expected, 2, "the agent side had recorded two spends");
+            }
+            other => panic!(
+                "a rolled-back disk must be refused, got {other:?}. Signing here \
+                 would reuse an ECDSA nonce and disclose the private key."
+            ),
+        }
+    }
+
+    /// The guard must not fire in normal operation, where the disk and the
+    /// agent side advance together.
+    #[tokio::test]
+    async fn the_rollback_guard_does_not_fire_during_normal_signing() {
+        let count = 4;
+        let f = fixture("no-false-positive", count).await;
+
+        for i in 0..count {
+            f.signer
+                .sign(request(&format!("signature {i}")))
+                .await
+                .unwrap_or_else(|e| {
+                    panic!("signature {i} must not be refused by the rollback guard: {e:?}")
+                });
+        }
+    }
+
+    /// Refill resets the agent-side mark, so a refilled disk signs from index
+    /// zero again.
+    ///
+    /// Without the reset the guard would brick every refilled child: the new
+    /// presignature table starts at index 0 while the mark still points past
+    /// the end of the old one.
+    #[tokio::test]
+    async fn refill_resets_the_agent_mark_so_a_refilled_disk_signs_again() {
+        let count = 3;
+        let f = fixture("refill", count).await;
+
+        // Spend the disk.
+        for i in 0..count {
+            f.signer
+                .sign(request(&format!("signature {i}")))
+                .await
+                .expect("should sign");
+        }
         assert!(
-            reserved.is_ok(),
-            "documenting current behaviour: a spent agent share is still \
-             retrievable. See this test's doc comment — the guard exists as \
-             `next_presig_index` but is not consulted by the signing path."
+            f.signer.sign(request("exhausted")).await.is_err(),
+            "the disk should now be spent"
+        );
+
+        // Refill: a fresh presignature table on the disk, and the matching
+        // agent halves imported as a mother refill would deliver them.
+        let (cold, agent) = presig_pairs(count);
+        let header = DiskHeader::new(
+            f.child_id,
+            child_public_key(),
+            DerivationPath::new(&[44, 60, 0, 0, 1]).expect("valid path"),
+            count,
+            now(),
+        );
+        let refilled = DiskFormat::new(header, cold);
+        std::fs::write(&f.disk_path, refilled.to_bytes()).expect("write refilled disk");
+
+        {
+            let mut store = f.signer.agent_store.write().await;
+            store
+                .import_child_shares(AgentChildData::new(f.child_id, agent))
+                .expect("import refilled agent shares");
+        }
+
+        // The refilled disk offers index 0 again, and that must now be allowed.
+        let result = f
+            .signer
+            .sign(request("after refill"))
+            .await
+            .expect("a refilled disk must sign again");
+        assert_eq!(result.presig_index, 0);
+        assert_eq!(reload(&f.disk_path).header.presig_used, 1);
+    }
+
+    /// The reset is enforced at import rather than trusted from the payload.
+    ///
+    /// `ImportChildShares` deserializes `AgentChildData` straight from JSON,
+    /// so a stale `next_presig_index` in that payload would otherwise carry
+    /// into the new table and reject every signature.
+    #[tokio::test]
+    async fn importing_shares_resets_the_mark_regardless_of_the_payload() {
+        let scratch = Scratch::new("import-reset");
+        let mut store = AgentStore::new(scratch.path("agent_store")).expect("agent store");
+
+        let (_, agent) = presig_pairs(4);
+        let child_id = ChildId::new([7u8; 32]);
+
+        let mut data = AgentChildData::new(child_id, agent);
+        data.next_presig_index = 999; // as a stale or crafted payload might carry
+
+        store.import_child_shares(data).expect("import");
+
+        assert_eq!(
+            store
+                .load_child(&child_id)
+                .expect("child")
+                .next_presig_index,
+            0,
+            "import must reset the high-water mark rather than trust the payload"
         );
     }
 

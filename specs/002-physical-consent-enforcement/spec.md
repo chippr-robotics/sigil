@@ -72,21 +72,25 @@ Signer::sign(request)
 - **FR-012**: The signature MUST verify against the child public key before it
   is returned.
 
-### Agent-side consumption — **currently not enforced**
+### Agent-side consumption
 
 - **FR-013**: The agent store MUST record that a presignature was consumed.
-  *Satisfied today* — `mark_presig_used` advances `next_presig_index`.
+  `mark_presig_used` advances `next_presig_index`.
 - **FR-014**: The signing path MUST refuse a presignature index the agent side
-  has already recorded as consumed. **Not satisfied.** See below.
+  has already recorded as consumed.
+- **FR-015**: Importing a presignature table for a child MUST reset the
+  consumption mark, and MUST do so by enforcement rather than by trusting the
+  imported payload.
 
-## Finding: disk rollback is not detected
+## Finding: disk rollback (fixed — FR-014, FR-015)
 
-`AgentChildData::next_presig_index` is written by `AgentStore::mark_presig_used`
-and **read nowhere outside `agent_store.rs`**. `get_presig_share(child, i)`
-returns share `i` regardless of whether it has been spent.
+`AgentChildData::next_presig_index` was written by
+`AgentStore::mark_presig_used` and **read nowhere outside `agent_store.rs`**.
+`get_presig_share(child, i)` returned share `i` regardless of whether it had
+been spent.
 
-The disk's burn is therefore the only thing preventing a presignature being
-used twice — and a disk image restore defeats it:
+The disk's burn was therefore the only thing preventing a presignature being
+used twice — and a disk image restore defeated it:
 
 1. Operator or attacker restores an earlier image of the child disk.
 2. The restored disk offers a presignature index that was already spent.
@@ -95,26 +99,30 @@ used twice — and a disk image restore defeats it:
 5. Given two signatures sharing `r`, the private key follows from
    `d = (s₁·k − z₁)/r`, with `k = (z₁ − z₂)/(s₁ − s₂)`.
 
-That is full key disclosure from a file-restore, and the check that would
-prevent it already exists — the high-water mark is being maintained, it is
+That is full key disclosure from a file restore, and the check that would
+prevent it already existed — the high-water mark was being maintained, it was
 simply never consulted.
 
-**Proposed fix (FR-014)**: in `Signer::sign`, after obtaining `presig_index`
-from the disk, reject the operation when
-`presig_index < agent_data.next_presig_index`.
+**Fix (FR-014)**: `Signer::sign` now reads `next_presig_index` before fetching
+the agent half and returns `DaemonError::PresigAlreadyConsumed { index,
+next_expected }` when the disk offers an index below it.
 
-**Why it is not in this change**: it alters TCB signing behaviour and could
-reject legitimate flows — notably refill, which resets the disk's presignature
-table and would need to reset or rebase the agent-side mark in the same
-operation. That interaction needs deciding, not guessing. Raised for the
-maintainer.
+**Fix (FR-015)**: refill resets the mark. `AgentStore::import_child_shares`
+zeroes `next_presig_index` and is what the `ImportChildShares` IPC handler
+calls. The reset is enforced there rather than trusted from the payload,
+because `ImportChildShares` deserializes `AgentChildData` straight from JSON —
+a stale value would brick the child, and a crafted one would disable the guard.
 
-Reconciliation is a *detective* control for this: it compares usage logs
-against expectations after the fact. FR-014 would be a *preventive* one.
+Without FR-015 the guard would reject every refilled disk: the new
+presignature table starts at index 0 while the mark still points past the end
+of the old one.
+
+Reconciliation remains a *detective* control, comparing usage logs against
+expectations after the fact. FR-014 is the *preventive* one.
 
 ## Success Criteria
 
-- **SC-001**: Every requirement above except FR-014 is covered by a test in
+- **SC-001**: Every requirement above is covered by a test in
   `crates/sigil-daemon/src/signer.rs`.
 - **SC-002**: Signing without a physically present disk fails in 100% of
   cases, verified by test.
@@ -122,8 +130,8 @@ against expectations after the fact. FR-014 would be a *preventive* one.
   verified by test.
 - **SC-004**: Across N successful signatures, N distinct presignature indices
   are consumed, verified by test.
-- **SC-005**: FR-014 is decided — implemented, or recorded as accepted risk
-  with reconciliation named as the compensating control.
+- **SC-005**: A disk rolled back to before its spends is refused in 100% of
+  cases, and a refilled disk signs again, both verified by test.
 
 ## Coverage
 
@@ -137,9 +145,15 @@ against expectations after the fact. FR-014 would be a *preventive* one.
 | FR-010 | `every_signature_consumes_a_distinct_presignature` |
 | FR-011 | `each_signature_appends_one_usage_log_entry` |
 | FR-012 | Enforced in `complete_signature`; exercised by every successful-sign test |
-| FR-013 | `the_agent_side_records_consumption_but_does_not_enforce_it` |
-| FR-014 | **None — not implemented** |
+| FR-013 | `the_agent_side_records_consumption` |
+| FR-014 | `refuses_a_presignature_the_agent_side_has_already_consumed`, `the_rollback_guard_does_not_fire_during_normal_signing` |
+| FR-015 | `refill_resets_the_agent_mark_so_a_refilled_disk_signs_again`, `importing_shares_resets_the_mark_regardless_of_the_payload` |
 | FR-004 | **None — expiry is covered in `sigil-core`; a signer-level test is still owed** |
+
+Both FR-014 tests were negative-tested. With the guard disabled, the
+rolled-back disk returns `Ok(SigningResult { presig_index: 0, .. })` — a real
+signature on a spent presignature. With the FR-015 reset disabled, the import
+test fails.
 
 ## Test approach
 

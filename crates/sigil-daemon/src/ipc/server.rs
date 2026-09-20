@@ -301,7 +301,10 @@ async fn handle_request(
                             ),
                         }
                     } else {
-                        match store.store_child(child_data) {
+                        // import_child_shares, not store_child: the refill
+                        // reset of next_presig_index must be enforced here
+                        // rather than trusted from the imported JSON.
+                        match store.import_child_shares(child_data) {
                             Ok(()) => IpcResponse::Ok,
                             Err(e) => IpcResponse::Error {
                                 message: format!("Failed to import child shares: {}", e),

@@ -93,7 +93,7 @@ area currently is, not size.
 
 | # | Feature | Crate | Source doc | Tests | Spec |
 | :-: | --- | --- | --- | ---: | :-: |
-| 1 | **Physical-consent enforcement** — disk re-read per signature, presig consumption, burn-on-use, fail-closed | `sigil-daemon` | — | 9 | ✅ [`002`](002-physical-consent-enforcement/) |
+| 1 | **Physical-consent enforcement** — disk re-read per signature, presig consumption, burn-on-use, fail-closed, rollback detection | `sigil-daemon` | — | 13 | ✅ [`002`](002-physical-consent-enforcement/) |
 | 2 | **Presignature lifecycle** — generation, allocation, exhaustion, double-spend prevention | `sigil-core`, `sigil-mother` | `CRYPTO_SPEC.md` | partial | 🟡 |
 | 3 | **Daemon IPC protocol** — 8 operations, dispatch, error surface | `sigil-daemon` | `proto/signer.proto` (design note only) | **0** | ⬜ |
 | 4 | **Operator CLI** — 8 subcommands | `sigil-cli` | — | **0** | ⬜ |
@@ -189,7 +189,7 @@ Executable assertions live in
 | Principle | Enforced? | By what |
 | --- | :-: | --- |
 | I. One TCB | ✅ | `p1_default_members_equals_members`, `p1_out_of_tcb_crates_are_unpublished` |
-| II. No signature without physical consent | 🟡 | Mock-signing refusal, plus 9 signer tests ([`002`](002-physical-consent-enforcement/)). **One gap remains: FR-014, disk-rollback detection.** |
+| II. No signature without physical consent | ✅ | Mock-signing refusal, plus 13 signer tests including disk-rollback detection ([`002`](002-physical-consent-enforcement/)) |
 | III. Default deny at the network edge | ✅ | `p3_no_crate_depends_on_an_http_server` |
 | IV. Key material off convenience transports | 🟡 | The P-III test removes the transport; a direct assertion on shard paths is still to write |
 | V. Supported install is auditable | ✅ | `p5_install_script_refuses_pipe_execution`, `p5_install_script_guard_admits_real_file_execution`, `p5_no_document_instructs_piping_into_a_shell` |
@@ -205,21 +205,21 @@ first run — `docs/docs/zkvm-proofs.html` documented SP1's toolchain install as
 `curl -L https://sp1.succinct.xyz | bash`. #57's sweep had grepped for
 `| sudo bash` and missed it. Now documented as download, read, then run.
 
-**P-II is now mostly asserted.** Spec [`002`](002-physical-consent-enforcement/)
-covers the signer with 9 tests: fail-closed without a disk, fail-closed on
-removal, fresh re-read per operation, exhaustion, R-point mismatch,
-burn-on-use persisted to disk, distinct index per signature, one usage-log
-entry per signature.
+**P-II is asserted.** Spec [`002`](002-physical-consent-enforcement/) covers
+the signer with 13 tests: fail-closed without a disk, fail-closed on removal,
+fresh re-read per operation, exhaustion, R-point mismatch, burn-on-use
+persisted to disk, distinct index per signature, one usage-log entry per
+signature, and disk-rollback detection.
 
-**The remaining gap is FR-014, and it is a live finding rather than missing
-coverage.** `AgentChildData::next_presig_index` records agent-side
-consumption and is read nowhere outside `agent_store.rs`. The disk's burn is
-therefore the only thing preventing presignature reuse, and restoring an
-earlier disk image defeats it — the restored disk offers a spent index, the
-agent store serves the matching half, the same nonce signs twice, and the
-private key follows. The check that would catch it already exists and is
-simply not consulted. See the spec for the proposed fix and why it was not
-made without a decision on the refill interaction.
+Writing the spec surfaced a vulnerability, since fixed. The agent-side
+consumption mark was maintained and never consulted, so a restored disk image
+could re-spend a presignature: same nonce, two messages, private key
+recoverable from the pair. `Signer::sign` now refuses an index below the mark,
+and refill resets the mark by enforcement at import rather than trusting the
+imported payload. Both fixes were negative-tested.
+
+**All seven principles are now executable.** What remains is breadth — each
+backlog item below still needs its spec — not a hole in the constitution.
 
 **P-IV** is partially covered as a side effect: key material cannot travel over
 a convenience transport that does not exist. A direct assertion — that no
@@ -244,7 +244,7 @@ Suggested order:
 1. ~~This file.~~ Done.
 2. ~~Conformance assertions for P-I, P-V, P-VI.~~ Done — and P-III as well.
 3. ~~Spec 1 (physical-consent enforcement) with the tests it implies.~~ Done —
-   [`002`](002-physical-consent-enforcement/), 9 tests. **Decide FR-014.**
+   [`002`](002-physical-consent-enforcement/), 13 tests, FR-014 fixed.
 4. Spec 4 (`sigil-cli`) with tests, since it is at zero.
 5. Retire the two stale plans.
 6. Everything else, by priority.
