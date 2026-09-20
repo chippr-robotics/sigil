@@ -23,8 +23,6 @@ components that could make that claim false.
 
 | Component | Why it is fenced, and how |
 | --- | --- |
-| `sigil-bridge` | HTTP transport for the mobile app. Excluded from the workspace's `default-members`, `publish = false`, binds loopback only unless explicitly acknowledged, bearer token on every `/api` route, transports no key material. |
-| `mobile/` | Flutter client. Talks only to the bridge. |
 | Mock / demo modes | `sigil-mcp`'s mock mode sits behind a non-default `mock` cargo feature and **returns an error for every signing operation**. It fabricates disk *status* only. A default-feature release binary cannot construct a mock signer. |
 
 Adding a component to the TCB is a change to
@@ -36,9 +34,10 @@ ordinary pull request.
 1. The daemon re-reads presignature shares from the block device on every
    signing operation and fails closed with `NoDiskDetected` without one.
 2. No mock, test, or development mode returns signature-shaped bytes.
-3. Nothing in this repository listens on a non-loopback interface by default,
-   accepts a wildcard cross-origin request, or exposes a signing endpoint
-   without authenticating the caller.
+3. **Nothing in this repository terminates HTTP or listens on a network
+   socket.** There is no network-facing signing endpoint to authenticate,
+   because there is no network-facing endpoint. A remote client builds its own
+   transport, out of TCB, against a deliberately chosen interface.
 4. Shard import and export never cross a network transport. They use physical
    media and in-TCB tooling.
 5. The local IPC socket grants no access to `other` and lives in a directory
@@ -48,9 +47,22 @@ ordinary pull request.
 
 ### Removed surfaces
 
-- **`POST /api/import-agent-shard`, `POST /api/import-child-shares`** —
-  removed from `sigil-bridge`. They moved secret key material over
-  unauthenticated HTTP. Import shards with `sigil-cli` on the device itself.
+- **`sigil-bridge`, the whole crate** — removed. It was an HTTP server that
+  existed for one consumer, the Flutter `mobile/` app, which was itself never
+  buildable (`flutter pub get` failed on an unresolvable dependency that no
+  code imported). The surface it exposed before hardening — `0.0.0.0:8080`,
+  wildcard CORS, unauthenticated `POST /api/sign`, and shard import over HTTP
+  — served a client that could not be compiled. Fencing it was the right first
+  move; deleting it is better. A remote UI is FairWins' problem to solve
+  against an interface we choose deliberately, not an HTTP shim inherited from
+  a demo. The hardened version is in git history if that shape is wanted.
+- **`mobile/`, the Flutter app** — removed. The mobile signing UX moves to the
+  FairWins platform, so deployment and management follow one pattern across
+  the Chippr suite.
+- **`POST /api/import-agent-shard`, `POST /api/import-child-shares`** — deleted
+  from `sigil-bridge` before the crate itself was removed. They moved secret
+  key material over unauthenticated HTTP. Import shards with `sigil-cli` on the
+  device itself.
 - **The Logseq knowledge-management skill** — removed from this repository. Its
   `sigil-mother-node` example instructed operators to merge air-gapped mother
   device material into a networked, indexed knowledge graph, which is an

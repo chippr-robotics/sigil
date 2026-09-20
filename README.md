@@ -106,9 +106,9 @@ cd sigil
 cargo build --release
 ```
 
-`cargo build` builds the trusted computing base only. `sigil-bridge` is
-excluded from the workspace's `default-members` and must be built deliberately
-(`cargo build -p sigil-bridge`) — see [Trust boundary](#trust-boundary).
+`cargo build` builds the trusted computing base, which is the whole workspace
+— see [Trust boundary](#trust-boundary). Nothing here listens on a network
+socket.
 
 ### Build with Ledger Support
 
@@ -149,17 +149,19 @@ literally true:
 **In the TCB**: `sigil-core`, `sigil-frost`, `sigil-zkvm`, `sigil-daemon`,
 `sigil-cli`, `sigil-mother`, `sigil-mother-tui`, `sigil-mother-zkvm`.
 
-**Not in the TCB**: `sigil-bridge` (HTTP transport for the mobile app), the
-`mobile/` app, and any mock or demo mode. These are excluded from the default
-build, are not published, and cannot manufacture consent:
+**Not in the TCB**: mock and demo modes, which are excluded from the default
+feature set and cannot manufacture consent:
 
 - The daemon re-reads presignature shares from the block device on every
   signing operation and fails closed without one.
 - Mock mode fabricates disk *status* but **never a signature** — signing in
   mock mode is an error, and mock support is behind a non-default cargo
   feature so release binaries cannot construct it.
-- The bridge binds loopback only, authenticates every `/api` call with a
-  bearer token, and transports no key material.
+
+**Nothing in this repository terminates HTTP.** `sigil-bridge` and the Flutter
+`mobile/` app were removed once the mobile signing UX moved to FairWins; a
+remote client builds its own transport against a deliberately chosen
+interface, out of TCB, rather than inheriting an HTTP shim that lived here.
 
 See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) and
 [`SECURITY.md`](SECURITY.md).

@@ -25,6 +25,12 @@ harnesses) are **out of TCB**, must be labelled as such in their crate docs and
 README, must be excluded from the default build, and must not ship as part of a
 supported install.
 
+As of the removal of `sigil-bridge`, **every member of this workspace is in
+the TCB**, so `default-members` is identical to `members` and nothing in the
+repository terminates HTTP or listens on a network socket. Both lists are kept
+explicit anyway: adding an out-of-TCB crate must be a visible act in
+`Cargo.toml`, not a silent inheritance of the default.
+
 Adding a new crate to the TCB is a constitutional amendment, not a pull request.
 
 ### II. No Signature Without Physical Consent (NON-NEGOTIABLE)
