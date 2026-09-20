@@ -11,6 +11,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Physical-consent enforcement: spec and tests**
+([#59](https://github.com/chippr-robotics/sigil/issues/59) backlog item 1)
+
+`sigil-daemon/src/signer.rs` was 478 lines with zero tests. Its only test
+module was a placeholder reading "Integration tests would require full setup
+with disk and agent store". `Signer::sign()` is where Sigil's claim is either
+true or false, and it was the least-verified critical code in the repository.
+
+`specs/002-physical-consent-enforcement/` specifies the path; nine tests now
+cover it:
+
+- Fail closed with no disk present, and when the disk is removed mid-session.
+- The disk is re-read from the block device on every operation — state written
+  out-of-band is observed, a cached copy is not trusted.
+- Exhaustion is enforced; signing past the presignature supply fails.
+- Cold and agent halves disagreeing on their R point is rejected, and the
+  rejected attempt consumes nothing.
+- A successful signature burns its presignature and the burn is persisted to
+  the disk, not held in memory.
+- N signatures consume N distinct indices — a repeated index would mean a
+  reused ECDSA nonce, which discloses the private key.
+- One usage-log entry per signature, carrying the index and description.
+
+### Security
+
+**Finding: disk rollback is not detected (spec FR-014, unfixed)**
+
+`AgentChildData::next_presig_index` is written by `AgentStore::mark_presig_used`
+and read nowhere outside `agent_store.rs`. `get_presig_share(child, i)` returns
+share `i` whether or not it has been spent, so the disk's burn is the only
+thing preventing a presignature being used twice.
+
+Restoring an earlier disk image defeats that: the restored disk offers a spent
+index, the agent store serves the matching half, the same nonce `k` signs two
+different messages, and the private key follows from the pair. The check that
+would prevent it already exists — the high-water mark is maintained, it is
+simply never consulted.
+
+Not fixed here because it changes TCB signing behaviour and interacts with
+refill, which resets the disk's presignature table and would need to rebase the
+agent-side mark in the same operation. That interaction needs deciding rather
+than guessing. Reconciliation remains a detective control; FR-014 would be a
+preventive one.
+
+### Added
+
 **Constitution conformance tests** ([#59](https://github.com/chippr-robotics/sigil/issues/59))
 
 `crates/sigil-tests/tests/constitution_conformance.rs` makes the constitution

@@ -474,5 +474,468 @@ fn scalar_gt_bytes(a: &[u8], b: &[u8; 32]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    // Integration tests would require full setup with disk and agent store
+    //! Physical-consent enforcement.
+    //!
+    //! `Signer::sign` is where Sigil's central claim is either true or false:
+    //! a signature exists only if a disk was physically present, and the
+    //! presignature it consumed is burned so it cannot be spent twice. Until
+    //! this module existed the function had no tests at all — see
+    //! `specs/002-physical-consent-enforcement/`.
+    //!
+    //! The fixtures below produce well-formed but cryptographically
+    //! meaningless shares. That is deliberate and sufficient: every property
+    //! under test is about *orchestration* — what the signer refuses, what it
+    //! consumes, what it persists — not about ECDSA being correct, which
+    //! `sigil-core` covers.
+
+    use super::*;
+    use crate::agent_store::{AgentChildData, AgentStore};
+    use crate::disk_watcher::DiskWatcher;
+    use k256::elliptic_curve::sec1::ToEncodedPoint;
+    use k256::{AffinePoint, ProjectivePoint, Scalar};
+    use sigil_core::crypto::{DerivationPath, PublicKey};
+    use sigil_core::disk::{DiskFormat, DiskHeader};
+    use sigil_core::presig::PresigStatus;
+    use sigil_core::presig::{PresigAgentShare, PresigColdShare};
+    use sigil_core::types::{ChainId, ChildId, MessageHash};
+    use std::path::PathBuf;
+
+    /// A scratch directory unique to each test.
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "sigil-signer-{}-{}-{:?}",
+                name,
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).expect("scratch dir");
+            Self(dir)
+        }
+
+        fn path(&self, name: &str) -> PathBuf {
+            self.0.join(name)
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// The signer verifies its own output with `verify_prehash` before
+    /// returning, so fixtures must be cryptographically consistent, not merely
+    /// well-formed. For a presignature at index `i`:
+    ///
+    /// ```text
+    /// d     = chi_cold + chi_agent      (the child private key)
+    /// k     = k_cold   + k_agent        (the per-signature nonce)
+    /// R     = k * G                     (the nonce commitment)
+    /// pub   = d * G                     (what the disk header carries)
+    /// ```
+    ///
+    /// which makes `s = k⁻¹(z + r·d)` a valid ECDSA signature under `pub`.
+    fn scalar(value: u64) -> Scalar {
+        Scalar::from(value.max(1))
+    }
+
+    fn compress(point: ProjectivePoint) -> [u8; 33] {
+        let encoded = AffinePoint::from(point).to_encoded_point(true);
+        let mut out = [0u8; 33];
+        out.copy_from_slice(encoded.as_bytes());
+        out
+    }
+
+    fn scalar_to_bytes(s: Scalar) -> [u8; 32] {
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&s.to_bytes());
+        out
+    }
+
+    /// A valid compressed point that is *not* the R point of any presignature,
+    /// for constructing deliberately mismatched shares.
+    fn unrelated_point() -> [u8; 33] {
+        compress(ProjectivePoint::GENERATOR * scalar(9_999))
+    }
+
+    /// The child private key these fixtures sign under.
+    fn child_private_key() -> Scalar {
+        scalar(0x5161_1CA1)
+    }
+
+    fn child_public_key() -> PublicKey {
+        PublicKey::new(compress(ProjectivePoint::GENERATOR * child_private_key()))
+    }
+
+    /// Matched cold and agent share pairs, consistent with `child_public_key`.
+    fn presig_pairs(count: u32) -> (Vec<PresigColdShare>, Vec<PresigAgentShare>) {
+        let d = child_private_key();
+        let mut cold = Vec::new();
+        let mut agent = Vec::new();
+
+        for i in 0..count {
+            let i = u64::from(i);
+
+            // Nonce, split across the two halves.
+            let k_cold = scalar(i * 2 + 11);
+            let k_agent = scalar(i * 2 + 12);
+            let r_point = compress(ProjectivePoint::GENERATOR * (k_cold + k_agent));
+
+            // Key share, split so the halves sum to the private key.
+            let chi_cold = scalar(i + 101);
+            let chi_agent = d - chi_cold;
+
+            cold.push(PresigColdShare::new(
+                r_point,
+                scalar_to_bytes(k_cold),
+                scalar_to_bytes(chi_cold),
+            ));
+            agent.push(PresigAgentShare::new(
+                r_point,
+                scalar_to_bytes(k_agent),
+                scalar_to_bytes(chi_agent),
+            ));
+        }
+
+        (cold, agent)
+    }
+
+    fn now() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
+    struct Fixture {
+        signer: Signer,
+        disk_watcher: Arc<DiskWatcher>,
+        disk_path: PathBuf,
+        child_id: ChildId,
+        _scratch: Scratch,
+    }
+
+    /// Build a signer with `presig_count` matched presignature pairs, a disk
+    /// file on disk, and an agent store holding the agent halves.
+    async fn fixture(name: &str, presig_count: u32) -> Fixture {
+        fixture_with(name, presig_count, |_, _| {}).await
+    }
+
+    /// As `fixture`, but `tamper` may mutate the shares before they are
+    /// written, so tests can construct mismatched material.
+    async fn fixture_with(
+        name: &str,
+        presig_count: u32,
+        tamper: impl FnOnce(&mut Vec<PresigColdShare>, &mut Vec<PresigAgentShare>),
+    ) -> Fixture {
+        let scratch = Scratch::new(name);
+
+        let (mut cold, mut agent) = presig_pairs(presig_count);
+        tamper(&mut cold, &mut agent);
+
+        let child_id = ChildId::new([7u8; 32]);
+        let header = DiskHeader::new(
+            child_id,
+            child_public_key(),
+            DerivationPath::new(&[44, 60, 0, 0, 1]).expect("valid derivation path"),
+            presig_count,
+            now(),
+        );
+
+        let disk = DiskFormat::new(header, cold);
+        let disk_path = scratch.path("SIGIL.img");
+        std::fs::write(&disk_path, disk.to_bytes()).expect("write disk image");
+
+        let mut store = AgentStore::new(scratch.path("agent_store")).expect("agent store");
+        store
+            .store_child(AgentChildData::new(child_id, agent))
+            .expect("store child");
+        let agent_store = Arc::new(RwLock::new(store));
+
+        let disk_watcher = Arc::new(DiskWatcher::new(
+            scratch
+                .path("never-matches-*")
+                .to_string_lossy()
+                .to_string(),
+        ));
+        disk_watcher
+            .insert_disk_for_test(disk_path.clone())
+            .await
+            .expect("insert disk");
+
+        let signer = Signer::new(
+            Arc::clone(&agent_store),
+            Arc::clone(&disk_watcher),
+            false, // zkVM proving off: these tests are about consent, not proofs
+        );
+
+        Fixture {
+            signer,
+            disk_watcher,
+            disk_path,
+            child_id,
+            _scratch: scratch,
+        }
+    }
+
+    fn request(description: &str) -> SigningRequest {
+        SigningRequest {
+            message_hash: MessageHash::new([9u8; 32]),
+            chain_id: ChainId::new(1),
+            description: description.to_string(),
+        }
+    }
+
+    fn reload(path: &PathBuf) -> DiskFormat {
+        DiskFormat::from_bytes(&std::fs::read(path).expect("read disk")).expect("parse disk")
+    }
+
+    // ------------------------------------------------------------------
+    // Fail closed: no disk, no signature
+    // ------------------------------------------------------------------
+
+    /// The whole product in one assertion.
+    #[tokio::test]
+    async fn refuses_to_sign_without_a_disk() {
+        let f = fixture("no-disk", 4).await;
+        f.disk_watcher.remove_disk_for_test().await;
+
+        let result = f.signer.sign(request("no disk inserted")).await;
+
+        assert!(
+            matches!(result, Err(DaemonError::NoDiskDetected)),
+            "signing without a physically present disk must fail closed, got {result:?}"
+        );
+    }
+
+    /// Removal between operations must be caught, because `load_full_disk`
+    /// re-reads the block device rather than trusting a cached copy.
+    #[tokio::test]
+    async fn refuses_to_sign_after_the_disk_is_removed_mid_session() {
+        let f = fixture("removed-midway", 4).await;
+
+        f.signer
+            .sign(request("first signature"))
+            .await
+            .expect("a present disk should sign");
+
+        // Physical removal: the file is gone.
+        std::fs::remove_file(&f.disk_path).expect("remove disk image");
+
+        let result = f.signer.sign(request("after removal")).await;
+        assert!(
+            result.is_err(),
+            "signing must fail once the disk is no longer readable, got {result:?}"
+        );
+    }
+
+    /// Presignatures are finite. Exhaustion is the bound on damage if a disk
+    /// is stolen, so it must be enforced rather than wrapped around.
+    #[tokio::test]
+    async fn refuses_to_sign_once_presignatures_are_exhausted() {
+        let count = 3;
+        let f = fixture("exhausted", count).await;
+
+        for i in 0..count {
+            f.signer
+                .sign(request(&format!("signature {i}")))
+                .await
+                .unwrap_or_else(|e| panic!("signature {i} should succeed: {e:?}"));
+        }
+
+        let result = f.signer.sign(request("one too many")).await;
+        assert!(
+            result.is_err(),
+            "signing past the presignature supply must fail, got {result:?}"
+        );
+
+        assert_eq!(
+            reload(&f.disk_path).header.presigs_remaining(),
+            0,
+            "an exhausted disk must report zero remaining"
+        );
+    }
+
+    /// A cold share whose R point disagrees with its agent counterpart means
+    /// the two halves are not from the same presignature. Completing anyway
+    /// would produce a signature from mismatched material.
+    #[tokio::test]
+    async fn refuses_to_sign_when_cold_and_agent_shares_disagree() {
+        let f = fixture_with("r-mismatch", 4, |_cold, agent| {
+            // Give the agent half a different R point than the cold half.
+            let chi_agent = agent[0].chi_agent;
+            let k_agent = agent[0].k_agent;
+            agent[0] = PresigAgentShare::new(unrelated_point(), k_agent, chi_agent);
+        })
+        .await;
+
+        let result = f.signer.sign(request("mismatched shares")).await;
+
+        assert!(
+            matches!(result, Err(DaemonError::PresigMismatch(_))),
+            "mismatched cold/agent shares must be rejected, got {result:?}"
+        );
+
+        assert_eq!(
+            reload(&f.disk_path).header.presig_used,
+            0,
+            "a rejected signing attempt must not consume a presignature"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Burn on use
+    // ------------------------------------------------------------------
+
+    /// A presignature is consumed by use and the burn is persisted to the
+    /// disk, not merely held in memory.
+    #[tokio::test]
+    async fn a_successful_signature_burns_its_presignature_on_disk() {
+        let f = fixture("burn", 5).await;
+
+        assert_eq!(reload(&f.disk_path).header.presig_used, 0);
+
+        let result = f
+            .signer
+            .sign(request("burn one"))
+            .await
+            .expect("should sign");
+
+        let on_disk = reload(&f.disk_path);
+        assert_eq!(
+            on_disk.header.presig_used, 1,
+            "the burn must be written to the disk, not just the in-memory copy"
+        );
+        assert_eq!(on_disk.header.presigs_remaining(), 4);
+        assert_eq!(
+            on_disk.presigs[result.presig_index as usize].status,
+            PresigStatus::Used,
+            "the specific presignature used must be marked Used"
+        );
+    }
+
+    /// Each signature consumes a distinct presignature. A repeated index would
+    /// mean a nonce reused across two signatures, which leaks the key.
+    #[tokio::test]
+    async fn every_signature_consumes_a_distinct_presignature() {
+        let count = 5;
+        let f = fixture("distinct", count).await;
+
+        let mut seen = Vec::new();
+        for i in 0..count {
+            let result = f
+                .signer
+                .sign(request(&format!("signature {i}")))
+                .await
+                .expect("should sign");
+            assert!(
+                !seen.contains(&result.presig_index),
+                "presignature index {} was returned twice; a reused ECDSA nonce \
+                 discloses the private key",
+                result.presig_index
+            );
+            seen.push(result.presig_index);
+        }
+
+        assert_eq!(seen.len(), count as usize);
+        assert_eq!(reload(&f.disk_path).header.presig_used, count);
+    }
+
+    /// The usage log is the evidence reconciliation works from. One entry per
+    /// signature, carrying the index that was spent.
+    #[tokio::test]
+    async fn each_signature_appends_one_usage_log_entry() {
+        let f = fixture("usage-log", 4).await;
+
+        let first = f.signer.sign(request("first")).await.expect("should sign");
+        let second = f.signer.sign(request("second")).await.expect("should sign");
+
+        let entries = reload(&f.disk_path).usage_log.entries;
+        assert_eq!(entries.len(), 2, "one usage log entry per signature");
+        assert_eq!(entries[0].presig_index, first.presig_index);
+        assert_eq!(entries[1].presig_index, second.presig_index);
+        assert_eq!(
+            entries[0].description, "first",
+            "the operator's description must be recorded for audit"
+        );
+    }
+
+    /// The agent side records consumption as a high-water mark.
+    ///
+    /// This test documents current behaviour, and the behaviour has a gap.
+    ///
+    /// `mark_presig_used` advances `AgentChildData::next_presig_index`, but
+    /// `next_presig_index` is read nowhere outside `agent_store.rs` — the
+    /// signing path does not consult it. `get_presig_share(child, i)` returns
+    /// share `i` whether or not it has been spent. The disk's burn is
+    /// therefore the *only* thing preventing a presignature being used twice.
+    ///
+    /// That matters because the disk's burn is defeated by restoring an older
+    /// disk image: the restored disk offers a spent index, the agent store
+    /// serves the matching share without objection, and the same ECDSA nonce
+    /// signs two different messages — which discloses the private key.
+    ///
+    /// The agent-side high-water mark is exactly the independent check that
+    /// would catch a rollback, and it is already being maintained. Wiring it
+    /// into `sign` is a change to the TCB signing path, so it is raised in
+    /// `specs/002-physical-consent-enforcement/spec.md` rather than made here.
+    #[tokio::test]
+    async fn the_agent_side_records_consumption_but_does_not_enforce_it() {
+        let f = fixture("agent-burn", 4).await;
+
+        let result = f
+            .signer
+            .sign(request("burn agent"))
+            .await
+            .expect("should sign");
+
+        let mut store = f.signer.agent_store.write().await;
+
+        // The high-water mark advanced past the spent index.
+        let data = store.load_child(&f.child_id).expect("child data");
+        assert!(
+            data.next_presig_index > result.presig_index,
+            "the agent side must at least record that index {} was consumed",
+            result.presig_index
+        );
+
+        // But the spent share is still served on request. This assertion
+        // encodes today's behaviour; if it ever starts failing because the
+        // enforcement below was added, that is an improvement — update this
+        // test and the spec together.
+        let reserved = store.get_presig_share(&f.child_id, result.presig_index);
+        assert!(
+            reserved.is_ok(),
+            "documenting current behaviour: a spent agent share is still \
+             retrievable. See this test's doc comment — the guard exists as \
+             `next_presig_index` but is not consulted by the signing path."
+        );
+    }
+
+    /// The signer re-reads the disk each time rather than trusting a cached
+    /// copy, so state written by anything else is observed.
+    #[tokio::test]
+    async fn the_disk_is_re_read_on_every_signing_operation() {
+        let f = fixture("re-read", 6).await;
+
+        f.signer.sign(request("first")).await.expect("should sign");
+
+        // Simulate the disk being advanced out-of-band, as reconciliation or
+        // a second reader would: mark everything used and write it back.
+        let mut disk = reload(&f.disk_path);
+        for index in 0..disk.presigs.len() as u32 {
+            let _ = disk.mark_presig_used(index);
+        }
+        std::fs::write(&f.disk_path, disk.to_bytes()).expect("rewrite disk");
+
+        let result = f.signer.sign(request("after external burn")).await;
+        assert!(
+            result.is_err(),
+            "the signer must observe the disk's current state, not a cached one, got {result:?}"
+        );
+    }
 }
