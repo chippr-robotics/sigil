@@ -100,8 +100,6 @@ async-trait = "0.1"
 tokio = { version = "1.35", features = ["full"] }
 
 # IPC
-prost = "0.12"
-tonic = "0.10"
 
 # CLI
 clap = { version = "4.4", features = ["derive"] }

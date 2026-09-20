@@ -96,6 +96,16 @@ Rust cargo workspace; paths are repository-root relative.
 - [X] T042 `cargo fmt --all` and `cargo clippy --workspace --all-targets -- -D warnings` clean.
 - [X] T043 `cargo test --workspace` green.
 
+## Phase 9: CI gates (added after review) — "valuable, not checkbox theater"
+
+- [X] T044 `.github/workflows/ci.yml`: replace the five-crate `-p` allowlist in the test job with `cargo test --workspace --exclude sigil-zkvm`, plus `-p sigil-zkvm --lib` and `-p sigil-mcp --features mock`.
+- [X] T045 `.cargo/audit.toml`: declare each advisory exception individually with its reason and the optional feature that reaches it.
+- [X] T046 `.github/workflows/ci.yml`: remove `continue-on-error: true` from the Security Audit job; add it to `ci-success`'s `needs`.
+- [X] T047 `.github/workflows/ci.yml`: convert Format Check and Clippy Lint from auto-fix-and-push into read-only gates; drop `contents: write`.
+- [X] T048 `.github/workflows/ci.yml`: add `staging` to the push and pull_request branch filters.
+- [X] T049 `crates/sigil-daemon/Cargo.toml`, `crates/sigil-cli/Cargo.toml`, root `Cargo.toml`: remove unused `tonic`/`prost`.
+- [X] T050 `cargo update` to clear the 17 advisories with semver-compatible fixes.
+
 ## Dependencies & Execution Order
 
 - Phase 1 → Phase 2 → Phases 3–7 (independent of each other) → Phase 8.

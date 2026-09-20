@@ -1,0 +1,35 @@
+# cargo-audit configuration
+#
+# The `Security Audit` CI job is a GATE, not a report. It previously ran with
+# `continue-on-error: true`, which meant it reported 22 vulnerabilities and
+# went green anyway — a job named "Security Audit" in a key-custody repository
+# that could not fail. See Constitution Principle V.
+#
+# Every advisory ignored below is listed deliberately, with the reason and the
+# optional feature that pulls it in. An advisory reachable from a default build
+# is never ignored; it is fixed or it fails the build.
+
+[advisories]
+ignore = [
+    # cryptoki 0.7.0 — out-of-bounds read decoding CKA_ALLOWED_MECHANISMS.
+    # Reachable only via the non-default `pkcs11` feature of sigil-mother
+    # (HSM support). Fix needs cryptoki >=0.10.1, a semver-major bump with
+    # API churn in the PKCS#11 signer. Tracked separately.
+    "RUSTSEC-2026-0286",
+
+    # h2 0.3.27 — unbounded empty DATA frames.
+    # rustls-webpki 0.101.7 — three name-constraint / CRL-parsing advisories.
+    #
+    # All four arrive through sp1-sdk -> aws-sdk-kms -> hyper 0.14 / rustls
+    # 0.21, reachable only via the non-default `zkvm-sp1` feature. They are in
+    # the SP1 prover-network client's TLS stack, which no default build, and no
+    # signing path, links. Fixing them requires SP1 to update its AWS SDK.
+    "RUSTSEC-2026-0258",
+    "RUSTSEC-2026-0099",
+    "RUSTSEC-2026-0104",
+    "RUSTSEC-2026-0098",
+]
+
+# Advisories with no patched release yet are informational; unmaintained and
+# unsound warnings are surfaced in the job log but do not fail the build.
+informational_warnings = ["unmaintained", "unsound", "notice"]

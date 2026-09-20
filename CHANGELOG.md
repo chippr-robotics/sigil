@@ -78,6 +78,43 @@ specification in [`specs/053-tcb-quarantine/`](specs/053-tcb-quarantine/).
 - The daemon creates an absent socket directory at mode `0700`; the systemd
   unit declares `RuntimeDirectory=sigil` with mode `0750`.
 
+**CI checks are gates, not reports**
+
+The checks that were supposed to be defending this repository were largely
+decorative. Fixed in the same change, since a security PR whose CI does not
+run the security tests proves nothing.
+
+- **The `Security Audit` job could not fail.** It ran with
+  `continue-on-error: true`, so it reported **22 vulnerabilities** and went
+  green anyway — including timing side-channels and signature-validation
+  bypasses in AWS-LC, and a TLS 1.3 handshake flaw in rustls. It is now a gate.
+  `cargo update` cleared 17. The remaining 5 are declared individually in
+  `.cargo/audit.toml`, each with its reason and the non-default feature that
+  reaches it (`pkcs11` → cryptoki; `zkvm-sp1` → sp1-sdk → aws-sdk-kms). An
+  advisory reachable from a default build is never ignored.
+- **The `Unit Tests` job skipped 135 tests.** It ran a hand-maintained list of
+  five `-p` invocations that omitted `sigil-frost` (threshold crypto, in the
+  TCB), `sigil-mcp`, `sigil-mother-tui`, and `sigil-bridge` — every test
+  asserting the invariants above among them. It now runs the whole workspace,
+  plus `sigil-mcp --features mock`.
+- **`Format Check` and `Clippy Lint` no longer push commits.** Both held
+  `contents: write` and committed auto-fixes to the branch under test. A gate
+  that rewrites the code it is gating is not a gate, and CI write access is an
+  unaudited path to shipped code. They are now read-only and print the command
+  to run. This also ends a loop between them: `clippy --fix` does not run
+  rustfmt, so its commits were routinely not fmt-clean.
+- **PRs targeting `staging` had no CI.** The `pull_request` trigger listed only
+  `main`. `staging` added to both filters.
+- `Security Audit` added to `ci-success`'s `needs`, so it can actually block.
+
+**Unused gRPC stack removed from TCB crates**
+
+`sigil-daemon` and `sigil-cli` declared `tonic` and `prost` without a single
+reference in any source file and no `build.rs` generating proto types. They
+pulled hyper 0.14, axum 0.6, h2 and rustls-webpki into the dependency graph of
+two TCB crates. Removed. IPC is Unix sockets / named pipes carrying JSON;
+`proto/signer.proto` is retained as a design note.
+
 ### Added
 
 - `.specify/memory/constitution.md` — project constitution stating the TCB

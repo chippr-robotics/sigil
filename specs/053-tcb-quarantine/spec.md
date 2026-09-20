@@ -275,6 +275,19 @@ parent-directory ownership restrict access.
 - **FR-022**: `SECURITY.md` MUST state the TCB membership list and name the
   out-of-TCB components explicitly.
 
+**CI gates** *(added after review feedback: the checks must be worth having)*
+
+- **FR-023**: The CI test job MUST run the whole workspace, not a
+  hand-maintained list of crates.
+- **FR-024**: The security-audit job MUST fail the build on an advisory
+  reachable from a default build. Exceptions MUST be declared individually,
+  in-repo, each with a written reason.
+- **FR-025**: CI jobs MUST NOT hold write access to repository contents, and
+  MUST NOT push commits to the branch under test.
+- **FR-026**: CI MUST run for pull requests targeting every integration branch,
+  `staging` included.
+- **FR-027**: Unused dependencies MUST NOT remain declared in TCB crates.
+
 ### Key Entities
 
 - **TCB**: `sigil-core`, `sigil-frost`, `sigil-zkvm`, `sigil-daemon`,
@@ -304,6 +317,14 @@ parent-directory ownership restrict access.
   verified by test.
 - **SC-008**: `cargo clippy --workspace --all-targets -- -D warnings` and
   `cargo test` pass.
+- **SC-009**: Every crate's tests run in a job whose failure fails CI, verified
+  by the absence of any per-crate allowlist in the test job.
+- **SC-010**: `cargo audit` exits non-zero when an advisory is not explicitly
+  ignored, verified by running it with an empty ignore list.
+- **SC-011**: Zero CI jobs declare `contents: write`, verified by inspection of
+  `.github/workflows/ci.yml`.
+- **SC-012**: Zero unused dependencies remain declared in `sigil-daemon` or
+  `sigil-cli`, verified by grep for their symbols across the crate sources.
 
 ## Assumptions
 
