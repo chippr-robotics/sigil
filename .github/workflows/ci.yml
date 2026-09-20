@@ -188,11 +188,11 @@ jobs:
 
       # This used to be a hand-maintained list of five `-p` invocations, which
       # silently omitted sigil-frost (threshold crypto, in the TCB),
-      # sigil-mcp, sigil-mother-tui and sigil-bridge — 135 tests that never
-      # ran in a gating job, including every test asserting the TCB
-      # invariants. A green "Unit Tests" that skips the security tests is the
-      # definition of checkbox theater. Use the whole workspace so a new
-      # crate is covered the day it is added.
+      # sigil-mcp and sigil-mother-tui — over a hundred tests that never ran
+      # in a gating job, including every test asserting the TCB invariants. A
+      # green "Unit Tests" that skips the security tests is the definition of
+      # checkbox theater. Use the whole workspace so a new crate is covered
+      # the day it is added.
       #
       # sigil-zkvm is excluded only because its `sigil-zkvm-program` binary is
       # an SP1 guest program that exits non-zero outside a zkVM; its library

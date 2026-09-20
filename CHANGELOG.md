@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+**The mobile app and the HTTP bridge** ([#58](https://github.com/chippr-robotics/sigil/issues/58))
+
+The mobile signing UX moves to the FairWins platform, so deployment and
+management follow one pattern across the Chippr suite. Sigil keeps what it is:
+the disk format, the threshold crypto, the daemon that will not sign without a
+physically inserted disk, and the operator tooling.
+
+- **`mobile/` deleted.** 20 Dart files of Flutter scaffolding that was never
+  buildable: `flutter pub get` fails on `flutter_clipboard_manager ^0.0.4`,
+  which resolves to no published version and which nothing in the app imports
+  (the code uses Flutter's built-in `Clipboard` from `services.dart`). There
+  were also no `android/`, `ios/`, or `test/` directories, while
+  `.github/workflows/mobile.yml` ran `flutter build apk`, an iOS build, and
+  `flutter test`. That workflow has never passed on any branch.
+- **`.github/workflows/mobile.yml` deleted** with the app it built.
+- **`crates/sigil-bridge` deleted.** The bridge existed for exactly one
+  consumer — the app above. The surface issue #53 found in it (`0.0.0.0:8080`,
+  wildcard CORS, unauthenticated `POST /api/sign`, shard import over HTTP) was
+  serving a client that could not be compiled. Hardening it was the right first
+  move; removing it is better. A remote UI is now FairWins' to build against an
+  interface chosen deliberately, out of TCB, rather than an HTTP shim inherited
+  from a demo. The hardened version remains in git history.
+
+### Changed
+
+- **Every workspace member is now in the TCB.** `default-members` is identical
+  to `members`, and nothing in this repository terminates HTTP or listens on a
+  network socket. Both lists stay explicit so that adding an out-of-TCB crate
+  is a visible act in `Cargo.toml` rather than a silent default.
+- `SECURITY.md` standing invariant 3 strengthened accordingly: there is no
+  network-facing signing endpoint to authenticate, because there is no
+  network-facing endpoint.
+- `README.md` trust boundary and `.specify/memory/constitution.md` Principle I
+  updated to match.
+- `specs/001-tcb-quarantine/spec.md` carries a supersession note: its User
+  Story 1 hardened endpoints that no longer exist.
+
 ### Security
 
 Quarantines the second trusted computing base ([#53](https://github.com/chippr-robotics/sigil/issues/53)).

@@ -8,6 +8,14 @@
 
 **Tracking Issue**: [#53](https://github.com/chippr-robotics/sigil/issues/53)
 
+> **Partially superseded.** User Story 1 fenced `sigil-bridge` out of the TCB:
+> loopback bind, bearer token, shard-import routes deleted, excluded from
+> `default-members`. That was the right move while the bridge had a consumer.
+> Issue #58 archived the `mobile/` app — the bridge's only consumer, and one
+> that turned out never to have been buildable — and the crate was deleted
+> with it. The requirements below record what was done and why; the endpoints
+> they harden no longer exist. Everything else in this spec stands.
+
 **Input**: User description: "Air-gap + physical consent is the product. sigil-bridge POST /api/sign, the Logseq 'mother node' skill, and curl | sudo bash are a second TCB. Delete bridge from default members or bind it to localhost and mark it out of TCB. Move Logseq out of the key repo. Supported install is cargo install, not sudo-pipe."
 
 ---
