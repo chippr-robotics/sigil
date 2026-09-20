@@ -1,13 +1,25 @@
 name: CI
 
 on:
+  # Integration branches only. Branch work is gated by its pull request below.
+  #
+  # `claude/**` used to be listed here as well, which meant a branch with an
+  # open PR against an integration branch matched BOTH triggers and ran the
+  # entire workflow twice on every push — two identical full runs per commit.
+  # A branch with no PR open is not merging anything and does not need a gate.
   push:
-    branches: [main, staging, "claude/**"]
+    branches: [main, staging]
   pull_request:
     # `staging` is an integration branch. Without it here, a PR targeting
-    # staging from any branch not matching the push filter above gets no CI
-    # at all.
+    # staging gets no CI at all.
     branches: [main, staging]
+
+concurrency:
+  # Supersede an in-flight run when a new commit lands on the same ref. Only
+  # for pull requests: a run on an integration branch is the record of what
+  # that commit did and is allowed to finish.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always

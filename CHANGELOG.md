@@ -104,7 +104,12 @@ run the security tests proves nothing.
   to run. This also ends a loop between them: `clippy --fix` does not run
   rustfmt, so its commits were routinely not fmt-clean.
 - **PRs targeting `staging` had no CI.** The `pull_request` trigger listed only
-  `main`. `staging` added to both filters.
+  `main`. `staging` added to both `ci.yml` and `mobile.yml`.
+- **The workflow ran twice per push.** `claude/**` in the `push` filter plus a
+  PR against an integration branch matched both triggers, producing two
+  identical full runs per commit. `push` is now integration branches only —
+  branch work is gated by its pull request — and a `concurrency` group
+  supersedes in-flight PR runs when a new commit lands.
 - `Security Audit` added to `ci-success`'s `needs`, so it can actually block.
 
 **Unused gRPC stack removed from TCB crates**
