@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Quarantines the second trusted computing base ([#53](https://github.com/chippr-robotics/sigil/issues/53)).
 Sigil's claim is that a signature cannot exist without a physically present
 disk. The signing core honoured that; four surfaces around it did not. Full
-specification in [`specs/053-tcb-quarantine/`](specs/053-tcb-quarantine/).
+specification in [`specs/001-tcb-quarantine/`](specs/001-tcb-quarantine/).
 
 **`sigil-bridge` is now fenced out of the TCB**
 

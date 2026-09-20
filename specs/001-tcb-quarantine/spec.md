@@ -1,6 +1,6 @@
 # Feature Specification: Quarantine the Second TCB
 
-**Feature Branch**: `053-tcb-quarantine`
+**Feature Branch**: `001-tcb-quarantine`
 
 **Created**: 2026-09-20
 

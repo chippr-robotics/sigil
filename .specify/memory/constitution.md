@@ -96,6 +96,16 @@ same finding as "any network host can reach the signer", one hop earlier.
 
 - Specs live in `specs/<NNN>-<slug>/` and precede implementation for any change
   that touches the TCB boundary.
+- **Spec numbers are sequential and independent of issue and pull request
+  numbers.** `NNN` is assigned by `create-new-feature.sh`, which increments
+  from the highest existing spec. It is not an issue number and carries no
+  relationship to one; a spec links its issue in its header instead.
+
+  Coupling the two counters looks tidy for one spec and then collides the
+  first time two people file in parallel, or the moment one issue produces two
+  specs. `001-tcb-quarantine` was briefly numbered `053` to match its issue and
+  was renumbered before merge — the sequence starts at 001 and counts specs,
+  nothing else.
 - `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`,
   and `cargo test` gate every change.
 - Conventional commits: `<type>(<scope>): <description>`.

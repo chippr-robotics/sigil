@@ -1,6 +1,6 @@
 # Implementation Plan: Quarantine the Second TCB
 
-**Branch**: `053-tcb-quarantine` | **Date**: 2026-09-20 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-tcb-quarantine` | **Date**: 2026-09-20 | **Spec**: [spec.md](./spec.md)
 
 ## Summary
 
@@ -94,7 +94,7 @@ or non-regular) and exits, and its own header stops advertising the pipe.
 ### Documentation (this feature)
 
 ```
-specs/053-tcb-quarantine/
+specs/001-tcb-quarantine/
 ├── spec.md
 ├── plan.md
 └── tasks.md
