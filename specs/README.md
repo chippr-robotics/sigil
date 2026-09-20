@@ -64,7 +64,7 @@ unverified, and it sets the order below.
 | `sigil-mother-zkvm` | 3,465 | 35 | |
 | `sigil-core` | 3,236 | 64 | Disk format, primitives |
 | `sigil-daemon` | 2,795 | 10 | 8 of these arrived in #57 |
-| `sigil-cli` | 858 | **0** | Operator signing path |
+| `sigil-cli` | 858 | 21 | Operator signing path |
 | `sigil-zkvm` | 654 | 1 | |
 | `sigil-tests` | 3 | 7 | E2E |
 
@@ -77,10 +77,7 @@ Largest TCB modules with **zero** tests:
 | **`sigil-daemon/src/signer.rs`** | **478** | **Physical-consent enforcement** |
 | `sigil-mother/src/main.rs` | 440 | Mother CLI entry |
 | `sigil-daemon/src/ipc/server.rs` | 330 | IPC dispatch, handles `Sign` |
-| `sigil-cli/src/tools.rs` | 328 | |
 | `sigil-core/src/types.rs` | 270 | Core type invariants |
-| `sigil-cli/src/client.rs` | 272 | |
-| `sigil-cli/src/commands.rs` | 220 | |
 
 ---
 
@@ -96,7 +93,7 @@ area currently is, not size.
 | 1 | **Physical-consent enforcement** — disk re-read per signature, presig consumption, burn-on-use, fail-closed, rollback detection | `sigil-daemon` | — | 13 | ✅ [`002`](002-physical-consent-enforcement/) |
 | 2 | **Presignature lifecycle** — generation, allocation, exhaustion, double-spend prevention | `sigil-core`, `sigil-mother` | `CRYPTO_SPEC.md` | partial | 🟡 |
 | 3 | **Daemon IPC protocol** — 8 operations, dispatch, error surface | `sigil-daemon` | `proto/signer.proto` (design note only) | **0** | ⬜ |
-| 4 | **Operator CLI** — 8 subcommands | `sigil-cli` | — | **0** | ⬜ |
+| 4 | **Operator CLI** — 8 subcommands, connection, fail-closed | `sigil-cli` | — | 21 | ✅ [`003`](003-operator-cli/) |
 
 ### P2 — cryptography
 
@@ -122,14 +119,14 @@ area currently is, not size.
 | 12 | Reconciliation and anomaly detection | `sigil-mother` | — | partial | ⬜ |
 | 13 | Nullification and revocation | `sigil-mother` | — | 6 | ⬜ |
 | 14 | Hardware signer abstraction (ledger / trezor / pkcs11) | `sigil-mother` | — | 3 | ⬜ |
-| 15 | Mother TUI flows | `sigil-mother-tui` | `SIGIL_MOTHER_TUI_PLAN.md` (retire) | 8 | ⬜ |
+| 15 | Mother TUI flows | `sigil-mother-tui` | _(plan retired to `documentation/history/`)_ | 8 | ⬜ |
 | 16 | Recovery procedures | — | `RECOVERY.md` | n/a | 🟡 |
 
 ### P4 — agent-facing and cross-cutting
 
 | # | Feature | Crate | Source doc | Tests | Spec |
 | :-: | --- | --- | --- | ---: | :-: |
-| 17 | MCP server and its 5 tools | `sigil-mcp` | `MCP_INTEGRATION_PLAN.md` (retire) | 86 | ⬜ |
+| 17 | MCP server and its 5 tools | `sigil-mcp` | _(plan retired to `documentation/history/`)_ | 86 | ⬜ |
 | 18 | Threat model | — | `THREAT_MODEL.md` | n/a | 🟡 |
 | 19 | Install and system integration | `scripts/` | — | ⬜ | ⬜ |
 | 20 | Versioning and release | — | `VERSIONING.md` | n/a | 🟡 |
@@ -152,8 +149,8 @@ constitution, carry no requirement IDs, and nothing traces to them.
 | `GENESIS_OPERATIONS.md` | 1,071 | **Keep as runbook**, extract requirements into specs 10, 11 |
 | `RECOVERY.md` | 314 | **Keep as runbook**, extract requirements into spec 16 |
 | `E2E_TEST_PLAN.md` | 1,540 | **Reconcile** — see below |
-| `MCP_INTEGRATION_PLAN.md` | 1,234 | **Retire** — see below |
-| `SIGIL_MOTHER_TUI_PLAN.md` | 1,248 | **Retire** — see below |
+| `MCP_INTEGRATION_PLAN.md` | 1,234 | ✅ **Retired** to `documentation/history/` |
+| `SIGIL_MOTHER_TUI_PLAN.md` | 1,248 | ✅ **Retired** to `documentation/history/` |
 
 ### The two plans are actively misleading
 
@@ -165,9 +162,10 @@ Both describe work that shipped. `sigil-mcp` is 5,164 lines with 86 tests;
 conclude the component does not exist.
 
 Converting a completed plan into a spec produces a document describing what
-someone intended in the past, which is worse than no spec. Retire both — move
-to `documentation/history/` or delete, with the shipped behaviour captured in
-specs 15 and 17 written from the code.
+someone intended in the past, which is worse than no spec. Both are now in
+`documentation/history/`, with a README stating plainly that they are not
+current. The shipped behaviour is captured in specs 15 and 17, written from
+the code.
 
 ### The E2E plan is a backlog, not history
 
@@ -199,6 +197,25 @@ Executable assertions live in
 Every assertion was negative-tested: each was shown to fail, naming the exact
 violation, before being committed. An assertion nobody has seen fail is the
 same category of object as a `Security Audit` job that cannot fail.
+
+## Requirement traceability
+
+[`crates/sigil-tests/tests/spec_traceability.rs`](../crates/sigil-tests/tests/spec_traceability.rs)
+gates the specs themselves:
+
+- every `FR-xxx` appears in its spec's Coverage table, so a requirement cannot
+  point at nothing while reading as satisfied;
+- every test named in a Coverage table exists, so a rename cannot leave a spec
+  claiming coverage it lost;
+- no spec past Draft carries `NEEDS CLARIFICATION`;
+- every spec is listed in this backlog.
+
+It found two gaps on its first run: spec 001 had **27 requirements and no
+Coverage table at all**, and a range row (`FR-003 – FR-009`) that hid five
+requirements inside it. Both fixed.
+
+It lives in `sigil-tests`, so it runs in the existing `Unit Tests` job — no
+new CI job, and no change to `ci-success`'s `needs`.
 
 `p5_no_document_instructs_piping_into_a_shell` caught a real instance on its
 first run — `docs/docs/zkvm-proofs.html` documented SP1's toolchain install as
@@ -245,6 +262,8 @@ Suggested order:
 2. ~~Conformance assertions for P-I, P-V, P-VI.~~ Done — and P-III as well.
 3. ~~Spec 1 (physical-consent enforcement) with the tests it implies.~~ Done —
    [`002`](002-physical-consent-enforcement/), 13 tests, FR-014 fixed.
-4. Spec 4 (`sigil-cli`) with tests, since it is at zero.
-5. Retire the two stale plans.
-6. Everything else, by priority.
+4. ~~Spec 4 (`sigil-cli`) with tests, since it is at zero.~~ Done —
+   [`003`](003-operator-cli/), 21 tests, two bugs fixed.
+5. ~~Retire the two stale plans.~~ Done — moved to `documentation/history/`.
+6. Everything else, by priority. **Issue #59's own task list is complete; the
+   remaining 16 backlog items below are ongoing work.**

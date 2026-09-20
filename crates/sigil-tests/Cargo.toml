@@ -25,3 +25,7 @@ path = "tests/e2e_workflow_test.rs"
 [[test]]
 name = "constitution_conformance"
 path = "tests/constitution_conformance.rs"
+
+[[test]]
+name = "spec_traceability"
+path = "tests/spec_traceability.rs"

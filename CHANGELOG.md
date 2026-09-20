@@ -11,6 +11,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Operator CLI: spec and tests** ([#59](https://github.com/chippr-robotics/sigil/issues/59) backlog item 4)
+
+`sigil-cli` was 858 lines with zero tests, and it is the path an operator
+actually runs to make a signature happen. `specs/003-operator-cli/` specifies
+it; 21 tests now cover the eight subcommands, the daemon connection, fail-closed
+behaviour and the display formatting.
+
+**Requirement traceability gate**
+
+`crates/sigil-tests/tests/spec_traceability.rs` gates the specs themselves:
+every `FR-xxx` must appear in its spec's Coverage table, every test named in a
+Coverage table must exist, no spec past Draft may carry `NEEDS CLARIFICATION`,
+and every spec must be listed in the backlog.
+
+It found two gaps on its first run: spec 001 had 27 requirements and **no
+Coverage table at all**, and a range row that hid five requirements inside it.
+Both fixed. It lives in `sigil-tests`, so it runs in the existing `Unit Tests`
+job — no new CI job needed.
+
+### Fixed
+
+**The CLI could not reach a default-configured daemon**
+
+`#57` moved the daemon's default socket off world-writable `/tmp` to
+`/run/sigil/sigil.sock`, updating `sigil-daemon` and `sigil-bridge` — and
+missing `sigil-cli` in two places: the `--socket` clap default and
+`SigilClient::new`'s fallback.
+
+So the CLI looked for the daemon where the daemon no longer listened, in a
+world-writable directory where any local user can create a socket and receive
+the operator's signing requests. Both now use one `DEFAULT_UNIX_SOCKET_PATH`
+constant, pinned by test to the daemon's value — the two halves live in crates
+that cannot see each other's constants, so the pin is what keeps them honest.
+
+**A malformed signature could panic the CLI**
+
+`format_signing_result_for_display` did `&s[..18]`, which panics on a
+signature shorter than 18 bytes and again on a multi-byte character straddling
+the boundary. Both are reachable, since the shortening runs on whatever the
+daemon returned. Replaced with a character-counting truncation; negative-tested
+by restoring the old slicing, which reproduces both panics.
+
+### Changed
+
+**Two stale plan documents retired**
+
+`MCP_INTEGRATION_PLAN.md` (35 checkboxes, none checked) and
+`SIGIL_MOTHER_TUI_PLAN.md` (58, none checked) describe components that shipped
+— 5,164 and 6,801 lines respectively. Moved to `documentation/history/` with a
+README stating plainly that they are not current.
+
+`E2E_TEST_PLAN.md` deliberately stays in `documentation/`: it describes 58
+scenarios against 7 implemented, so it is aspirational rather than stale.
+
+### Added
+
 **Physical-consent enforcement: spec and tests**
 ([#59](https://github.com/chippr-robotics/sigil/issues/59) backlog item 1)
 

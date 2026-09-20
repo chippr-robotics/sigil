@@ -348,3 +348,45 @@ parent-directory ownership restrict access.
 - Bearer-token authentication is a coarse gate on an out-of-TCB surface, not a
   security boundary the product's claims rest on. Physical consent remains the
   boundary.
+
+## Coverage
+
+Added retroactively when `spec_traceability` was built — this spec shipped
+without a coverage table, which is precisely the gap that test now closes.
+
+FR-001 and FR-002 generalised when the bridge went. FR-003 through FR-009 hardened `sigil-bridge`. The crate was deleted in
+[#60](https://github.com/chippr-robotics/sigil/pull/60), so those requirements
+are **superseded**: the endpoints they constrained no longer exist, and their
+26 tests went with the crate. The stronger property replaced them —
+`p3_no_crate_depends_on_an_http_server` asserts nothing in the workspace can
+terminate HTTP at all.
+
+| Requirement | Test |
+| --- | --- |
+| FR-001 | `p1_default_members_equals_members` (generalised; bridge removed) |
+| FR-002 | `p1_out_of_tcb_crates_are_unpublished` (generalised; bridge removed) |
+| FR-003 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-004 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-005 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-006 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-007 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-008 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-009 | **Superseded by #60** — bridge deleted; `p3_no_crate_depends_on_an_http_server` |
+| FR-010 | `mock_mode_refuses_to_sign`, `test_sign_evm_rejects_mock_signing` |
+| FR-011 | `mock_mode_still_reports_status` |
+| FR-012 | Cargo feature gate; exercised by `cargo test -p sigil-mcp --features mock` in CI |
+| FR-013 | `cfg(feature = "mock")` on the flag; absent from default builds |
+| FR-014 | `p6_no_knowledge_base_sync_tooling` |
+| FR-015 | Recorded in `CHANGELOG.md` and `SECURITY.md` |
+| FR-016 | `p5_no_document_instructs_piping_into_a_shell` |
+| FR-017 | `p5_install_script_refuses_pipe_execution`, `p5_install_script_guard_admits_real_file_execution` |
+| FR-018 | `p5_no_document_instructs_piping_into_a_shell` |
+| FR-019 | `socket_is_not_accessible_to_other_users`, `custom_socket_mode_is_applied` |
+| FR-020 | `default_ipc_path_is_never_world_writable`, `the_default_socket_path_is_not_world_writable` |
+| FR-021 | `absent_parent_directory_is_created_owner_only`, `existing_directory_permissions_are_left_alone` |
+| FR-022 | Stated in `SECURITY.md`; `constitution_is_present_and_states_its_principles` guards the source of truth |
+| FR-023 | CI runs `cargo test --workspace`; no per-crate allowlist remains in `ci.yml` |
+| FR-024 | `cargo audit` gates with documented exceptions in `.cargo/audit.toml` |
+| FR-025 | No CI job declares `contents: write` |
+| FR-026 | `staging` present in both trigger filters in `ci.yml` |
+| FR-027 | `tonic`/`prost` removed; no unused dependency remains in `sigil-daemon` or `sigil-cli` |
