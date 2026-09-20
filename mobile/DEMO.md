@@ -8,12 +8,16 @@ Before running the demo, ensure you have:
 
 1. **Agent Device** (e.g., Raspberry Pi, Linux laptop)
    - sigil-daemon installed and running
-   - sigil-bridge installed and running on port 8080
+   - sigil-bridge built (`cargo build --release -p sigil-bridge`) and running
+     on `127.0.0.1:8080`. It is out of TCB and excluded from the default
+     workspace build, so you build it deliberately.
+   - The bearer token the bridge logs on startup
    - A configured Sigil floppy disk with presignatures
 
 2. **Mobile Device**
    - Sigil Mobile app installed
-   - Connected to same network as agent device
+   - An SSH tunnel to the agent device's loopback port:
+     `ssh -N -L 8080:127.0.0.1:8080 agent-device`
 
 ## Demo Scenario
 
@@ -64,13 +68,15 @@ From the dashboard, tap the **Settings** icon (gear) in the top right.
 ### Step 4: Configure Daemon Connection
 
 1. Tap "Daemon Connection"
-2. Enter your sigil-bridge URL:
+2. Enter your sigil-bridge URL — the local end of the tunnel:
    ```
-   http://192.168.1.100:8080
+   http://127.0.0.1:8080
    ```
-3. Tap "Test Connection"
-4. You should see: "Connected! Daemon version: 0.3.0"
-5. Tap "Save and Connect"
+3. Enter the bearer token from the agent device
+   (`cat /run/user/1000/sigil-bridge.token`)
+4. Tap "Test Connection"
+5. You should see: "Connected! Daemon version: 0.3.0"
+6. Tap "Save and Connect"
 
 ```
 ┌─────────────────────────────┐
@@ -82,7 +88,7 @@ From the dashboard, tap the **Settings** icon (gear) in the top right.
 │                              │
 │   HTTP Bridge URL            │
 │   ┌──────────────────────┐  │
-│   │ http://192.168.1.100 │  │
+│   │ http://127.0.0.1     │  │
 │   │ :8080                │  │
 │   └──────────────────────┘  │
 │                              │

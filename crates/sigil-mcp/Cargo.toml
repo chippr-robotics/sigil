@@ -44,3 +44,15 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# Self dev-dependency so integration tests (which are separate crates and so do
+# not see this crate's `cfg(test)`) can build the mock harness.
+sigil-mcp = { path = ".", features = ["mock"] }
+
+[features]
+default = []
+
+# Mock daemon mode: fabricates disk *status* for harnessing agent clients
+# without hardware. Deliberately NOT in `default` — see the crate's `client`
+# module docs and Constitution Principle II. Mock mode never produces a
+# signature; signing operations return `ClientError::MockSigningDisabled`.
+mock = []

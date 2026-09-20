@@ -14,6 +14,28 @@ members = [
     "crates/sigil-tests",
 ]
 
+# TCB boundary (see .specify/memory/constitution.md, Principle I).
+#
+# `sigil-bridge` is an out-of-TCB convenience transport: it terminates HTTP and
+# proxies to the daemon. It stays a workspace member so `--workspace` keeps
+# linting and testing it, but it is deliberately absent from `default-members`
+# so a bare `cargo build` / `cargo test` at the root never produces a binary
+# that listens on a network socket.
+#
+# Build it explicitly and knowingly: `cargo build -p sigil-bridge`.
+default-members = [
+    "crates/sigil-core",
+    "crates/sigil-frost",
+    "crates/sigil-zkvm",
+    "crates/sigil-mother-zkvm",
+    "crates/sigil-daemon",
+    "crates/sigil-cli",
+    "crates/sigil-mother",
+    "crates/sigil-mother-tui",
+    "crates/sigil-mcp",
+    "crates/sigil-tests",
+]
+
 [workspace.package]
 version = "0.5.0"
 edition = "2021"
@@ -52,6 +74,7 @@ frost-ristretto255 = "2.1"
 sha2 = "0.10"
 rand = "0.8"
 rand_chacha = "0.3"
+subtle = "2.5"
 zeroize = { version = "1.7", features = ["derive"] }
 
 # Serialization

@@ -245,8 +245,14 @@ mod tests {
     use crate::tools::DiskState;
     use std::sync::Arc;
 
+    /// A well-formed request against a mock disk must still fail.
+    ///
+    /// This test used to assert the opposite: that mock mode returned a
+    /// signature. That was the bug — a caller could not distinguish a mock
+    /// signature from a real one. Status may be fabricated; consent may not.
+    /// See Constitution Principle II.
     #[tokio::test]
-    async fn test_sign_evm_success() {
+    async fn test_sign_evm_rejects_mock_signing() {
         let ctx = ToolContext {
             daemon_client: Arc::new(DaemonClient::new_mock(DiskState::mock_detected())),
         };
@@ -258,7 +264,17 @@ mod tests {
         });
 
         let result = execute(&ctx, args).await;
-        assert!(result.is_error.is_none() || result.is_error == Some(false));
+        assert_eq!(
+            result.is_error,
+            Some(true),
+            "mock mode must never return a signature"
+        );
+
+        let rendered = format!("{:?}", result.content);
+        assert!(
+            !rendered.contains("0xaabbccdd"),
+            "no fabricated signature bytes may reach the caller"
+        );
     }
 
     #[tokio::test]

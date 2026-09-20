@@ -2,9 +2,14 @@
 name = "sigil-bridge"
 version = "0.1.0"
 edition = "2021"
-description = "HTTP bridge server for sigil-daemon - enables mobile app communication"
+description = "HTTP bridge server for sigil-daemon - NOT part of the Sigil TCB"
 license = "MIT"
 readme = "README.md"
+
+# Out of TCB (see .specify/memory/constitution.md, Principle I). This crate is
+# absent from the workspace's `default-members` and is never published: it must
+# not be installable as though it were a supported part of the signing system.
+publish = false
 
 [dependencies]
 # Web framework
@@ -32,6 +37,13 @@ clap = { version = "4", features = ["derive"] }
 # Error handling
 anyhow = "1"
 thiserror = "1"
+
+# Bearer-token authentication
+rand = { workspace = true }
+subtle = { workspace = true }
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
 
 [features]
 default = []

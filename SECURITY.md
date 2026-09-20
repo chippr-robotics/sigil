@@ -1,5 +1,63 @@
 # Security Policy
 
+## Trusted Computing Base
+
+Sigil's security claim is narrow and literal: **a signature cannot exist
+without a physically present disk.** The trusted computing base is the set of
+components that could make that claim false.
+
+### In the TCB
+
+| Crate | Role |
+| --- | --- |
+| `sigil-core` | Disk format, crypto primitives, presignature structures |
+| `sigil-frost` | FROST threshold Schnorr signatures |
+| `sigil-zkvm` | SP1 signing program |
+| `sigil-mother-zkvm` | SP1 mother-operation programs |
+| `sigil-daemon` | Disk watcher, IPC, signing orchestration |
+| `sigil-cli` | Operator signing and disk management |
+| `sigil-mother` | Air-gapped key generation, child disk creation |
+| `sigil-mother-tui` | Terminal UI for mother operations |
+
+### Explicitly NOT in the TCB
+
+| Component | Why it is fenced, and how |
+| --- | --- |
+| `sigil-bridge` | HTTP transport for the mobile app. Excluded from the workspace's `default-members`, `publish = false`, binds loopback only unless explicitly acknowledged, bearer token on every `/api` route, transports no key material. |
+| `mobile/` | Flutter client. Talks only to the bridge. |
+| Mock / demo modes | `sigil-mcp`'s mock mode sits behind a non-default `mock` cargo feature and **returns an error for every signing operation**. It fabricates disk *status* only. A default-feature release binary cannot construct a mock signer. |
+
+Adding a component to the TCB is a change to
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md), not an
+ordinary pull request.
+
+### Standing invariants
+
+1. The daemon re-reads presignature shares from the block device on every
+   signing operation and fails closed with `NoDiskDetected` without one.
+2. No mock, test, or development mode returns signature-shaped bytes.
+3. Nothing in this repository listens on a non-loopback interface by default,
+   accepts a wildcard cross-origin request, or exposes a signing endpoint
+   without authenticating the caller.
+4. Shard import and export never cross a network transport. They use physical
+   media and in-TCB tooling.
+5. The local IPC socket grants no access to `other` and lives in a directory
+   the daemon controls (`/run/sigil`, mode 0750), never world-writable `/tmp`.
+6. The supported install is `cargo install --locked` from a pinned tag, or a
+   cloned checkout. `scripts/install.sh` refuses to execute from a pipe.
+
+### Removed surfaces
+
+- **`POST /api/import-agent-shard`, `POST /api/import-child-shares`** —
+  removed from `sigil-bridge`. They moved secret key material over
+  unauthenticated HTTP. Import shards with `sigil-cli` on the device itself.
+- **The Logseq knowledge-management skill** — removed from this repository. Its
+  `sigil-mother-node` example instructed operators to merge air-gapped mother
+  device material into a networked, indexed knowledge graph, which is an
+  outbound path from the side of the air gap that must not have one. The
+  content remains in git history; if you want it, it belongs in a separate
+  repository that holds no key material.
+
 ## Supported Versions
 
 | Version | Supported          |
@@ -131,3 +189,5 @@ Currently, we do not have a formal bug bounty program. However, we commit to:
 - [CRYPTO_SPEC.md](documentation/CRYPTO_SPEC.md) - Cryptographic specification
 - [THREAT_MODEL.md](documentation/THREAT_MODEL.md) - Threat model analysis
 - [documentation/RECOVERY.md](documentation/RECOVERY.md) - Recovery procedures
+- [.specify/memory/constitution.md](.specify/memory/constitution.md) - Project constitution (TCB principles)
+- [specs/053-tcb-quarantine/spec.md](specs/053-tcb-quarantine/spec.md) - TCB quarantine specification

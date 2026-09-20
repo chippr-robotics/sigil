@@ -13,7 +13,7 @@ use crate::disk_watcher::DiskWatcher;
 use crate::error::Result;
 use crate::signer::{Signer, SigningRequest};
 
-use super::connection::{IpcTransport, PlatformTransport};
+use super::connection::{BindOptions, IpcTransport, PlatformTransport};
 use super::types::{parse_message_hash, parse_tx_hash, IpcRequest, IpcResponse};
 
 /// IPC server
@@ -29,6 +29,9 @@ pub struct IpcServer {
 
     /// Signer
     signer: Arc<Signer>,
+
+    /// Access restrictions applied to the IPC endpoint at bind time
+    bind_options: BindOptions,
 }
 
 impl IpcServer {
@@ -39,17 +42,35 @@ impl IpcServer {
         agent_store: Arc<RwLock<AgentStore>>,
         signer: Arc<Signer>,
     ) -> Self {
+        Self::with_bind_options(
+            socket_path,
+            disk_watcher,
+            agent_store,
+            signer,
+            BindOptions::default(),
+        )
+    }
+
+    /// Create a new IPC server with explicit access restrictions.
+    pub fn with_bind_options(
+        socket_path: PathBuf,
+        disk_watcher: Arc<DiskWatcher>,
+        agent_store: Arc<RwLock<AgentStore>>,
+        signer: Arc<Signer>,
+        bind_options: BindOptions,
+    ) -> Self {
         Self {
             socket_path,
             disk_watcher,
             agent_store,
             signer,
+            bind_options,
         }
     }
 
     /// Start the IPC server
     pub async fn run(&self) -> Result<()> {
-        let transport = PlatformTransport::bind(&self.socket_path).await?;
+        let transport = PlatformTransport::bind(&self.socket_path, self.bind_options).await?;
 
         info!("IPC server listening on {:?}", self.socket_path);
 

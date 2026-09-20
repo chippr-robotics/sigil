@@ -6,7 +6,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
-use crate::client::{ClientError, DaemonClient};
+use crate::client::ClientError;
+#[cfg(any(test, feature = "mock"))]
+use crate::client::DaemonClient;
 use crate::handlers::{handle_notification, handle_request, McpServerState};
 use crate::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse, JSONRPC_VERSION};
 use crate::tools::DiskState;
@@ -18,14 +20,19 @@ pub struct McpServer {
 }
 
 impl McpServer {
-    /// Create a new MCP server with mock data
+    /// Create a server backed by mock data.
+    ///
+    /// Gated with the rest of the mock surface: mock servers report fabricated
+    /// disk status and refuse to sign.
+    #[cfg(any(test, feature = "mock"))]
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(McpServerState::new_with_mock())),
         }
     }
 
-    /// Create a server with mock daemon client
+    /// Create a server with a mock daemon client
+    #[cfg(any(test, feature = "mock"))]
     pub fn with_mock() -> Self {
         Self {
             state: Arc::new(RwLock::new(McpServerState::new_with_mock())),
@@ -41,6 +48,7 @@ impl McpServer {
 
     /// Create a server with a specific disk state (for testing)
     #[allow(dead_code)]
+    #[cfg(any(test, feature = "mock"))]
     pub fn with_disk_state(disk_state: DiskState) -> Self {
         Self {
             state: Arc::new(RwLock::new(McpServerState {
@@ -149,6 +157,9 @@ impl McpServer {
     }
 }
 
+/// `Default` selects mock mode, so it is gated with the rest of the mock
+/// surface. Production callers use `McpServer::with_daemon()`.
+#[cfg(any(test, feature = "mock"))]
 impl Default for McpServer {
     fn default() -> Self {
         Self::new()
