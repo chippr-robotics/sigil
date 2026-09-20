@@ -52,14 +52,15 @@ Sigil Mobile provides a user-friendly interface for performing cryptographic sig
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │
-                              │ HTTP (WiFi/LAN)
+                              │ HTTP over an SSH tunnel
+                              │ (bearer token required)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Agent Device (e.g., Raspberry Pi)          │
 │  ┌──────────────────┐      IPC      ┌──────────────────────┐   │
 │  │   sigil-bridge   │ ────────────► │    sigil-daemon      │   │
-│  │   (HTTP Server)  │               │    (Signing Engine)  │   │
-│  │     :8080        │               │   /tmp/sigil.sock    │   │
+│  │  (out of TCB)    │               │    (Signing Engine)  │   │
+│  │  127.0.0.1:8080  │               │ /run/sigil/sigil.sock│   │
 │  └──────────────────┘               └──────────────────────┘   │
 │                                              │                  │
 │                                              │ Floppy Disk      │
@@ -76,8 +77,9 @@ Sigil Mobile provides a user-friendly interface for performing cryptographic sig
 1. **Agent Device Setup**
    - Device with floppy drive (or USB floppy)
    - `sigil-daemon` running
-   - `sigil-bridge` running
-   - Both devices on same network
+   - `sigil-bridge` running (built deliberately: `cargo build --release -p sigil-bridge`
+     — it is excluded from the default workspace build)
+   - A way to reach the bridge's loopback port, normally an SSH tunnel
 
 2. **Development Requirements**
    - Flutter SDK 3.2.0+
@@ -110,20 +112,34 @@ flutter build ios --release
 
 ### Quick Start
 
-1. Install the app on your mobile device
-2. Create a 6-digit PIN when prompted
-3. Go to Settings > Daemon Connection
-4. Enter your agent device's IP and port (e.g., `http://192.168.1.100:8080`)
-5. Test the connection
-6. Insert your Sigil disk into the agent device
-7. Return to Dashboard - you should see your disk status
+1. On the agent device, start the bridge and note the token path it logs:
+   ```bash
+   sigil-bridge
+   # -> wrote token to /run/user/1000/sigil-bridge.token
+   ```
+2. Forward the bridge's loopback port to the device running the app:
+   ```bash
+   ssh -N -L 8080:127.0.0.1:8080 agent-device
+   ```
+3. Install the app on your mobile device
+4. Create a 6-digit PIN when prompted
+5. Go to Settings > Daemon Connection
+6. Enter `http://127.0.0.1:8080` (the tunnel endpoint) and the bearer token
+7. Test the connection
+8. Insert your Sigil disk into the agent device
+9. Return to Dashboard - you should see your disk status
+
+> **Binding the bridge to a LAN address is not the supported setup.** It is
+> possible — `sigil-bridge --host 0.0.0.0 --allow-non-loopback` — but it puts a
+> signing endpoint on your network. The bridge is not part of Sigil's trusted
+> computing base; see [`crates/sigil-bridge/README.md`](../crates/sigil-bridge/README.md).
 
 ## Usage Guide
 
 ### Initial Setup
 
 1. **Set PIN**: Create a secure 6-digit PIN
-2. **Configure Connection**: Enter the sigil-bridge URL
+2. **Configure Connection**: Enter the sigil-bridge URL and its bearer token
 3. **Optional**: Enable biometric authentication
 
 ### Signing a Transaction
@@ -195,9 +211,10 @@ The app gracefully handles offline scenarios:
 ## Troubleshooting
 
 ### Connection Issues
-- Verify both devices are on the same network
-- Check firewall allows port 8080
-- Verify sigil-daemon is running: `curl http://<ip>:8080/health`
+- Verify the SSH tunnel is up: `ssh -N -L 8080:127.0.0.1:8080 agent-device`
+- Verify the bridge is running: `curl http://127.0.0.1:8080/health`
+- `401` from any `/api` call means the bearer token is missing or wrong. The
+  bridge logs where it wrote the token on startup.
 - Check sigil-bridge logs for errors
 
 ### Signing Failures

@@ -1,7 +1,6 @@
 //! Daemon IPC client for sigil-bridge
 
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -175,24 +174,10 @@ impl DaemonClient {
         Ok(children)
     }
 
-    /// Import agent shard
-    pub async fn import_agent_shard(&self, shard_hex: &str) -> Result<()> {
-        self.send_request(serde_json::json!({
-            "type": "ImportAgentShard",
-            "agent_shard_hex": shard_hex
-        }))
-        .await?;
-        Ok(())
-    }
-
-    /// Import child shares
-    pub async fn import_child_shares(&self, shares_json: &str, replace: bool) -> Result<()> {
-        self.send_request(serde_json::json!({
-            "type": "ImportChildShares",
-            "shares_json": shares_json,
-            "replace": replace
-        }))
-        .await?;
-        Ok(())
-    }
+    // Shard import is deliberately absent.
+    //
+    // Constitution Principle IV: key material never travels over a convenience
+    // transport. Agent shards and child shares cross the air gap on physical
+    // media and are imported with in-TCB tooling (`sigil-cli`), not by POSTing
+    // hex to an HTTP server.
 }

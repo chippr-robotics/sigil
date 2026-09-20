@@ -1,5 +1,18 @@
 name: Mobile App CI
 
+# NOTE: `staging` is deliberately absent from both filters below.
+#
+# This workflow cannot pass. `flutter pub get` fails at the first step —
+# `flutter_clipboard_manager ^0.0.4` does not resolve to any published version,
+# and nothing in mobile/lib imports it (the code uses Flutter's built-in
+# Clipboard from services.dart). The app also has no android/, no ios/ and no
+# test/ directory, while the jobs below run `flutter build apk`, an iOS build
+# and `flutter test`.
+#
+# Wiring `staging` in here would make every staging PR that touches mobile/**
+# permanently unmergeable. A check that can never pass is not a gate, it is a
+# blocker. The mobile app is scheduled for archival — see #58 — and this
+# workflow goes with it.
 on:
   push:
     branches: [main, develop]
@@ -162,7 +175,10 @@ jobs:
           retention-days: 30
 
   build-bridge:
-    name: Build Bridge Server
+    # sigil-bridge is OUT OF TCB. It is absent from the workspace's
+    # `default-members`, so it is built here only by an explicit `-p`, never as
+    # a side effect of a default workspace build. See SECURITY.md.
+    name: Build Bridge Server (out of TCB)
     runs-on: ubuntu-latest
 
     steps:
@@ -180,8 +196,11 @@ jobs:
       - name: Install libudev-dev
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
 
-      - name: Build sigil-bridge
+      - name: Build sigil-bridge (explicitly; not in default-members)
         run: cargo build --release -p sigil-bridge
+
+      - name: Test sigil-bridge
+        run: cargo test --release -p sigil-bridge
 
       - name: Upload Bridge Binary
         uses: actions/upload-artifact@v4

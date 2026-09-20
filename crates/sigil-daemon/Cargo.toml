@@ -19,9 +19,13 @@ sigil-core = { workspace = true }
 tokio = { workspace = true }
 async-trait = "0.1"
 
-# IPC
-prost = { workspace = true }
-tonic = { workspace = true }
+# IPC transport is Unix domain sockets / Windows named pipes carrying JSON
+# (see src/ipc/). `tonic` and `prost` were declared here but never referenced
+# by any code and there is no build.rs generating proto types; they pulled an
+# entire gRPC + hyper 0.14 + axum 0.6 stack into a TCB crate's dependency
+# graph, carrying four RUSTSEC advisories. Removed. `proto/signer.proto` is
+# retained as a design note; reintroduce these deliberately if it is ever
+# implemented.
 
 # Serialization
 serde = { workspace = true }

@@ -17,5 +17,5 @@ pub use agent_store::AgentStore;
 pub use config::DaemonConfig;
 pub use disk_watcher::DiskWatcher;
 pub use error::{DaemonError, Result};
-pub use ipc::IpcServer;
+pub use ipc::{BindOptions, IpcServer, DEFAULT_SOCKET_MODE};
 pub use signer::Signer;

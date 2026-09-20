@@ -1,13 +1,66 @@
 #!/bin/bash
-# Sigil Installation Script
+# Sigil System Integration Script
 #
-# One-liner install:
-#   curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash
+# This script does NOT install Sigil's binaries. The supported install is:
 #
-# Or clone and run locally:
+#   cargo install --locked --git https://github.com/chippr-robotics/sigil --tag <version> \
+#       sigil-daemon sigil-cli sigil-mother sigil-mother-tui sigil-mcp
+#
+# What this script does is the part cargo cannot: create the `sigil` group,
+# install udev rules for disk and Ledger detection, write the daemon config,
+# and install the systemd unit.
+#
+# Run it from a checkout you have read:
+#
+#   git clone https://github.com/chippr-robotics/sigil
+#   cd sigil
+#   less scripts/install.sh      # read it first
 #   sudo ./scripts/install.sh
+#
+# It deliberately REFUSES to run when piped from the network. Sigil is a key
+# custody product; asking an operator to execute unread, unpinned code as root
+# is the wrong first instruction. See .specify/memory/constitution.md,
+# Principle V.
 
 set -e
+
+# Refuse `curl ... | sudo bash`.
+#
+# When a script is piped into bash, $0 is "bash" (or the shell's name) and
+# BASH_SOURCE[0] either matches it or points at a pipe rather than a regular
+# file. In that case there is nothing on disk for the operator to have read.
+refuse_pipe_execution() {
+    local source="${BASH_SOURCE[0]:-}"
+
+    if [[ -n "$source" && -f "$source" && "$source" != "$0" ]]; then
+        return 0   # sourced from a real file
+    fi
+    if [[ -n "$source" && -f "$source" ]]; then
+        return 0   # executed as a real file
+    fi
+
+    cat >&2 <<'REFUSE'
+[ERROR] Refusing to run from a pipe.
+
+This script was piped into a shell, so you have not read what is about to run
+as root on the machine that will hold your signing shards.
+
+Do this instead:
+
+    git clone https://github.com/chippr-robotics/sigil
+    cd sigil
+    less scripts/install.sh
+    sudo ./scripts/install.sh
+
+And install the binaries themselves with cargo, pinned to a release tag:
+
+    cargo install --locked --git https://github.com/chippr-robotics/sigil \
+        --tag <version> sigil-daemon sigil-cli sigil-mother sigil-mcp
+REFUSE
+    exit 1
+}
+
+refuse_pipe_execution
 
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/sigil}"
@@ -147,7 +200,8 @@ setup_config() {
         cat > "$CONFIG_DIR/daemon.json" << EOF
 {
     "agent_store_path": "$DATA_DIR/agent_store",
-    "ipc_socket_path": "/tmp/sigil.sock",
+    "ipc_socket_path": "/run/sigil/sigil.sock",
+    "ipc_socket_mode": 432,
     "enable_zkvm_proving": false,
     "disk_mount_pattern": "/media/*/SIGIL*",
     "signing_timeout_secs": 60,
@@ -216,6 +270,12 @@ RestartSec=5
 User=root
 Group=$SIGIL_GROUP
 Environment=RUST_LOG=info
+
+# systemd creates /run/sigil before the daemon starts and removes it on stop.
+# The IPC socket is an unauthenticated path to the signer, so it lives in a
+# directory this unit owns rather than in world-writable /tmp.
+RuntimeDirectory=sigil
+RuntimeDirectoryMode=0750
 
 [Install]
 WantedBy=multi-user.target
@@ -311,9 +371,12 @@ main() {
 case "${1:-}" in
     -h|--help)
         cat << 'HELP'
-Sigil Installation Script
+Sigil System Integration Script
 
-Usage: install.sh [OPTIONS]
+Usage: sudo ./scripts/install.sh [OPTIONS]
+
+Run from a checkout you have read. This script refuses to execute when piped
+from the network.
 
 Options:
   -h, --help      Show this help
@@ -324,8 +387,9 @@ Environment:
   CONFIG_DIR      Config location (default: /etc/sigil)
   DATA_DIR        Data location (default: /var/lib/sigil)
 
-One-liner install:
-  curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash
+Supported install of the binaries themselves:
+  cargo install --locked --git https://github.com/chippr-robotics/sigil \
+      --tag <version> sigil-daemon sigil-cli sigil-mother sigil-mother-tui sigil-mcp
 HELP
         exit 0
         ;;

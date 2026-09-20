@@ -75,25 +75,40 @@ sigil/
 
 ## Installation
 
-### Quick Install (One-liner)
-
-```bash
-curl -sSL https://raw.githubusercontent.com/chippr-robotics/sigil/main/scripts/install.sh | sudo bash
-```
-
-This automatically installs Rust (if needed), builds sigil, and configures your system.
+Sigil is a key custody product. The supported install lets you read and pin
+what you are about to run, before it runs. There is no `curl | sudo bash`
+one-liner, by design.
 
 ### Prerequisites
 
-- Rust 1.75+ (auto-installed by script)
+- Rust 1.75+ ([rustup.rs](https://rustup.rs))
 - Linux (for udev disk detection)
-- SP1 zkVM SDK (for proof generation)
+- `libudev-dev` and `pkg-config`
+- SP1 zkVM SDK (only for proof generation)
 
-### Build
+### Install the binaries
 
 ```bash
+cargo install --locked --git https://github.com/chippr-robotics/sigil \
+    --tag v0.5.0 \
+    sigil-daemon sigil-cli sigil-mother sigil-mother-tui sigil-mcp
+```
+
+`--locked` uses the committed `Cargo.lock`; `--tag` pins the source. Both are
+deliberate: an unpinned, unlocked install of a signing daemon is a supply-chain
+decision you should be making explicitly.
+
+### Or build from a checkout
+
+```bash
+git clone https://github.com/chippr-robotics/sigil
+cd sigil
 cargo build --release
 ```
+
+`cargo build` builds the trusted computing base only. `sigil-bridge` is
+excluded from the workspace's `default-members` and must be built deliberately
+(`cargo build -p sigil-bridge`) — see [Trust boundary](#trust-boundary).
 
 ### Build with Ledger Support
 
@@ -107,9 +122,13 @@ sudo apt-get install libudev-dev
 cargo build --release --features "sigil-mother/ledger"
 ```
 
-### Install (Linux)
+### System integration (Linux)
+
+`scripts/install.sh` does the part cargo cannot. Read it first — it refuses to
+run when piped from the network, and will tell you so:
 
 ```bash
+less scripts/install.sh
 sudo ./scripts/install.sh
 ```
 
@@ -117,8 +136,33 @@ This will:
 - Install system dependencies (libudev, openssl)
 - Create the `sigil` group
 - Install udev rules for disk detection
-- Install the systemd service
+- Install the systemd service, with the IPC socket in `/run/sigil` (mode 0660,
+  `root:sigil`) rather than world-writable `/tmp`
 - Create configuration directories
+
+## Trust boundary
+
+Sigil's security claim is that a signature cannot exist without a physically
+present disk. Everything in the trusted computing base exists to keep that
+literally true:
+
+**In the TCB**: `sigil-core`, `sigil-frost`, `sigil-zkvm`, `sigil-daemon`,
+`sigil-cli`, `sigil-mother`, `sigil-mother-tui`, `sigil-mother-zkvm`.
+
+**Not in the TCB**: `sigil-bridge` (HTTP transport for the mobile app), the
+`mobile/` app, and any mock or demo mode. These are excluded from the default
+build, are not published, and cannot manufacture consent:
+
+- The daemon re-reads presignature shares from the block device on every
+  signing operation and fails closed without one.
+- Mock mode fabricates disk *status* but **never a signature** — signing in
+  mock mode is an error, and mock support is behind a non-default cargo
+  feature so release binaries cannot construct it.
+- The bridge binds loopback only, authenticates every `/api` call with a
+  bearer token, and transports no key material.
+
+See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) and
+[`SECURITY.md`](SECURITY.md).
 
 ## Usage
 

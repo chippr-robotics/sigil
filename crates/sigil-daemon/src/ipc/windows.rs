@@ -22,7 +22,7 @@ use windows::Win32::System::Pipes::{
 
 use crate::error::{DaemonError, Result};
 
-use super::connection::{IpcClientTransport, IpcTransport};
+use super::connection::{BindOptions, IpcClientTransport, IpcTransport};
 
 /// Windows named pipe wrapper with proper async I/O support
 pub struct WindowsNamedPipe {
@@ -211,7 +211,10 @@ unsafe impl Sync for SendHandle {}
 impl IpcTransport for WindowsIpcTransport {
     type Stream = WindowsNamedPipe;
 
-    async fn bind(path: &Path) -> Result<Self> {
+    async fn bind(path: &Path, _options: BindOptions) -> Result<Self> {
+        // `socket_mode` is a Unix concept; access to a named pipe is governed
+        // by its security descriptor, which defaults to the creating process's
+        // token. Nothing to apply here.
         let pipe_name = path.to_string_lossy().to_string();
 
         // Validate pipe name format
