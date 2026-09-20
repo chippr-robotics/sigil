@@ -105,8 +105,14 @@
 
                 <h3>SP1 SDK Setup</h3>
                 <div class="code-block">
-                    <code># Install SP1 toolchain
-curl -L https://sp1.succinct.xyz | bash
+                    <code># Install the SP1 toolchain.
+#
+# SP1's own documentation gives a curl-pipe-to-shell one-liner. Sigil does not
+# document it that way: the mother device holds master key material, and code
+# that runs there should be read before it runs. Download, inspect, then run.
+curl -fsSL https://sp1.succinct.xyz -o sp1up-installer.sh
+less sp1up-installer.sh          # read it
+sh sp1up-installer.sh
 sp1up
 
 # Verify installation

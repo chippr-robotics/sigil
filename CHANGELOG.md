@@ -11,6 +11,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Constitution conformance tests** ([#59](https://github.com/chippr-robotics/sigil/issues/59))
+
+`crates/sigil-tests/tests/constitution_conformance.rs` makes the constitution
+executable. Four of seven principles had nothing asserting them; three now do,
+plus one that was only vacuously true.
+
+| Principle | Asserted by |
+| --- | --- |
+| I. One TCB | `default-members == members`; any crate excluded from it must be `publish = false` |
+| III. Default deny at the network edge | No crate may depend on an HTTP server framework |
+| V. Supported install is auditable | `install.sh` refuses a pipe, admits a real file, and no document instructs piping into a shell |
+| VI. No outbound path from the air-gapped side | Knowledge-base and sync tooling denylisted from `.claude/skills/` |
+
+Every assertion was negative-tested — each shown to fail, naming the exact
+violation, before being committed. An assertion nobody has seen fail is the same
+category of object as a `Security Audit` job that cannot fail.
+
+**The pipe-to-shell test caught a real instance on its first run.**
+`docs/docs/zkvm-proofs.html` documented SP1's toolchain install as
+`curl -L https://sp1.succinct.xyz | bash`. The sweep in #57 grepped for
+`| sudo bash` and missed it. The mother device holds master key material, so
+code that runs there should be read before it runs; now documented as download,
+inspect, then run.
+
+**Principle II remains the gap**, and it is the one the product rests on. The
+daemon's disk re-read, presignature consumption and burn-on-use are still
+untested — `sigil-daemon/src/signer.rs` is 478 lines with zero tests. That is
+backlog item 1 in `specs/README.md`, and the next piece of work.
+
+### Fixed
+
+- `docs/docs/zkvm-proofs.html` no longer instructs piping a remote installer
+  into a shell.
+
+### Added
+
 **`specs/README.md` — the spec backlog and coverage inventory**
 ([#59](https://github.com/chippr-robotics/sigil/issues/59))
 

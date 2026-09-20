@@ -183,27 +183,37 @@ prose.
 
 What actually fails when a principle is violated:
 
+Executable assertions live in
+[`crates/sigil-tests/tests/constitution_conformance.rs`](../crates/sigil-tests/tests/constitution_conformance.rs).
+
 | Principle | Enforced? | By what |
 | --- | :-: | --- |
-| I. One TCB | ⬜ | `default-members` is config; no test reads it |
-| II. No signature without physical consent | 🟡 | Mock-signing refusal only. **The daemon's disk re-read is unasserted.** |
-| III. Default deny at the network edge | ✅ | Vacuously true since #60 — nothing listens |
-| IV. Key material off convenience transports | 🟡 | The routes were deleted; nothing prevents new ones |
-| V. Supported install is auditable | ⬜ | `install.sh`'s pipe guard has no test |
-| VI. No outbound path from the air-gapped side | ⬜ | Nothing asserts such assets stay out |
-| VII. Least privilege on the local machine | ✅ | Socket mode, dir mode, non-`/tmp` path (#57) |
+| I. One TCB | ✅ | `p1_default_members_equals_members`, `p1_out_of_tcb_crates_are_unpublished` |
+| II. No signature without physical consent | 🟡 | Mock-signing refusal only. **The daemon's disk re-read is still unasserted** — backlog item 1. |
+| III. Default deny at the network edge | ✅ | `p3_no_crate_depends_on_an_http_server` |
+| IV. Key material off convenience transports | 🟡 | The P-III test removes the transport; a direct assertion on shard paths is still to write |
+| V. Supported install is auditable | ✅ | `p5_install_script_refuses_pipe_execution`, `p5_install_script_guard_admits_real_file_execution`, `p5_no_document_instructs_piping_into_a_shell` |
+| VI. No outbound path from the air-gapped side | ✅ | `p6_no_knowledge_base_sync_tooling` |
+| VII. Least privilege on the local machine | ✅ | `sigil-daemon` IPC tests — socket mode, dir mode, non-`/tmp` path (#57) |
 
-Three cheap assertions close the empty rows:
+Every assertion was negative-tested: each was shown to fail, naming the exact
+violation, before being committed. An assertion nobody has seen fail is the
+same category of object as a `Security Audit` job that cannot fail.
 
-- **P-I** — parse `Cargo.toml`, assert `default-members == members`. Exact since
-  #60 removed the last out-of-TCB crate. Any future divergence must carry
-  `publish = false`.
-- **P-V** — pipe `scripts/install.sh` into `bash`, assert non-zero exit; grep
-  docs for `| sudo bash` used as an instruction.
-- **P-VI** — denylist test over `.claude/skills/` and the tree for
-  knowledge-base or sync tooling.
+`p5_no_document_instructs_piping_into_a_shell` caught a real instance on its
+first run — `docs/docs/zkvm-proofs.html` documented SP1's toolchain install as
+`curl -L https://sp1.succinct.xyz | bash`. #57's sweep had grepped for
+`| sudo bash` and missed it. Now documented as download, read, then run.
 
-P-II is the expensive one and is the same work as backlog item 1.
+**P-II is the remaining gap and the expensive one.** It is the same work as
+backlog item 1: the daemon's disk re-read, presignature consumption and
+burn-on-use have no tests, so the principle the whole product rests on is the
+one principle still unasserted.
+
+**P-IV** is partially covered as a side effect: key material cannot travel over
+a convenience transport that does not exist. A direct assertion — that no
+shard-carrying type crosses a serialization boundary outside the mother tooling
+— is worth writing once the specs name those types.
 
 > **Naming note.** `sigil-mcp/src/invariants/` already exists and is *input
 > validation* — hex strings, chain IDs, URIs — not constitution conformance.
@@ -220,11 +230,11 @@ which defeats the purpose.
 
 Suggested order:
 
-1. This file.
-2. Conformance assertions for P-I, P-V, P-VI — cheap, and they make the
-   constitution executable immediately.
-3. Spec 1 (physical-consent enforcement) **with the tests it implies**. This is
-   the one that matters.
+1. ~~This file.~~ Done.
+2. ~~Conformance assertions for P-I, P-V, P-VI.~~ Done — and P-III as well.
+3. **Spec 1 (physical-consent enforcement) with the tests it implies.** This is
+   the one that matters, and it is the only constitution principle still
+   unasserted.
 4. Spec 4 (`sigil-cli`) with tests, since it is at zero.
 5. Retire the two stale plans.
 6. Everything else, by priority.
