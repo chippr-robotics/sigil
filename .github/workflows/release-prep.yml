@@ -1,0 +1,291 @@
+name: Release Prep
+
+# Proposes the next release as a pull request against `staging`. It does not cut
+# one, and it never touches `main`.
+#
+# This replaces `auto-version.yml`, which bumped the version and pushed the
+# commit and the tag straight to `main` using `secrets.GITHUB_TOKEN`. That was
+# wrong three times over:
+#
+#   1. It put a commit on `main` that no person had read, which the constitution
+#      forbids (`.specify/memory/constitution.md`, Security Requirements).
+#   2. It bypassed `staging`. Everything else in this repository reaches `main`
+#      by being integrated on `staging` first and reviewed there.
+#   3. It never worked. GitHub does not trigger workflows from events created by
+#      a workflow's own `GITHUB_TOKEN`, so the tags it pushed did not start
+#      `release.yml`. Six green runs, four tags, zero releases.
+#
+# The flow now: this opens a bump PR into `staging`; the bump is reviewed and
+# merged there along with everything else; `staging` → `main` is the release
+# merge; a person pushes the tag on `main`, and that tag push — made by a human
+# credential — is what starts `release.yml`.
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Override the computed bump type'
+        required: false
+        type: choice
+        options: ['', 'patch', 'minor', 'major']
+        default: ''
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  propose:
+    name: Propose Release
+    runs-on: ubuntu-latest
+    permissions:
+      # Enough to push the `release/vX.Y.Z` branch this job creates and open a
+      # PR from it. Deliberately not enough to matter: the branch is new, the PR
+      # targets `staging`, and nothing here can write to `main` or to `staging`
+      # itself.
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read current version and latest release tag
+        id: state
+        run: |
+          set -euo pipefail
+
+          CARGO_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+
+          echo "cargo_version=$CARGO_VERSION" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+
+          echo "Cargo.toml version: $CARGO_VERSION"
+          echo "Latest release tag: ${LATEST_TAG:-<none>}"
+
+      - name: Decide whether a release is already pending
+        id: pending
+        run: |
+          set -euo pipefail
+
+          CARGO_VERSION="${{ steps.state.outputs.cargo_version }}"
+          LATEST_TAG="${{ steps.state.outputs.latest_tag }}"
+
+          # The guard. A bump is proposed only when the workspace version is the
+          # version that was last released. If they differ, a bump has already
+          # happened and its tag has not been pushed yet — proposing a second one
+          # on top is how the version walks forward twice for one release.
+          #
+          # This replaces the old commit-message check (skip if the last commit
+          # says "chore: bump version to"), which only recognised its own commits
+          # and was defeated by a squash or a merge commit.
+          if [ -z "$LATEST_TAG" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=no release tag exists yet; tag v$CARGO_VERSION first" >> "$GITHUB_OUTPUT"
+          elif [ "v$CARGO_VERSION" != "$LATEST_TAG" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=v$CARGO_VERSION is already prepared and awaiting its tag ($LATEST_TAG is the last one pushed)" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "reason=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine bump type
+        id: bump_type
+        if: steps.pending.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+
+          OVERRIDE="${{ github.event.inputs.bump }}"
+          if [ -n "$OVERRIDE" ]; then
+            echo "Bump type overridden by workflow_dispatch: $OVERRIDE"
+            echo "bump_type=$OVERRIDE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LATEST_TAG="${{ steps.state.outputs.latest_tag }}"
+          COMMITS=$(git log "$LATEST_TAG"..HEAD --pretty=%B)
+
+          MAJOR_PATTERN="^(feat|fix|perf|refactor)(\(.+\))?!:|BREAKING CHANGE:"
+          MINOR_PATTERN="^feat(\(.+\))?:"
+          PATCH_PATTERN="^(fix|perf|refactor)(\(.+\))?:"
+
+          if echo "$COMMITS" | grep -qE "$MAJOR_PATTERN"; then
+            BUMP_TYPE="major"
+          elif echo "$COMMITS" | grep -qE "$MINOR_PATTERN"; then
+            BUMP_TYPE="minor"
+          elif echo "$COMMITS" | grep -qE "$PATCH_PATTERN"; then
+            BUMP_TYPE="patch"
+          else
+            BUMP_TYPE="none"
+          fi
+
+          # Pre-1.0: a breaking change is a minor bump, per VERSIONING.md.
+          CURRENT_MAJOR=$(echo "${{ steps.state.outputs.cargo_version }}" | cut -d. -f1)
+          if [ "$CURRENT_MAJOR" = "0" ] && [ "$BUMP_TYPE" = "major" ]; then
+            BUMP_TYPE="minor"
+          fi
+
+          echo "bump_type=$BUMP_TYPE" >> "$GITHUB_OUTPUT"
+          echo "Bump type: $BUMP_TYPE"
+
+      - name: Install system dependencies
+        if: steps.pending.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Install Rust
+        if: steps.pending.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Bump version
+        id: bump
+        if: steps.pending.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        run: |
+          set -euo pipefail
+
+          echo "y" | ./scripts/bump-version.sh "${{ steps.bump_type.outputs.bump_type }}"
+
+          NEW_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "branch=release/v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if this release is already proposed
+        id: existing
+        if: steps.pending.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        run: |
+          set -euo pipefail
+
+          BRANCH="${{ steps.bump.outputs.branch }}"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Branch $BRANCH already exists; a release PR is already open."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update CHANGELOG
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          set -euo pipefail
+
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          OLD_VERSION="${{ steps.state.outputs.cargo_version }}"
+          TODAY=$(date +%Y-%m-%d)
+          TEMP_FILE=$(mktemp)
+
+          awk -v version="$NEW_VERSION" -v date="$TODAY" '
+          /^## \[Unreleased\]/ {
+            print $0
+            print ""
+            print "## [" version "] - " date
+            print ""
+            print "See commit history for changes in this release."
+            print ""
+            next
+          }
+          {print}
+          ' CHANGELOG.md > "$TEMP_FILE"
+
+          if grep -q "\[Unreleased\]:" "$TEMP_FILE"; then
+            sed -i "s|\[Unreleased\]:.*|\[Unreleased\]: https://github.com/chippr-robotics/sigil/compare/v${NEW_VERSION}...HEAD\n[${NEW_VERSION}]: https://github.com/chippr-robotics/sigil/compare/v${OLD_VERSION}...v${NEW_VERSION}|" "$TEMP_FILE"
+          else
+            {
+              echo ""
+              echo "[Unreleased]: https://github.com/chippr-robotics/sigil/compare/v${NEW_VERSION}...HEAD"
+              echo "[${NEW_VERSION}]: https://github.com/chippr-robotics/sigil/releases/tag/v${NEW_VERSION}"
+            } >> "$TEMP_FILE"
+          fi
+
+          mv "$TEMP_FILE" CHANGELOG.md
+
+      - name: Verify the bumped workspace still resolves
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          set -euo pipefail
+
+          # A PR opened with GITHUB_TOKEN does not trigger `pull_request`
+          # workflows, so `ci.yml` will not run on the branch this job pushes.
+          # Rather than hand a reviewer a PR with no checks and let them read the
+          # absence of red as green, the check runs here and its result goes into
+          # the PR body.
+          cargo check --workspace --locked --all-targets
+
+      - name: Push release branch and open pull request
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          OLD_VERSION="${{ steps.state.outputs.cargo_version }}"
+          BRANCH="${{ steps.bump.outputs.branch }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git commit -m "chore: bump version to $NEW_VERSION"
+          git push -u origin "$BRANCH"
+
+          cat > /tmp/pr-body.md <<BODY
+          Prepares the \`v$NEW_VERSION\` release: \`$OLD_VERSION\` → \`$NEW_VERSION\` (${{ steps.bump_type.outputs.bump_type }}), plus the CHANGELOG entry. Targets \`staging\`, like everything else.
+
+          Computed from the conventional-commit subjects between \`${{ steps.state.outputs.latest_tag }}\` and \`${{ github.sha }}\`.
+
+          ## Checks
+
+          \`ci.yml\` does not run on this branch. GitHub does not trigger workflows from events created by a workflow's own \`GITHUB_TOKEN\`, and this PR was opened by one. **The absence of red here is not green.**
+
+          What did run, in the job that opened this PR:
+
+          \`\`\`
+          cargo check --workspace --locked --all-targets    passed
+          \`\`\`
+
+          That covers what this diff can break — a version that does not resolve, or a \`Cargo.lock\` out of step with \`Cargo.toml\`. The code itself is unchanged from \`staging\`, which CI is green on. To run the full suite anyway, use the **Run workflow** button on \`CI\` and select \`$BRANCH\`.
+
+          ## Merging this does not cut the release
+
+          It puts the bump on \`staging\`. The release is cut in two more steps, both deliberate and both yours:
+
+          \`\`\`sh
+          # 1. when staging is in the right place, merge it to main
+          # 2. then tag main — the tag is what starts release.yml
+          git checkout main && git pull
+          git tag -a v$NEW_VERSION -m "Release version $NEW_VERSION"
+          git push origin v$NEW_VERSION
+          \`\`\`
+
+          The tag has to come from a human credential. A tag pushed by \`GITHUB_TOKEN\` does not start \`release.yml\` — that is why four tags exist in this repository and no releases do.
+          BODY
+
+          gh pr create \
+            --base staging \
+            --head "$BRANCH" \
+            --title "chore: release v$NEW_VERSION" \
+            --body-file /tmp/pr-body.md
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Release Prep"
+            echo ""
+            if [ "${{ steps.pending.outputs.skip }}" = "true" ]; then
+              echo "No proposal: ${{ steps.pending.outputs.reason }}."
+            elif [ "${{ steps.bump_type.outputs.bump_type }}" = "none" ]; then
+              echo "No proposal: no \`feat\`, \`fix\`, \`perf\` or \`refactor\` commits since ${{ steps.state.outputs.latest_tag }}."
+            elif [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
+              echo "No proposal: \`${{ steps.bump.outputs.branch }}\` already exists."
+            else
+              echo "Opened a release PR for \`v${{ steps.bump.outputs.new_version }}\` (${{ steps.bump_type.outputs.bump_type }} bump) into \`staging\`."
+              echo ""
+              echo "Merging it does **not** cut the release. Merge \`staging\` to \`main\`, then push the tag."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

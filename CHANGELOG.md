@@ -9,6 +9,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-20
+
+### Fixed
+
+**The release train had never run**
+
+Four version tags (`v0.2.0` … `v0.5.0`) existed and zero releases did. The
+tags were pushed by `auto-version.yml` using `secrets.GITHUB_TOKEN`, and GitHub
+does not trigger workflows from events created by a workflow's own
+`GITHUB_TOKEN` — so `release.yml`, which triggers on `push: tags`, never
+started. Six auto-version runs, all reporting success, produced no release, no
+binaries and no published crate. `VERSIONING.md` documented step 6 as
+"Triggers the release workflow", which had never been true.
+
+Tags are now pushed by a person, which does start `release.yml`. The workflow
+also gained `workflow_dispatch`, so it can be re-run against a tag that already
+exists.
+
+**Release artifacts were incomplete and unverifiable**
+
+The release tarball shipped `sigil`, `sigil-daemon` and `sigil-mother`, and
+omitted `sigil-mother-tui` and `sigil-mcp` — three fifths of the product, with
+no indication the rest was missing. The packaging step now enumerates every
+binary the workspace ships and fails if one is absent, and publishes a
+`.sha256` beside the tarball.
+
+### Changed
+
+**CI proposes releases; it no longer authors commits on integration branches**
+
+`auto-version.yml` bumped the version, committed, tagged and pushed directly to
+`main` under CI credentials — a commit on the default branch that no person had
+read. It is replaced by `release-prep.yml`, which opens a
+`chore: release vX.Y.Z` pull request against `staging` and stops.
+
+The re-entry guard changed with it. The old one skipped when the last commit
+message began `chore: bump version to`, which only recognised its own commits
+and was defeated by a squash or a merge commit. The new one proposes a bump
+only when the workspace version equals the latest release tag, so a prepared
+release awaiting its tag cannot be bumped past.
+
+`release.yml` now verifies the tagged commit — `fmt`, `clippy` and the full
+test suite — before building anything. A tag can point at any commit, so CI
+being green on `main` is not evidence about the one being released.
+
+### Removed
+
+**crates.io publishing, until coverage justifies it**
+
+The `publish` job could not have succeeded under any circumstances: internal
+dependencies are declared `{ path = ... }` with no version requirement, so
+`cargo package` refuses them; `sigil-frost` is a dependency of `sigil-daemon`
+and `sigil-mother` and was absent from the publish order; and the crate name
+`sigil-cli` belongs to an unrelated crate on crates.io. Every step carried
+`continue-on-error: true`, so the job reported success for all of it.
+
+Publishing is on hold until test coverage and end-to-end assurance justify
+putting key-custody crates into a public namespace, where a version cannot be
+withdrawn. Tracked as backlog item 21 in `specs/README.md`. The supported
+install is `cargo install --locked --git ... --tag`, which does not use
+crates.io.
+
+### Security
+
+**Two constitutional requirements became executable**
+
+`ci_never_pushes_to_an_integration_branch` and
+`no_workflow_step_reports_success_on_failure` in
+`crates/sigil-tests/tests/constitution_conformance.rs`. Both were negative
+tested: restoring `auto-version.yml` fails the first naming
+`auto-version.yml:181: git push origin main`, and restoring the old
+`release.yml` fails the second naming all five `continue-on-error: true` lines
+in the `publish` job.
+
+The constitution's Security Requirements gained the matching clauses: CI must
+not push to an integration branch, and a workflow must not claim an outcome it
+did not produce.
+
 ### Added
 
 **Operator CLI: spec and tests** ([#59](https://github.com/chippr-robotics/sigil/issues/59) backlog item 4)
@@ -411,7 +489,8 @@ Initial release of Sigil - a physical containment system for agentic MPC managem
 - Air-gapped master key storage
 - Physical consent requirement for signing operations
 
-[Unreleased]: https://github.com/chippr-robotics/sigil/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/chippr-robotics/sigil/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/chippr-robotics/sigil/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/chippr-robotics/sigil/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/chippr-robotics/sigil/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/chippr-robotics/sigil/compare/v0.2.0...v0.3.0

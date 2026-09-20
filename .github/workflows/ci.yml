@@ -13,6 +13,11 @@ on:
     # `staging` is an integration branch. Without it here, a PR targeting
     # staging gets no CI at all.
     branches: [main, staging]
+  # Manual path, for a branch neither trigger reaches. `release-prep.yml` opens
+  # its bump PR with `GITHUB_TOKEN`, and GitHub does not trigger workflows from
+  # events a workflow's own token created — so that PR arrives with no checks.
+  # This is how a reviewer runs the suite on it.
+  workflow_dispatch:
 
 concurrency:
   # Supersede an in-flight run when a new commit lands on the same ref. Only

@@ -85,9 +85,16 @@ same finding as "any network host can reach the signer", one hop earlier.
 - Changes that widen an interface MUST state, in the PR body, what moves into
   or out of the TCB.
 - CI checks MUST be gates. A job that reports a failure and exits zero, or that
-  repairs the code it is checking and pushes the repair, is not a check. CI
-  holds no write access to branches: a bot commit is code that reaches `main`
-  without having been read by anyone.
+  repairs the code it is checking and pushes the repair, is not a check.
+- CI MUST NOT push to an integration branch. A bot commit on `main` or
+  `staging` is code that reached a release branch without having been read by
+  anyone. Automation that wants to change this repository MUST propose the
+  change as a pull request from a branch it creates, and a person MUST merge
+  it.
+- A workflow MUST NOT claim an outcome it did not produce. A release job that
+  reports success while publishing nothing, or a step that cannot fail, is the
+  same object as a check that exits zero on failure — it converts an unknown
+  into a green mark.
 - The test job MUST cover the whole workspace. A hand-maintained list of crates
   silently stops covering the crate added after it was last edited.
 - Out-of-TCB components MUST carry a machine-checkable marker

@@ -130,7 +130,38 @@ area currently is, not size.
 | 18 | Threat model | — | `THREAT_MODEL.md` | n/a | 🟡 |
 | 19 | Install and system integration | `scripts/` | — | ⬜ | ⬜ |
 | 20 | Versioning and release | — | `VERSIONING.md` | n/a | 🟡 |
+| 21 | **crates.io publishing** — blocked, see below | all published crates | `VERSIONING.md` | n/a | ⬜ |
 | — | TCB quarantine | several | — | 40 | ✅ [`001-tcb-quarantine`](001-tcb-quarantine/) |
+
+### 21 — crates.io publishing is on hold
+
+`release.yml` carried a `publish` job that could not have succeeded:
+
+- internal dependencies are declared `{ path = ... }` with no version
+  requirement, and `cargo package` refuses them — *"all dependencies must have
+  a version requirement specified when packaging"*;
+- `sigil-frost` is a dependency of `sigil-daemon` and `sigil-mother` and was
+  absent from the publish order entirely;
+- the crate name `sigil-cli` belongs to an unrelated crate on crates.io, at a
+  version ahead of this project's.
+
+Every step carried `continue-on-error: true`, so the job reported success for
+four consecutive tags. The job is gone rather than fixed.
+
+**The bar for restoring it.** A crates.io version cannot be withdrawn — yanking
+hides it from resolution but does not remove the published source. These crates
+hold key material handling for a custody product, so publishing is a one-way
+door that should not be walked through on the strength of a CI job nobody has
+watched work. Before this is reopened:
+
+- backlog items 1–4 specified and green, so the signing path itself is covered;
+- an end-to-end test that exercises a published-shape build, not just the
+  workspace;
+- a decision on the `sigil-cli` name, which is not available;
+- version requirements added to the internal workspace dependencies.
+
+Until then the supported install is
+`cargo install --locked --git … --tag`, which needs none of this.
 
 ---
 

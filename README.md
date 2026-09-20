@@ -90,7 +90,7 @@ one-liner, by design.
 
 ```bash
 cargo install --locked --git https://github.com/chippr-robotics/sigil \
-    --tag v0.5.0 \
+    --tag v0.6.0 \
     sigil-daemon sigil-cli sigil-mother sigil-mother-tui sigil-mcp
 ```
 

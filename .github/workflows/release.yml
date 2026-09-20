@@ -1,9 +1,22 @@
 name: Release
 
+# Cuts a release from a version tag.
+#
+# Started by a tag push made with a human credential. A tag pushed by a
+# workflow's own `GITHUB_TOKEN` does NOT start this — which is why `v0.2.0`
+# through `v0.5.0` exist and produced no releases at all. `workflow_dispatch` is
+# the manual path for re-running against a tag that already exists.
+
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to release (e.g. v0.6.0)'
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,91 +30,94 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate semantic version tag
+      - name: Resolve tag
+        id: resolve
         run: |
-          TAG="${{ github.ref_name }}"
-          # Remove 'v' prefix
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+
           VERSION="${TAG#v}"
-          
-          # Validate semver format (X.Y.Z or X.Y.Z-prerelease.N)
-          # Note: This project uses lowercase prerelease identifiers (alpha, beta, rc)
+
+          # Semver: X.Y.Z or X.Y.Z-prerelease.N. This project uses lowercase
+          # prerelease identifiers (alpha, beta, rc).
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$ ]]; then
-            echo "❌ Invalid semantic version tag: $TAG"
-            echo "Expected format: vX.Y.Z or vX.Y.Z-prerelease.N"
-            echo "Examples: v1.0.0, v0.2.0-alpha.1, v1.0.0-rc.2"
-            echo "Note: Prerelease identifiers must be lowercase (alpha, beta, rc)"
+            echo "::error::Invalid semantic version tag: $TAG"
+            echo "Expected vX.Y.Z or vX.Y.Z-prerelease.N (e.g. v1.0.0, v0.6.0-rc.1)."
             exit 1
           fi
-          
-          echo "✓ Valid semantic version tag: $TAG"
-          
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (version $VERSION)"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
+
       - name: Check version matches Cargo.toml
         run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
+          set -euo pipefail
+
+          VERSION="${{ steps.resolve.outputs.version }}"
           CARGO_VERSION=$(grep -m 1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-          
+
           if [ "$VERSION" != "$CARGO_VERSION" ]; then
-            echo "❌ Version mismatch!"
-            echo "Git tag: $VERSION"
-            echo "Cargo.toml: $CARGO_VERSION"
+            echo "::error::Version mismatch — tag says $VERSION, Cargo.toml says $CARGO_VERSION."
             exit 1
           fi
-          
-          echo "✓ Version matches Cargo.toml: $VERSION"
+
+          echo "Version matches Cargo.toml: $VERSION"
 
   # ============================================
-  # Create Release
+  # Verify the tagged commit
   # ============================================
-  release:
-    name: Create Release
+  verify:
+    name: Verify Tagged Commit
     runs-on: ubuntu-latest
     needs: validate
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract changelog for this version
-        id: changelog
-        run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          
-          # Try to extract changelog section for this version
-          if [ -f CHANGELOG.md ]; then
-            # Extract section between [VERSION] and next [VERSION] or end of file
-            # Use more specific pattern to avoid matching the same section twice
-            CHANGELOG=$(awk "/## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}/,/## \[[0-9]/" CHANGELOG.md | sed '1d;$d' | sed '/^$/d' || echo "")
-            
-            # Validate extracted content has meaningful text (at least 10 characters)
-            if [ -n "$CHANGELOG" ] && [ ${#CHANGELOG} -gt 10 ]; then
-              echo "Found changelog for version $VERSION (${#CHANGELOG} chars)"
-              # Save changelog to file for use in release
-              echo "$CHANGELOG" > /tmp/release-notes.md
-            else
-              echo "No meaningful changelog found for version $VERSION, using default"
-              echo "## Release $VERSION" > /tmp/release-notes.md
-              echo "" >> /tmp/release-notes.md
-              echo "See [CHANGELOG.md](https://github.com/chippr-robotics/sigil/blob/main/CHANGELOG.md) for details." >> /tmp/release-notes.md
-            fi
-          else
-            echo "No CHANGELOG.md found, using default"
-            echo "## Release $VERSION" > /tmp/release-notes.md
-          fi
-
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ github.ref_name }}
-          body_path: /tmp/release-notes.md
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      # A release must not be cut from a commit that does not pass what `main`
+      # is required to pass. These are the same checks `ci.yml` runs; a tag can
+      # point at any commit, so being green on `main` is not evidence about
+      # this one.
+      - name: Format Check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Unit Tests
+        run: |
+          cargo test --workspace --exclude sigil-zkvm --verbose
+          cargo test -p sigil-zkvm --lib --verbose
+          cargo test -p sigil-mcp --features mock --verbose
 
   # ============================================
   # Build Linux Binaries
@@ -109,11 +125,13 @@ jobs:
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
-    needs: release
+    needs: [validate, verify]
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
 
       - name: Install system dependencies
         run: |
@@ -126,73 +144,156 @@ jobs:
           targets: x86_64-unknown-linux-gnu
 
       - name: Build release binaries
-        run: cargo build --release
+        run: cargo build --release --locked
 
       - name: Package binaries
         run: |
-          mkdir -p release
-          cp target/release/sigil release/
-          cp target/release/sigil-daemon release/
-          cp target/release/sigil-mother release/
-          cp README.md release/
-          cp LICENSE release/
-          tar -czvf sigil-linux-x86_64.tar.gz -C release .
+          set -euo pipefail
 
-      - name: Upload release asset
+          mkdir -p release
+
+          # Every binary this workspace ships. `sigil-mcp` and `sigil-mother-tui`
+          # were missing from this list, so the tarball advertised the product
+          # and shipped three fifths of it.
+          for bin in sigil sigil-daemon sigil-mother sigil-mother-tui sigil-mcp; do
+            if [ ! -x "target/release/$bin" ]; then
+              echo "::error::Expected binary target/release/$bin was not built."
+              exit 1
+            fi
+            cp "target/release/$bin" release/
+          done
+
+          cp README.md LICENSE release/
+
+          TARBALL="sigil-linux-x86_64-${{ needs.validate.outputs.tag }}.tar.gz"
+          tar -czf "$TARBALL" -C release .
+
+          # This is key-custody software distributed as a prebuilt binary. An
+          # operator needs something to check the download against.
+          sha256sum "$TARBALL" > "$TARBALL.sha256"
+          cat "$TARBALL.sha256"
+
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: |
+            ${{ env.TARBALL }}
+            ${{ env.TARBALL }}.sha256
+          if-no-files-found: error
+
+  # ============================================
+  # Create Release
+  # ============================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [validate, verify, build-linux]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x86_64
+
+      - name: Extract changelog for this version
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::error::CHANGELOG.md is missing. A release is not shipped without notes."
+            exit 1
+          fi
+
+          # Everything between this version's heading and the next one.
+          #
+          # The previous implementation used an awk range,
+          # `/## \[$VERSION\] - .../,/## \[[0-9]/`, whose start line also
+          # matched its own end pattern. The range was therefore one line long,
+          # `sed '1d;$d'` deleted it, and the result was empty for every
+          # version ever released — after which the step fell through to a
+          # generic "see CHANGELOG.md" note and reported success.
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { inside = 1; next }
+            inside && /^## \[/ { exit }
+            inside { print }
+          ' CHANGELOG.md > /tmp/raw-notes.md
+
+          # Test for content, not for bytes. `[ -s file ]` is true of a file
+          # holding a single newline, which is what normalising an empty
+          # extraction produces — a guard that cannot fail is the thing this
+          # release workflow exists to stop shipping.
+          if ! grep -q '[^[:space:]]' /tmp/raw-notes.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section, or it is empty."
+            echo "Add one before tagging. A release whose notes say nothing is a release nobody can read."
+            exit 1
+          fi
+
+          # Strip leading and trailing blank lines.
+          sed -e '/./,$!d' /tmp/raw-notes.md | tac | sed -e '/./,$!d' | tac > /tmp/release-notes.md
+
+          echo "Release notes ($(wc -l < /tmp/release-notes.md) lines):"
+          cat /tmp/release-notes.md
+
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "### Verifying the download"
+            echo ""
+            echo '```sh'
+            echo "sha256sum -c sigil-linux-x86_64-${{ needs.validate.outputs.tag }}.tar.gz.sha256"
+            echo '```'
+            echo ""
+            echo "### Installing from source"
+            echo ""
+            echo '```sh'
+            echo "cargo install --locked --git https://github.com/chippr-robotics/sigil --tag ${{ needs.validate.outputs.tag }} sigil-cli"
+            echo '```'
+            echo ""
+            echo "These crates are not published to crates.io. See \`specs/README.md\`."
+          } >> /tmp/release-notes.md
+
+      - name: Create release and upload assets
         uses: softprops/action-gh-release@v2
         with:
-          files: ./sigil-linux-x86_64.tar.gz
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: Release ${{ needs.validate.outputs.tag }}
+          body_path: /tmp/release-notes.md
+          draft: false
+          prerelease: ${{ contains(needs.validate.outputs.version, 'alpha') || contains(needs.validate.outputs.version, 'beta') || contains(needs.validate.outputs.version, 'rc') }}
+          files: |
+            sigil-linux-x86_64-${{ needs.validate.outputs.tag }}.tar.gz
+            sigil-linux-x86_64-${{ needs.validate.outputs.tag }}.tar.gz.sha256
+          fail_on_unmatched_files: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================
-  # Publish Crates
+  # Publish to crates.io — deliberately absent
   # ============================================
-  publish:
-    name: Publish to crates.io
-    runs-on: ubuntu-latest
-    needs: [release, build-linux]
-    if: "!contains(github.ref, 'alpha') && !contains(github.ref, 'beta') && !contains(github.ref, 'rc')"
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libudev-dev
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Publish sigil-core
-        run: cargo publish -p sigil-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
-
-      - name: Wait for crates.io
-        run: sleep 30
-
-      - name: Publish sigil-zkvm
-        run: cargo publish -p sigil-zkvm --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
-
-      - name: Wait for crates.io
-        run: sleep 30
-
-      - name: Publish sigil-daemon
-        run: cargo publish -p sigil-daemon --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
-
-      - name: Wait for crates.io
-        run: sleep 30
-
-      - name: Publish sigil-cli
-        run: cargo publish -p sigil-cli --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
-
-      - name: Wait for crates.io
-        run: sleep 30
-
-      - name: Publish sigil-mother
-        run: cargo publish -p sigil-mother --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        continue-on-error: true
+  #
+  # There was a `publish` job here. It could not have worked:
+  #
+  #   * Internal dependencies are declared `{ path = ... }` with no version, so
+  #     `cargo package` refuses them: "all dependencies must have a version
+  #     requirement specified when packaging".
+  #   * `sigil-frost` is a dependency of `sigil-daemon` and `sigil-mother` and
+  #     was absent from the publish order entirely.
+  #   * The name `sigil-cli` belongs to an unrelated crate on crates.io.
+  #
+  # Every step carried `continue-on-error: true`, so the job reported success
+  # for all of it.
+  #
+  # Publishing is on hold until test coverage and end-to-end assurance justify
+  # putting key-custody crates in a public namespace, where a version cannot be
+  # withdrawn. Tracked in `specs/README.md`. The supported install is
+  # `cargo install --locked --git ... --tag`, which does not need crates.io.

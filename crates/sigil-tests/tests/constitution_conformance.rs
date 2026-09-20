@@ -427,6 +427,164 @@ fn p6_no_knowledge_base_sync_tooling() {
 }
 
 // ============================================================================
+// Security Requirements — CI is a gate, not an author
+// ============================================================================
+
+/// Every GitHub Actions workflow definition.
+fn workflow_files(root: &Path) -> Vec<PathBuf> {
+    let dir = root.join(".github/workflows");
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        panic!(
+            "{} does not exist. CI is part of the TCB story; if the workflows \
+             moved, these tests have to move with them.",
+            dir.display()
+        );
+    };
+
+    let mut files: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext == "yml" || ext == "yaml")
+        })
+        .collect();
+    files.sort();
+
+    assert!(
+        !files.is_empty(),
+        "No workflow files found under {}.",
+        dir.display()
+    );
+    files
+}
+
+/// No workflow may push to `main` or `staging`.
+///
+/// `auto-version.yml` did exactly this until this change: it bumped the
+/// version, committed, and pushed to `main` under `secrets.GITHUB_TOKEN`. Six
+/// runs, all green, all of them putting a commit on the default branch that no
+/// person had read.
+///
+/// It also silently did nothing useful. GitHub does not trigger workflows from
+/// events created by a workflow's own `GITHUB_TOKEN`, so the tags it pushed
+/// never started `release.yml` — four tags, zero releases.
+///
+/// Automation that wants to change this repository opens a pull request.
+#[test]
+fn ci_never_pushes_to_an_integration_branch() {
+    const PROTECTED: &[&str] = &["main", "staging", "master"];
+
+    // Actions whose entire purpose is to commit and push on the runner's
+    // behalf. A denylist is how this rule comes back after being removed from
+    // the shell scripts.
+    const PUSHING_ACTIONS: &[&str] = &[
+        "git-auto-commit-action",
+        "github-push-action",
+        "add-and-commit",
+        "auto-commit-action",
+    ];
+
+    let root = repo_root();
+    let mut offenders = Vec::new();
+
+    for path in workflow_files(&root) {
+        let display = path
+            .strip_prefix(&root)
+            .unwrap_or(&path)
+            .display()
+            .to_string();
+
+        for (number, line) in read(&path).lines().enumerate() {
+            let trimmed = line.trim();
+
+            if let Some((_, refspec)) = trimmed.split_once("git push") {
+                // Tokenise the refspec so `git push -u origin "$BRANCH"` — a
+                // branch this job created — is not confused with
+                // `git push origin HEAD:main`.
+                let targets_protected = refspec
+                    .split(|c: char| c.is_whitespace() || c == ':')
+                    .map(|token| token.trim_matches(|c| c == '"' || c == '\'' || c == '`'))
+                    .any(|token| PROTECTED.contains(&token));
+
+                if targets_protected {
+                    offenders.push(format!("{display}:{}: {trimmed}", number + 1));
+                }
+            }
+
+            if trimmed.starts_with("uses:") || trimmed.starts_with("- uses:") {
+                if let Some(action) = PUSHING_ACTIONS.iter().find(|a| trimmed.contains(*a)) {
+                    offenders.push(format!("{display}:{}: uses {action}", number + 1));
+                }
+            }
+        }
+    }
+
+    assert!(
+        offenders.is_empty(),
+        "Security Requirements: a workflow pushes to an integration branch:\n  \
+         {}\n\n\
+         A bot commit on `main` or `staging` is code that reached a release \
+         branch without having been read by anyone. Automation that wants to \
+         change this repository proposes the change as a pull request from a \
+         branch it creates, and a person merges it. See \
+         `.github/workflows/release-prep.yml` for the shape.",
+        offenders.join("\n  ")
+    );
+}
+
+/// No workflow step may be exempted from failing.
+///
+/// `continue-on-error: true` was on the `Security Audit` job (issue #53: 22
+/// RUSTSEC advisories reported, exit zero) and on every step of the release
+/// workflow's `publish` job — which could not have succeeded under any
+/// circumstances, and said so in green for four releases running.
+///
+/// A step that cannot fail is not evidence. If a failure is tolerable, the
+/// tolerance belongs in the thing being checked — `.cargo/audit.toml` names
+/// each accepted advisory and why — not in a flag that swallows every failure
+/// including the ones nobody has seen yet.
+#[test]
+fn no_workflow_step_reports_success_on_failure() {
+    let root = repo_root();
+    let mut offenders = Vec::new();
+
+    for path in workflow_files(&root) {
+        let display = path
+            .strip_prefix(&root)
+            .unwrap_or(&path)
+            .display()
+            .to_string();
+
+        for (number, line) in read(&path).lines().enumerate() {
+            let trimmed = line.trim().trim_start_matches("- ").trim();
+
+            // Only the YAML key counts. The workflows explain in comments why
+            // this flag was removed, and saying so must not trip the check.
+            let Some(value) = trimmed.strip_prefix("continue-on-error:") else {
+                continue;
+            };
+
+            if value.trim() != "false" {
+                offenders.push(format!("{display}:{}: {trimmed}", number + 1));
+            }
+        }
+    }
+
+    assert!(
+        offenders.is_empty(),
+        "Security Requirements: a workflow step is exempted from failing:\n  \
+         {}\n\n\
+         `continue-on-error: true` turns a check into a report nobody reads. \
+         If specific failures are acceptable, enumerate them where they occur \
+         (as `.cargo/audit.toml` does for advisories) so that the next, \
+         unenumerated failure is still red.",
+        offenders.join("\n  ")
+    );
+}
+
+// ============================================================================
 // Meta — the constitution itself
 // ============================================================================
 
