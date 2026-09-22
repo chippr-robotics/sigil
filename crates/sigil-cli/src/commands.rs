@@ -117,6 +117,9 @@ pub async fn run(cli: Cli) -> Result<(), ClientError> {
                     status.presigs_total.unwrap_or(0)
                 );
                 println!("Expires: {} days", status.days_until_expiry.unwrap_or(0));
+                if let Some(pubkey) = status.child_pubkey.as_deref() {
+                    println!("Public key: {}", pubkey);
+                }
                 println!(
                     "Valid: {}",
                     if status.is_valid.unwrap_or(false) {

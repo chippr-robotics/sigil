@@ -92,7 +92,7 @@ area currently is, not size.
 | :-: | --- | --- | --- | ---: | :-: |
 | 1 | **Physical-consent enforcement** — disk re-read per signature, presig consumption, burn-on-use, fail-closed, rollback detection | `sigil-daemon` | — | 13 | ✅ [`002`](002-physical-consent-enforcement/) |
 | 2 | **Presignature lifecycle** — generation, allocation, exhaustion, double-spend prevention | `sigil-core`, `sigil-mother` | `CRYPTO_SPEC.md` | partial | 🟡 |
-| 3 | **Daemon IPC protocol** — 8 operations, dispatch, error surface | `sigil-daemon` | `proto/signer.proto` (design note only) | **0** | ⬜ |
+| 3 | **Daemon IPC protocol** — 8 operations, dispatch, error surface | `sigil-daemon` | `proto/signer.proto` (design note only) | 3 | ⬜ — only the `DiskStatus` public key is specified, in [`004`](004-disk-public-key/) |
 | 4 | **Operator CLI** — 8 subcommands, connection, fail-closed | `sigil-cli` | — | 21 | ✅ [`003`](003-operator-cli/) |
 
 ### P2 — cryptography

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`DiskStatus` reports the disk's child public key** (`child_pubkey`: 33-byte
+  compressed secp256k1, hex). Clients can now name the disk's account and
+  recover the ECDSA `v` without spending a presignature. `sigil disk` prints
+  it, and `sigil-mcp` fills `DiskState.public_key` from it. The field is
+  optional on the wire, so older daemons still parse. See
+  `specs/004-disk-public-key/`.
+
 ## [0.6.0] - 2026-09-20
 
 ### Fixed

@@ -6,6 +6,7 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
 
+use sigil_core::disk::DiskHeader;
 use sigil_core::types::ChainId;
 
 use crate::agent_store::AgentStore;
@@ -141,6 +142,35 @@ where
     Ok(())
 }
 
+/// Build the `DiskStatus` answer for the disk currently mounted, if any.
+///
+/// Pure so the wire shape can be tested without a udev watcher. Everything
+/// reported here is read from the disk header and is public: counts, expiry,
+/// the short child id and the child public key. No presignature share and no
+/// agent material is ever part of this response.
+pub(crate) fn disk_status_response(header: Option<&DiskHeader>, current_time: u64) -> IpcResponse {
+    match header {
+        Some(header) => IpcResponse::DiskStatus {
+            detected: true,
+            child_id: Some(header.child_id.short()),
+            presigs_remaining: Some(header.presigs_remaining()),
+            presigs_total: Some(header.presig_total),
+            days_until_expiry: Some(header.expiry.days_until_expiry(current_time)),
+            is_valid: Some(header.validate(current_time).is_ok()),
+            child_pubkey: Some(hex::encode(header.child_pubkey.as_bytes())),
+        },
+        None => IpcResponse::DiskStatus {
+            detected: false,
+            child_id: None,
+            presigs_remaining: None,
+            presigs_total: None,
+            days_until_expiry: None,
+            is_valid: None,
+            child_pubkey: None,
+        },
+    }
+}
+
 /// Handle a single request
 async fn handle_request(
     request: IpcRequest,
@@ -153,34 +183,14 @@ async fn handle_request(
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
 
-        IpcRequest::GetDiskStatus => match disk_watcher.current_disk().await {
-            Some(disk) => {
-                let current_time = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
-
-                let days_until_expiry = disk.header.expiry.days_until_expiry(current_time);
-                let is_valid = disk.header.validate(current_time).is_ok();
-
-                IpcResponse::DiskStatus {
-                    detected: true,
-                    child_id: Some(disk.header.child_id.short()),
-                    presigs_remaining: Some(disk.header.presigs_remaining()),
-                    presigs_total: Some(disk.header.presig_total),
-                    days_until_expiry: Some(days_until_expiry),
-                    is_valid: Some(is_valid),
-                }
-            }
-            None => IpcResponse::DiskStatus {
-                detected: false,
-                child_id: None,
-                presigs_remaining: None,
-                presigs_total: None,
-                days_until_expiry: None,
-                is_valid: None,
-            },
-        },
+        IpcRequest::GetDiskStatus => {
+            let current_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            let disk = disk_watcher.current_disk().await;
+            disk_status_response(disk.as_ref().map(|d| &d.header), current_time)
+        }
 
         IpcRequest::Sign {
             message_hash,
@@ -330,4 +340,82 @@ where
     writer.write_all(b"\n").await?;
     writer.flush().await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sigil_core::crypto::{DerivationPath, PublicKey};
+
+    const NOW: u64 = 1_780_000_000;
+
+    fn header_with_pubkey(pubkey: [u8; 33]) -> DiskHeader {
+        let child_pubkey = PublicKey::new(pubkey);
+        DiskHeader::new(
+            child_pubkey.to_child_id(),
+            child_pubkey,
+            DerivationPath::ethereum(0),
+            1000,
+            NOW,
+        )
+    }
+
+    /// A client can only name the disk's account (an EVM address, a
+    /// verification key) if the daemon says which key the disk signs for.
+    #[test]
+    fn disk_status_reports_the_child_public_key() {
+        let mut key = [0x11; 33];
+        key[0] = 0x03;
+        let header = header_with_pubkey(key);
+
+        match disk_status_response(Some(&header), NOW) {
+            IpcResponse::DiskStatus {
+                detected,
+                child_pubkey,
+                presigs_remaining,
+                presigs_total,
+                ..
+            } => {
+                assert!(detected);
+                assert_eq!(child_pubkey.as_deref(), Some(hex::encode(key).as_str()));
+                assert_eq!(presigs_remaining, Some(1000));
+                assert_eq!(presigs_total, Some(1000));
+            }
+            other => panic!("expected DiskStatus, got {other:?}"),
+        }
+    }
+
+    /// No disk, no key: the field is absent rather than a placeholder a
+    /// client could mistake for a real account.
+    #[test]
+    fn disk_status_without_a_disk_reports_no_public_key() {
+        match disk_status_response(None, NOW) {
+            IpcResponse::DiskStatus {
+                detected,
+                child_pubkey,
+                ..
+            } => {
+                assert!(!detected);
+                assert_eq!(child_pubkey, None);
+            }
+            other => panic!("expected DiskStatus, got {other:?}"),
+        }
+
+        let json = serde_json::to_string(&disk_status_response(None, NOW)).unwrap();
+        assert!(
+            !json.contains("child_pubkey"),
+            "absent key must not be serialized: {json}"
+        );
+    }
+
+    /// A newer client talking to an older daemon (no `child_pubkey` on the
+    /// wire) still parses the response; the key is simply unknown.
+    #[test]
+    fn disk_status_from_a_daemon_without_the_field_still_parses() {
+        let old = r#"{"type":"DiskStatus","detected":true,"child_id":"ab12cd34","presigs_remaining":5,"presigs_total":10,"days_until_expiry":3,"is_valid":true}"#;
+        match serde_json::from_str::<IpcResponse>(old).unwrap() {
+            IpcResponse::DiskStatus { child_pubkey, .. } => assert_eq!(child_pubkey, None),
+            other => panic!("expected DiskStatus, got {other:?}"),
+        }
+    }
 }

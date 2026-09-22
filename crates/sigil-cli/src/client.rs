@@ -65,6 +65,8 @@ pub struct DiskStatus {
     pub presigs_total: Option<u32>,
     pub days_until_expiry: Option<u32>,
     pub is_valid: Option<bool>,
+    /// Compressed secp256k1 child public key, hex without `0x`.
+    pub child_pubkey: Option<String>,
 }
 
 /// Result of a signing operation
@@ -131,6 +133,7 @@ impl SigilClient {
                 presigs_total,
                 days_until_expiry,
                 is_valid,
+                child_pubkey,
             } => Ok(DiskStatus {
                 detected,
                 child_id,
@@ -138,6 +141,7 @@ impl SigilClient {
                 presigs_total,
                 days_until_expiry,
                 is_valid,
+                child_pubkey,
             }),
             IpcResponse::Error { message } => Err(ClientError::RequestFailed(message)),
             _ => Err(ClientError::RequestFailed(
