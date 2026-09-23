@@ -139,7 +139,7 @@ impl DaemonClient {
                     presigs_total: status.presigs_total,
                     days_until_expiry: status.days_until_expiry,
                     is_valid: status.is_valid,
-                    public_key: None, // TODO: Add public_key to daemon's DiskStatus
+                    public_key: status.child_pubkey.map(|key| format!("0x{key}")),
                 })
             }
         }

@@ -67,6 +67,16 @@ pub enum IpcResponse {
         presigs_total: Option<u32>,
         days_until_expiry: Option<u32>,
         is_valid: Option<bool>,
+        /// The disk's child public key: 33-byte compressed secp256k1, hex,
+        /// no `0x`. Public by construction — it is the key every signature
+        /// from this disk verifies against, and the only way a client can
+        /// name the account (e.g. derive an EVM address) without spending a
+        /// presignature to recover it. `None` when no disk is detected.
+        ///
+        /// `default` keeps a newer client readable against an older daemon
+        /// that does not send the field.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        child_pubkey: Option<String>,
     },
 
     /// Signing result
